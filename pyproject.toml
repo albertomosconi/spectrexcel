@@ -2,8 +2,9 @@
 name = "spectrexcel"
 version = "0.1.0"
 description = ""
-authors = ["Alberto Mosconi"]
+authors = ["Alberto Mosconi <albertomaria.mosconi@gmail.com>"]
 readme = "README.md"
+package-mode = false
 
 [tool.poetry.dependencies]
 python = ">=3.10,<3.14"
@@ -13,6 +14,8 @@ xlsxwriter = "^3.2.0"
 superqt = "^0.6.7"
 pyinstaller = "^6.11.1"
 
+[tool.poetry.scripts]
+build = "spectrexcel.pyinstaller:install"
 
 [build-system]
 requires = ["poetry-core"]
