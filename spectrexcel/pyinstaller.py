@@ -4,7 +4,7 @@ from PyInstaller.__main__ import run as pyinstaller_run
 
 
 def install():
-    PATH_ICON = str(Path(__file__).parent.absolute() / "icon.ico")
+    PATH_ICON = str(Path(__file__).parent.absolute() / "icon.png")
     pyinstaller_run(
         [
             str(Path(__file__).parent.absolute() / "main.py"),

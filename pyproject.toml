@@ -13,6 +13,7 @@ pandas = "^2.2.3"
 xlsxwriter = "^3.2.0"
 superqt = "^0.6.7"
 pyinstaller = "^6.11.1"
+pillow = "^11.0.0"
 
 [tool.poetry.scripts]
 build = "spectrexcel.pyinstaller:install"

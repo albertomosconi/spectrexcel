@@ -1,2 +1,4 @@
-<p style="text-align:center"><img src="spectrexcel/icon.ico" width="100" /></p>
-<h1 align="center">SpectrExcel</h1>
+<div align="center">
+<img src="spectrexcel/icon.png" width="100" alt="spectrexcel logo" />
+<h1>SpectrExcel</h1>
+</div>

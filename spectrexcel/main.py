@@ -20,7 +20,7 @@ class MainWindow(widgets.QMainWindow):
 
         self.setWindowTitle("raw spectrophotometer data to excel")
         pixmap = gui.QPixmap()
-        pixmap.loadFromData((Path(__file__).parent / "icon.ico").read_bytes())
+        pixmap.loadFromData((Path(__file__).parent / "icon.png").read_bytes())
         self.setWindowIcon(gui.QIcon(pixmap))
 
         tabs = widgets.QTabWidget()
