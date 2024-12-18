@@ -14,6 +14,6 @@ def install():
             "--optimize",
             "0",
             "--icon",
-            "../icon.ico",
+            "icon.ico",
         ]
     )
