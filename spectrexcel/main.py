@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pandas as pd
 from PyQt6 import QtCore as core
+from PyQt6 import QtGui as gui
 from PyQt6 import QtWidgets as widgets
 from xlsxwriter import Workbook, worksheet
 
@@ -18,6 +19,9 @@ class MainWindow(widgets.QMainWindow):
         self.file_path: Path | None = None
 
         self.setWindowTitle("raw spectrophotometer data to excel")
+        pixmap = gui.QPixmap()
+        pixmap.loadFromData((Path(__file__).parent / "icon.ico").read_bytes())
+        self.setWindowIcon(gui.QIcon(pixmap))
 
         tabs = widgets.QTabWidget()
         self.setCentralWidget(tabs)
