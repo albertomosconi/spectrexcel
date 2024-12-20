@@ -16,6 +16,29 @@ class MainWindow(widgets.QMainWindow):
     def __init__(self):
         super().__init__()
 
+        self.setMinimumSize(core.QSize(800, 500))
+
+        # load settings
+        self.settings = core.QSettings(
+            core.QCoreApplication.organizationName(),
+            core.QCoreApplication.applicationName(),
+        )
+        geometry = self.settings.value(
+            "window/geometry", core.QByteArray(), type=core.QByteArray
+        )
+        if geometry.isEmpty():
+            available_geometry = self.screen().availableGeometry()
+            self.resize(
+                available_geometry.width() // 3,
+                available_geometry.height() // 2,
+            )
+            self.move(
+                (available_geometry.width() - self.width()) // 2,
+                (available_geometry.height() - self.height()) // 2,
+            )
+        else:
+            self.restoreGeometry(geometry)
+
         self.file_path: Path | None = None
 
         self.setWindowTitle("raw spectrophotometer data to excel")
@@ -25,8 +48,6 @@ class MainWindow(widgets.QMainWindow):
 
         tabs = widgets.QTabWidget()
         self.setCentralWidget(tabs)
-        self.setFixedSize(core.QSize(800, 500))
-        # self.setMinimumSize(core.QSize(800, 400))
 
         page_main = widgets.QWidget()
         box = widgets.QVBoxLayout()
@@ -70,6 +91,10 @@ class MainWindow(widgets.QMainWindow):
         box.addWidget(text_info)
 
         self.show()
+
+    def closeEvent(self, event):
+        self.settings.setValue("window/geometry", self.saveGeometry())
+        event.accept()
 
     def __upload_clicked(self):
         """"""
@@ -210,6 +235,11 @@ class MainWindow(widgets.QMainWindow):
 
 
 if __name__ == "__main__":
+
     app = widgets.QApplication(sys.argv)
+
+    core.QCoreApplication.setOrganizationName("magichemistry")
+    core.QCoreApplication.setApplicationName("spectrexcel")
+
     w = MainWindow()
-    app.exec()
+    sys.exit(app.exec())
