@@ -4,7 +4,10 @@ version = "0.1.0"
 description = ""
 authors = ["Alberto Mosconi <albertomaria.mosconi@gmail.com>"]
 readme = "README.md"
-package-mode = false
+package-mode = true
+packages = [
+{ include = "spectrexcel" }
+]
 
 [tool.poetry.dependencies]
 python = ">=3.10,<3.14"
@@ -16,6 +19,7 @@ pyinstaller = "^6.11.1"
 pillow = "^11.0.0"
 
 [tool.poetry.scripts]
+start = "spectrexcel.main:main"
 build = "spectrexcel.pyinstaller:install"
 
 [build-system]
