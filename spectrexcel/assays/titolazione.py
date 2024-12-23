@@ -182,6 +182,6 @@ class BindingTitolazione(AssayWidget):
             chart.set_legend({"position": "none"})
 
             chart.set_style(5)
-            ws.insert_chart(f"C5", chart)
+            ws.insert_chart(f"B{len(self.df)+3}", chart)
 
         self.log("excel file saved successfully")
