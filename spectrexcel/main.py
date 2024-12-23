@@ -1,7 +1,9 @@
 import re
 import sys
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
+from typing import Type
 
 import pandas as pd
 from PyQt6 import QtCore as core
@@ -9,14 +11,37 @@ from PyQt6 import QtGui as gui
 from PyQt6 import QtWidgets as widgets
 from xlsxwriter import Workbook, worksheet
 
-# from superqt import QRangeSlider, QLabeledDoubleRangeSlider
+from spectrexcel.assays import *
+
+
+@dataclass
+class Assay:
+    name: str
+    widget: Type[widgets.QWidget]
+    description: str
+
+
+ASSAYS = [
+    Assay(
+        "binding / titolazione",
+        titolazione.BindingTitolazione,
+        "",
+    ),
+]
 
 
 class MainWindow(widgets.QMainWindow):
     def __init__(self):
         super().__init__()
 
-        self.setMinimumSize(core.QSize(800, 500))
+        # initial setup
+        self.setWindowTitle("SpectrExcel")
+        self.setFixedSize(core.QSize(800, 500))
+
+        # set application icon
+        pixmap = gui.QPixmap()
+        pixmap.loadFromData((Path(__file__).parent / "icon.png").read_bytes())
+        self.setWindowIcon(gui.QIcon(pixmap))
 
         # load settings
         self.settings = core.QSettings(
@@ -28,10 +53,6 @@ class MainWindow(widgets.QMainWindow):
         )
         if geometry.isEmpty():
             available_geometry = self.screen().availableGeometry()
-            self.resize(
-                available_geometry.width() // 3,
-                available_geometry.height() // 2,
-            )
             self.move(
                 (available_geometry.width() - self.width()) // 2,
                 (available_geometry.height() - self.height()) // 2,
@@ -39,56 +60,61 @@ class MainWindow(widgets.QMainWindow):
         else:
             self.restoreGeometry(geometry)
 
-        self.file_path: Path | None = None
-
-        self.setWindowTitle("raw spectrophotometer data to excel")
-        pixmap = gui.QPixmap()
-        pixmap.loadFromData((Path(__file__).parent / "icon.png").read_bytes())
-        self.setWindowIcon(gui.QIcon(pixmap))
-
-        tabs = widgets.QTabWidget()
-        self.setCentralWidget(tabs)
-
         page_main = widgets.QWidget()
+        self.setCentralWidget(page_main)
         box = widgets.QVBoxLayout()
+        self.box = box
         box.setAlignment(core.Qt.AlignmentFlag.AlignTop)
         page_main.setLayout(box)
-        tabs.addTab(page_main, "generate excel")
 
-        title = widgets.QLabel("1. Upload a txt file")
-        title.setStyleSheet("font: 18px; font-weight: bold;")
-        box.addWidget(title)
+        hbox = widgets.QWidget()
+        hbox_layout = widgets.QHBoxLayout()
+        hbox_layout.setContentsMargins(0, 0, 0, 0)
+        hbox_layout.setAlignment(core.Qt.AlignmentFlag.AlignLeft)
+        hbox.setLayout(hbox_layout)
+        box.addWidget(hbox)
 
-        button = widgets.QPushButton("select input file (.txt)")
-        button.pressed.connect(self.__upload_clicked)
-        box.addWidget(button)
+        hbox.layout().addWidget(widgets.QLabel("select assay: "))
 
-        self.title2 = widgets.QLabel("2. Create excel file")
-        self.title2.setDisabled(True)
-        self.title2.setStyleSheet("font: 18px; font-weight: bold;")
-        box.addWidget(self.title2)
+        self.assay_dropdown = widgets.QComboBox()
+        self.assay_dropdown.addItems(map(lambda a: a.name, ASSAYS))
+        selected_assay = self.settings.value("main/selected_assay", 0, type=int)
+        if selected_assay >= len(ASSAYS):
+            selected_assay = 0
+        self.assay_dropdown.setCurrentIndex(selected_assay)
+        self.assay_dropdown.currentIndexChanged.connect(self.__handle_assay_dropdown)
+        hbox_layout.addWidget(self.assay_dropdown)
 
-        # self.xrange = QLabeledDoubleRangeSlider(core.Qt.Orientation.Horizontal)
-        # box.addWidget(self.xrange)
+        self.assay_description = widgets.QLabel(
+            ASSAYS[self.assay_dropdown.currentIndex()].description
+        )
+        self.assay_description.setWordWrap(True)
+        box.addWidget(self.assay_description)
 
-        self.btn_save = widgets.QPushButton("generate")
-        self.btn_save.setDisabled(True)
-        self.btn_save.pressed.connect(self.__btn_save_clicked)
-        box.addWidget(self.btn_save)
+        line = widgets.QFrame()
+        line.setFrameShape(widgets.QFrame.Shape.HLine)
+        line.setFrameShadow(widgets.QFrame.Shadow.Sunken)
+        box.addWidget(line)
+
+        box.addItem(widgets.QSpacerItem(0, 20))
+
+        self.assay_widget = widgets.QWidget()
+        box.addWidget(self.assay_widget)
+
+        box.addStretch()
 
         self.textbox = widgets.QTextEdit()
         self.textbox.setReadOnly(True)
+        self.textbox.setFixedHeight(120)
         box.addWidget(self.textbox)
 
-        page_settings = widgets.QWidget()
-        box = widgets.QVBoxLayout()
-        box.setAlignment(core.Qt.AlignmentFlag.AlignTop)
-        box.addStretch()
-        page_settings.setLayout(box)
-        tabs.addTab(page_settings, "settings")
+        info_label = widgets.QLabel(
+            "developed by Alberto Mosconi ⋅ <a href='https://gitlab.com/albertomosconi/spectrexcel'>source code</a> ⋅ LICENSE: GPLv3 or later"
+        )
+        info_label.setOpenExternalLinks(True)
+        box.addWidget(info_label)
 
-        text_info = widgets.QLabel("developed by Alberto Mosconi")
-        box.addWidget(text_info)
+        self.assay_dropdown.currentIndexChanged.emit(selected_assay)
 
         self.show()
 
@@ -96,135 +122,17 @@ class MainWindow(widgets.QMainWindow):
         self.settings.setValue("window/geometry", self.saveGeometry())
         event.accept()
 
-    def __upload_clicked(self):
-        """"""
+    def __handle_assay_dropdown(self, index: int):
+        self.assay_description.setText(ASSAYS[index].description)
 
-        filename, _ = widgets.QFileDialog.getOpenFileName(
-            self, "Select a File", ".", "Text (*.txt)"
-        )
-        if not filename:
-            return
+        assay_widget = ASSAYS[index].widget(self.__log)
+        self.box.replaceWidget(self.assay_widget, assay_widget)
+        self.assay_widget.close()
+        self.assay_widget = assay_widget
 
-        self.textbox.clear()
+        self.__log(f"LOADED ASSAY: {ASSAYS[index].name}")
 
-        self.file_path = Path(filename)
-        self.__log(f"selected {self.file_path}")
-
-        with self.file_path.open("r") as fp:
-            contents = fp.read()
-
-        contents = re.sub(r"[ \t]+", " ", contents.strip())
-        contents = contents.split("\n")
-
-        first_line = contents[0]
-        first_line = re.sub(r"<(\d+) nm>", r"\g<1>", first_line)
-        columns = first_line[1:-1].split('" "')
-        data = [columns, *[line.split(" ") for line in contents[1:]]]
-
-        self.df = pd.DataFrame(
-            data=[line.split(" ") for line in contents[1:]],
-            columns=columns,
-        )
-        self.df = self.df.drop("WL Result", axis=1)
-
-        self.__log("checking if spectra are duplicated...")
-
-        halfway_row = int(len(self.df) / 2)
-        df_data = self.df.drop("#Sample", axis=1)
-        df_1st_half = df_data.head(halfway_row).reset_index(drop=True)
-        df_2nd_half = df_data.tail(halfway_row).reset_index(drop=True)
-
-        if df_1st_half.equals(df_2nd_half):
-            self.__log("found duplicate data, cleaning...")
-            self.df = self.df.head(halfway_row)
-            self.__log("successfully deleted duplicate spectra")
-        else:
-            self.__log("found no duplicates")
-        self.__log(f"the file contains {len(self.df)} signals")
-
-        self.__log("converting values to numeric...")
-        self.df = self.df.apply(pd.to_numeric)
-
-        self.__log("deleting std.dev. columns...")
-        self.df = self.df.drop("Std.Dev.", axis=1)
-
-        # abs_min = df_data.drop(0, axis=0).min()
-        # print(abs_min)
-
-        # self.xrange.setRange(0.0, 2.0)
-        # self.xrange.setValue((0.0, 0.5))
-
-        self.title2.setDisabled(False)
-        self.btn_save.setDisabled(False)
-
-    def __btn_save_clicked(self):
-        """"""
-
-        filename_excel, _ = widgets.QFileDialog.getSaveFileName(
-            self,
-            "Save excel file",
-            str(self.file_path.with_suffix(".xlsx")),
-            "Excel (*.xlsx)",
-        )
-
-        self.__log("generating excel file...")
-        with pd.ExcelWriter(filename_excel, engine="xlsxwriter") as writer:
-            self.df.to_excel(
-                writer, sheet_name="data", index=False, header=False, startrow=1
-            )
-
-            wb: Workbook = writer.book
-            ws: worksheet.Worksheet = writer.sheets["data"]
-
-            ws.write(0, 0, self.df.columns[0])
-            for col_num, value in enumerate(self.df.columns[1:].values):
-                ws.write(0, col_num + 1, int(value))
-
-            chart = wb.add_chart({"type": "scatter", "subtype": "smooth"})
-
-            for i in range(len(self.df)):
-                chart.add_series(
-                    {
-                        "categories": ["data", 0, 1, 0, len(self.df.columns)],
-                        "values": ["data", i + 1, 1, i + 1, len(self.df.columns)],
-                        "line": {"width": 1.25},
-                    }
-                )
-            chart.set_x_axis(
-                {
-                    "name": "λ (nm)",
-                    "name_font": {"bold": False, "color": "gray"},
-                    "position_axis": "on_tick",
-                    "num_font": {"color": "gray"},
-                    "line": {"color": "gray"},
-                    "interval_unit": 50,
-                    "min": 200,
-                    "max": 800,
-                    "major_tick_mark": "none",
-                    "minor_tick_mark": "none",
-                }
-            )
-            chart.set_y_axis(
-                {
-                    "name": "Abs (AU)",
-                    "name_font": {"bold": False, "color": "gray"},
-                    "num_font": {"color": "gray"},
-                    "num_format": "#,##0.00",
-                    "line": {"color": "gray"},
-                    "major_gridlines": {"visible": False},
-                    "min": 0,
-                    "max": 0.5,
-                    "major_tick_mark": "none",
-                    "minor_tick_mark": "none",
-                }
-            )
-            chart.set_size({"x_scale": 1.5, "y_scale": 1.5})
-            chart.set_legend({"position": "none"})
-
-            chart.set_style(5)
-            ws.insert_chart(f"C5", chart)
-
-        self.__log("excel file saved successfully")
+        self.settings.setValue("main/selected_assay", index)
 
     def __log(self, text: str | list[str]):
         ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -234,8 +142,7 @@ class MainWindow(widgets.QMainWindow):
             self.textbox.append(*[f"[ {ts} ] {t}" for t in text])
 
 
-if __name__ == "__main__":
-
+def main():
     app = widgets.QApplication(sys.argv)
 
     core.QCoreApplication.setOrganizationName("magichemistry")
@@ -243,3 +150,7 @@ if __name__ == "__main__":
 
     w = MainWindow()
     sys.exit(app.exec())
+
+
+if __name__ == "__main__":
+    main()
