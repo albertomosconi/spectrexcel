@@ -1,15 +1,12 @@
-import re
 import sys
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Type
 
-import pandas as pd
 from PyQt6 import QtCore as core
 from PyQt6 import QtGui as gui
 from PyQt6 import QtWidgets as widgets
-from xlsxwriter import Workbook, worksheet
 
 from spectrexcel.assays import *
 
@@ -17,7 +14,7 @@ from spectrexcel.assays import *
 @dataclass
 class Assay:
     name: str
-    widget: Type[widgets.QWidget]
+    widget: Type[AssayWidget]
     description: str
 
 
@@ -51,8 +48,11 @@ class MainWindow(widgets.QMainWindow):
         geometry = self.settings.value(
             "window/geometry", core.QByteArray(), type=core.QByteArray
         )
-        if geometry.isEmpty():
-            available_geometry = self.screen().availableGeometry()
+        screen = self.screen()
+        if screen is None:
+            self.move(0, 0)
+        elif geometry.isEmpty():
+            available_geometry = screen.availableGeometry()
             self.move(
                 (available_geometry.width() - self.width()) // 2,
                 (available_geometry.height() - self.height()) // 2,
@@ -74,7 +74,7 @@ class MainWindow(widgets.QMainWindow):
         hbox.setLayout(hbox_layout)
         box.addWidget(hbox)
 
-        hbox.layout().addWidget(widgets.QLabel("select assay: "))
+        hbox_layout.addWidget(widgets.QLabel("select assay: "))
 
         self.assay_dropdown = widgets.QComboBox()
         self.assay_dropdown.addItems(map(lambda a: a.name, ASSAYS))
@@ -148,7 +148,7 @@ def main():
     core.QCoreApplication.setOrganizationName("magichemistry")
     core.QCoreApplication.setApplicationName("spectrexcel")
 
-    w = MainWindow()
+    MainWindow()
     sys.exit(app.exec())
 
 
