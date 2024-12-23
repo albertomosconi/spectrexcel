@@ -7,9 +7,9 @@ from PyQt6 import QtCore as core
 from PyQt6 import QtWidgets as widgets
 from xlsxwriter import Workbook, worksheet
 
-# from superqt import QRangeSlider, QLabeledDoubleRangeSlider
+from .shared import AssayWidget, clean_duplicate_spectra, parse_txt_file
 
-from .shared import AssayWidget
+# from superqt import QRangeSlider, QLabeledDoubleRangeSlider
 
 
 class BindingTitolazione(AssayWidget):
@@ -64,41 +64,13 @@ class BindingTitolazione(AssayWidget):
         self.settings.setValue("main/folder_input", str(self.path_file_input.parent))
         self.log(f"selected {self.path_file_input}")
 
-        with self.path_file_input.open("r") as fp:
-            contents = fp.read()
+        self.df = parse_txt_file(self.path_file_input)
 
-        contents = re.sub(r"[ \t]+", " ", contents.strip())
-        contents = contents.split("\n")
-
-        # TODO: validate file format
-
-        first_line = contents[0]
-        first_line = re.sub(r"<(\d+) nm>", r"\g<1>", first_line)
-        columns = first_line[1:-1].split('" "')
-        data = [columns, *[line.split(" ") for line in contents[1:]]]
-
-        self.df = pd.DataFrame(
-            data=[line.split(" ") for line in contents[1:]],
-            columns=columns,
-        )
-        self.df = self.df.drop("WL Result", axis=1)
-
-        halfway_row = int(len(self.df) / 2)
-        df_data = self.df.drop("#Sample", axis=1)
-        df_1st_half = df_data.head(halfway_row).reset_index(drop=True)
-        df_2nd_half = df_data.tail(halfway_row).reset_index(drop=True)
-
-        if df_1st_half.equals(df_2nd_half):
-            self.df = self.df.head(halfway_row)
+        self.df, did_clean = clean_duplicate_spectra(self.df)
+        if did_clean:
             self.log("deleted duplicate spectra")
-        else:
-            pass
+
         self.log(f"the file contains {len(self.df)} signals")
-
-        self.df = self.df.apply(pd.to_numeric)
-
-        self.log("deleting std.dev. columns...")
-        self.df = self.df.drop("Std.Dev.", axis=1)
 
         # abs_min = df_data.drop(0, axis=0).min()
         # print(abs_min)
@@ -125,6 +97,9 @@ class BindingTitolazione(AssayWidget):
         if not filename_excel:
             return
 
+        self.log("deleting std.dev. columns...")
+        self.df = self.df.drop("Std.Dev.", axis=1)
+
         self.settings.setValue("main/folder_output", str(Path(filename_excel).parent))
 
         self.log("generating excel file...")
@@ -141,6 +116,8 @@ class BindingTitolazione(AssayWidget):
                 ws.write(0, col_num + 1, int(value))
 
             chart = wb.add_chart({"type": "scatter", "subtype": "smooth"})
+            if not chart:
+                return
 
             for i in range(len(self.df)):
                 chart.add_series(
@@ -182,6 +159,6 @@ class BindingTitolazione(AssayWidget):
             chart.set_legend({"position": "none"})
 
             chart.set_style(5)
-            ws.insert_chart(f"B{len(self.df)+3}", chart)
+            ws.insert_chart(len(self.df) + 2, 1, chart=chart)
 
         self.log("excel file saved successfully")
