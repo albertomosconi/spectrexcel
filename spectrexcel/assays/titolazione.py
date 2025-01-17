@@ -1,15 +1,11 @@
-import re
 from pathlib import Path
-from typing import Callable
 
 import pandas as pd
 from PyQt6 import QtCore as core
 from PyQt6 import QtWidgets as widgets
 from xlsxwriter import Workbook, worksheet
 
-from .shared import AssayWidget, clean_duplicate_spectra, parse_txt_file
-
-# from superqt import QRangeSlider, QLabeledDoubleRangeSlider
+from .shared import AssayWidget, clean_duplicate_spectra, parse_sd_file, parse_txt_file
 
 
 class BindingTitolazione(AssayWidget):
@@ -27,11 +23,11 @@ class BindingTitolazione(AssayWidget):
         layout.setAlignment(core.Qt.AlignmentFlag.AlignTop)
         self.setLayout(layout)
 
-        title = widgets.QLabel("1. Upload a txt file")
+        title = widgets.QLabel("1. Upload a TXT or SD file")
         title.setStyleSheet("font: 16px; font-weight: bold;")
         layout.addWidget(title)
 
-        button = widgets.QPushButton("select input file (.txt)")
+        button = widgets.QPushButton("select input file (.txt .SD)")
         button.pressed.connect(self.__upload_clicked)
         layout.addWidget(button)
 
@@ -39,9 +35,6 @@ class BindingTitolazione(AssayWidget):
         self.title2.setDisabled(True)
         self.title2.setStyleSheet("font: 16px; font-weight: bold;")
         layout.addWidget(self.title2)
-
-        # self.xrange = QLabeledDoubleRangeSlider(core.Qt.Orientation.Horizontal)
-        # box.addWidget(self.xrange)
 
         self.btn_save = widgets.QPushButton("generate excel")
         self.btn_save.setDisabled(True)
@@ -55,7 +48,7 @@ class BindingTitolazione(AssayWidget):
             self,
             "Select a File",
             self.settings.value("main/folder_input", ".", type=str),
-            "Text (*.txt)",
+            "Spectra Files (*.txt *.SD)",
         )
         if not filename:
             return
@@ -64,19 +57,19 @@ class BindingTitolazione(AssayWidget):
         self.settings.setValue("main/folder_input", str(self.path_file_input.parent))
         self.log(f"selected {self.path_file_input}")
 
-        self.df = parse_txt_file(self.path_file_input)
+        if self.path_file_input.suffix.upper() == ".SD":
+            self.df = parse_sd_file(self.path_file_input)
+        elif self.path_file_input.suffix.upper() == ".TXT":
+            self.df = parse_txt_file(self.path_file_input)
+        else:
+            self.log("ERROR: unknown input format")
+            return
 
         self.df, did_clean = clean_duplicate_spectra(self.df)
         if did_clean:
             self.log("deleted duplicate spectra")
 
         self.log(f"the file contains {len(self.df)} signals")
-
-        # abs_min = df_data.drop(0, axis=0).min()
-        # print(abs_min)
-
-        # self.xrange.setRange(0.0, 2.0)
-        # self.xrange.setValue((0.0, 0.5))
 
         self.title2.setDisabled(False)
         self.btn_save.setDisabled(False)
@@ -97,8 +90,9 @@ class BindingTitolazione(AssayWidget):
         if not filename_excel:
             return
 
-        self.log("deleting std.dev. columns...")
-        self.df = self.df.drop("Std.Dev.", axis=1)
+        if "Std.Dev." in self.df.columns:
+            self.log("deleting std.dev. columns...")
+            self.df = self.df.drop("Std.Dev.", axis=1)
 
         self.settings.setValue("main/folder_output", str(Path(filename_excel).parent))
 
