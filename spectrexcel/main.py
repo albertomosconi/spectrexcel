@@ -21,7 +21,12 @@ class Assay:
 ASSAYS = [
     Assay(
         "binding / titolazione",
-        titolazione.BindingTitolazione,
+        BindingTitolazione,
+        "",
+    ),
+    Assay(
+        "cinetiche",
+        Cinetiche,
         "",
     ),
 ]

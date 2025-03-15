@@ -1,4 +1,5 @@
 import re
+import struct
 from pathlib import Path
 from struct import iter_unpack
 from typing import Callable, Tuple
@@ -49,8 +50,8 @@ def parse_sd_file(filepath: Path) -> pd.DataFrame:
 
     headers = {
         "S a m p l e N a m e ": (
-            b"\x53\x00\x61\x00\x6D\x00\x70\x00\x6C\x00\x65"
-            b"\x00\x4E\x00\x61\x00\x6D\x00\x65\x00",
+            b"\x53\x00\x61\x00\x6d\x00\x70\x00\x6c\x00\x65"
+            b"\x00\x4e\x00\x61\x00\x6d\x00\x65\x00",
             28,
             b"\x09",
         ),
@@ -104,6 +105,72 @@ def parse_sd_file(filepath: Path) -> pd.DataFrame:
     for i in range(len(df)):
         if df.at[i, "#Sample"] == "":
             df.at[i, "#Sample"] = i + 1
+
+    return df
+
+
+def parse_kd_file(filepath: Path) -> pd.DataFrame | None:
+
+    def _extract_data(data: bytes, header: dict, parse_func: Callable) -> list | None:
+        data_list = []
+        position = 0
+        data_header = header["header"]
+        spacing = header["spacing"]
+        chunk = (1100 - 190 + 1) * 8
+
+        while True:
+            header_idx = data.find(data_header, position)
+            if header_idx == -1:
+                break
+
+            data_idx = header_idx + spacing
+            data_list.append(parse_func(data, data_idx))
+            position = data_idx + chunk
+
+        return data_list if data_list else None
+
+    def _parse_spectratimes(data: bytes, data_start: int) -> float:
+        return float(struct.unpack_from("<d", data, data_start)[0])
+
+    def _parse_spectra(data, data_start: int) -> pd.Series:
+        data_end = data_start + (1100 - 190 + 1) * 8
+        absorbance_data = data[data_start:data_end]
+        absorbance_values = [
+            value for (value,) in struct.iter_unpack("<d", absorbance_data)
+        ]
+        return pd.Series(absorbance_values, index=range(190, 1101))
+
+    if filepath.suffix.upper() != ".KD":
+        raise Exception("Invalid file extension")
+
+    with filepath.open("rb") as fp:
+        contents = fp.read()
+
+    spectra_times = _extract_data(
+        contents,
+        {
+            "header": b"\x52\x00\x65\x00\x6c\x00\x54\x00\x69\x00\x6d\x00\x65\x00",
+            "spacing": 20,
+        },
+        _parse_spectratimes,
+    )
+    if not spectra_times:
+        return None
+
+    spectra_list = _extract_data(
+        contents,
+        {
+            "header": b"\x28\x00\x41\x00\x55\x00\x29\x00",
+            "spacing": 17,
+        },
+        _parse_spectra,
+    )
+    if not spectra_list:
+        return None
+
+    df = pd.concat(spectra_list, axis=1)
+    df.index = pd.Index(range(190, 1101), name="Wavelength (nm)")
+    df.columns = spectra_times
 
     return df
 
