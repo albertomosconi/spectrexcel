@@ -186,6 +186,7 @@ class Cinetiche(AssayWidget):
                         "categories": ["data", 2, 0, len(final) + 2, 0],
                         "values": ["data", 2, 1 + i, len(final), 1 + i],
                         "line": {"width": 1.25},
+                        "name": ["data", 1, 1 + i],
                     }
                 )
 
