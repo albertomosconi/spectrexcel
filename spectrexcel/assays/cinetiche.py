@@ -56,13 +56,15 @@ class Cinetiche(AssayWidget):
         layout.addWidget(form_settings)
 
         self.wlen_read = widgets.QLineEdit()
-        self.wlen_read.setText("300")
+        wl_r = self.settings.value("cinetiche/wl_read", 300, type=int)
+        self.wlen_read.setText(str(wl_r))
         onlyInt = gui.QIntValidator()
         self.wlen_read.setValidator(onlyInt)
         form_layout.addRow("reading wavelength", self.wlen_read)
 
         self.wlen_correction = widgets.QLineEdit()
-        self.wlen_correction.setText("800")
+        wl_c = self.settings.value("cinetiche/wl_corr", 800, type=int)
+        self.wlen_correction.setText(str(wl_c))
         onlyInt = gui.QIntValidator()
         self.wlen_correction.setValidator(onlyInt)
         form_layout.addRow("correction wavelength", self.wlen_correction)
@@ -136,13 +138,19 @@ class Cinetiche(AssayWidget):
             "cinetiche/folder_output", str(Path(filename_excel).parent)
         )
 
+        wl_read = int(self.wlen_read.text())
+        wl_corr = int(self.wlen_correction.text())
+
+        # save wl values
+        self.settings.setValue("cinetiche/wl_read", wl_read)
+        self.settings.setValue("cinetiche/wl_corr", wl_corr)
+
         self.log("generating excel file...")
+
+        # TODO: fix filenames
 
         # sort uploaded files by name
         self.dfs.sort(key=lambda t: t[0])
-
-        wl_read = int(self.wlen_read.text())
-        wl_corr = int(self.wlen_correction.text())
 
         with pd.ExcelWriter(filename_excel, engine="xlsxwriter") as writer:
             wb: Workbook = writer.book
