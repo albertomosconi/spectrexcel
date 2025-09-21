@@ -81,7 +81,7 @@ def parse_sd_file(filepath: Path) -> pd.DataFrame:
 
     headers = {
         "( A U ) ": (b"\x28\x00\x41\x00\x55\x00\x29\x00", 17),
-        "(AU) ": (b"\x28\x41\x55\x29\x00", 5),
+        "(AU) ": (b"\x28\x41\x55\x29", 5),
     }
     for _, (header, spacing) in headers.items():
         if contents.find(header, 0) != -1:
@@ -146,24 +146,33 @@ def parse_kd_file(filepath: Path) -> pd.DataFrame | None:
     with filepath.open("rb") as fp:
         contents = fp.read()
 
+    HEADERS = {
+        "NEW": (
+            b"\x52\x00\x65\x00\x6c\x00\x54\x00\x69\x00\x6d\x00\x65\x00",
+            20,
+            b"\x28\x00\x41\x00\x55\x00\x29\x00",
+            17,
+        ),
+        "OLD": (
+            b"\x52\x65\x6c\x54\x69\x6d\x65",
+            21,
+            b"\x28\x41\x55\x29",
+            5,
+        ),
+    }
+
+    for H in HEADERS.values():
+        if contents.find(H[0], 0) != -1:
+            break
+
     spectra_times = _extract_data(
-        contents,
-        {
-            "header": b"\x52\x00\x65\x00\x6c\x00\x54\x00\x69\x00\x6d\x00\x65\x00",
-            "spacing": 20,
-        },
-        _parse_spectratimes,
+        contents, {"header": H[0], "spacing": H[1]}, _parse_spectratimes
     )
     if not spectra_times:
         return None
 
     spectra_list = _extract_data(
-        contents,
-        {
-            "header": b"\x28\x00\x41\x00\x55\x00\x29\x00",
-            "spacing": 17,
-        },
-        _parse_spectra,
+        contents, {"header": H[2], "spacing": H[3]}, _parse_spectra
     )
     if not spectra_list:
         return None
