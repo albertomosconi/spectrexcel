@@ -126,7 +126,7 @@ class Cinetiche(AssayWidget):
             "Save excel file",
             str(
                 Path(self.settings.value("cinetiche/folder_output", ".", type=str))
-                / f"{datetime.now().strftime("%Y-%m-%d %H-%M-%S")} spectrexcel.xlsx"
+                / f"{datetime.now().strftime('%Y-%m-%d %H-%M-%S')} spectrexcel.xlsx"
             ),
             "Excel (*.xlsx)",
         )
