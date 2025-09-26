@@ -123,9 +123,11 @@ class MainWindow(widgets.QMainWindow):
 
         self.show()
 
-    def closeEvent(self, event):
+    def closeEvent(self, a0):
+        if not a0:
+            return
         self.settings.setValue("window/geometry", self.saveGeometry())
-        event.accept()
+        a0.accept()
 
     def __handle_assay_dropdown(self, index: int):
         self.assay_description.setText(ASSAYS[index].description)
