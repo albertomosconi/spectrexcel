@@ -60,6 +60,8 @@ def parse_sd_file(filepath: Path) -> pd.DataFrame:
     for _, (header, spacing, end_char) in headers.items():
         if contents.find(header, 0) != -1:
             break
+    else:
+        raise Exception("Unable to read file contents: no headers found.")
 
     position = 0
     out = []
@@ -86,6 +88,8 @@ def parse_sd_file(filepath: Path) -> pd.DataFrame:
     for _, (header, spacing) in headers.items():
         if contents.find(header, 0) != -1:
             break
+    else:
+        raise Exception("Unable to read file contents: no headers found.")
 
     position = 0
     out = []
@@ -164,6 +168,8 @@ def parse_kd_file(filepath: Path) -> pd.DataFrame | None:
     for H in HEADERS.values():
         if contents.find(H[0], 0) != -1:
             break
+    else:
+        raise Exception("Unable to read file contents: no headers found.")
 
     spectra_times = _extract_data(
         contents, {"header": H[0], "spacing": H[1]}, _parse_spectratimes
