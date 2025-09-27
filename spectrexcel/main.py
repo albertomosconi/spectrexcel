@@ -114,6 +114,7 @@ class MainWindow(widgets.QMainWindow):
         box.addStretch()
 
         self.textbox = widgets.QTextEdit()
+        self.textbox.setStyleSheet("font-family: monospace; font-size: 14px;")
         self.textbox.setReadOnly(True)
         self.textbox.setFixedHeight(120)
         box.addWidget(self.textbox)
