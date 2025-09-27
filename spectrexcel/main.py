@@ -29,6 +29,11 @@ ASSAYS = [
         Cinetiche,
         "",
     ),
+    Assay(
+        "famiglia di spettri",
+        FamigliaDiSpettri,
+        "",
+    ),
 ]
 
 
