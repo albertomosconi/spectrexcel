@@ -154,6 +154,7 @@ class Cinetiche(AssayWidget):
 
                 ws.write(0, 0, "tracce")
                 ws.write(1, 0, "Time (s)")
+                ws.write(0, 4 + len(self.dfs), f"correction wavelength: {wl_corr}nm")
 
                 for col_num, value in enumerate(self.dfs[0][1].columns.values):
                     ws.write(col_num + 2, 0, float(value))
@@ -169,11 +170,14 @@ class Cinetiche(AssayWidget):
                     }
                 )
 
+                abs_max = 0.0
                 for i, (filename, spectra_df) in enumerate(self.dfs):
                     spectra_read = spectra_df.loc[[wl_read]].squeeze()
                     spectra_corr = spectra_df.loc[[wl_corr]].squeeze()
 
                     final: pd.Series = spectra_read - spectra_corr
+
+                    abs_max = max(abs_max, final.max())
 
                     final.to_excel(
                         writer,
@@ -203,14 +207,14 @@ class Cinetiche(AssayWidget):
                         "line": {"color": "gray"},
                         "interval_unit": 50,
                         "min": 0,
-                        "max": 300,
+                        "max": float(self.dfs[0][1].columns.values[-1]),
                         "major_tick_mark": "none",
                         "minor_tick_mark": "none",
                     }
                 )
                 chart.set_y_axis(
                     {
-                        "name": "Abs (AU)",
+                        "name": f"Abs{wl_read} (AU)",
                         "name_font": {"bold": False, "color": "gray"},
                         "num_font": {"color": "gray"},
                         "num_format": "#,##0.00",
@@ -218,7 +222,7 @@ class Cinetiche(AssayWidget):
                         "major_gridlines": {"visible": False},
                         "interval_unit": 0.05,
                         "min": 0,
-                        "max": 0.35,
+                        "max": abs_max,
                         "major_tick_mark": "none",
                         "minor_tick_mark": "none",
                     }
