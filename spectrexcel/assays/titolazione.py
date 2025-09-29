@@ -64,8 +64,7 @@ class BindingTitolazione(AssayWidget):
             elif self.path_file_input.suffix.upper() == ".TXT":
                 self.df = parse_txt_file(self.path_file_input)
             else:
-                self.log("ERROR: unknown input format")
-                return
+                raise Exception("unknown input format")
 
             self.df, did_clean = clean_duplicate_spectra(self.df)
             if did_clean:

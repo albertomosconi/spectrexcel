@@ -93,7 +93,7 @@ class Cinetiche(AssayWidget):
                 "cinetiche/folder_input", str(Path(filenames[0]).parent)
             )
             self.log(f"selected {len(filenames)} files")
-
+            self.dfs = []
             for filename in filenames:
                 filepath = Path(filename)
                 self.log(f"loading {filepath.name}")
@@ -101,12 +101,10 @@ class Cinetiche(AssayWidget):
                 if filepath.suffix.upper() == ".KD":
                     df = parse_kd_file(filepath)
                 else:
-                    self.log("ERROR: unknown input format")
-                    continue
+                    raise Exception("unknown input format")
 
                 if df is None:
-                    self.log("ERROR: failed to parse file")
-                    continue
+                    raise Exception("failed to parse file")
 
                 self.dfs.append((filepath.stem, df))
 
