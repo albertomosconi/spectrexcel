@@ -1,4 +1,5 @@
 import sys
+import importlib.metadata
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -120,7 +121,7 @@ class MainWindow(widgets.QMainWindow):
         box.addWidget(self.textbox)
 
         info_label = widgets.QLabel(
-            "developed by Alberto Mosconi ⋅ <a href='https://gitlab.com/albertomosconi/spectrexcel'>source code</a> ⋅ LICENSE: GPLv3 or later"
+            f"version: {core.QCoreApplication.applicationVersion()} ⋅ developed by Alberto Mosconi ⋅ <a href='https://gitlab.com/albertomosconi/spectrexcel'>source code</a> ⋅ LICENSE: GPLv3 or later"
         )
         info_label.setOpenExternalLinks(True)
         box.addWidget(info_label)
@@ -160,6 +161,13 @@ def main():
 
     core.QCoreApplication.setOrganizationName("magichemistry")
     core.QCoreApplication.setApplicationName("spectrexcel")
+
+    try:
+        version = importlib.metadata.version("spectrexcel")
+    except importlib.metadata.PackageNotFoundError:
+        version = "UNKNOWN"
+
+    core.QCoreApplication.setApplicationVersion(version)
 
     MainWindow()
     sys.exit(app.exec())
