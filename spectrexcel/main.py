@@ -1,10 +1,12 @@
 import sys
+import webbrowser
 import importlib.metadata
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Type
 
+import requests
 from PyQt6 import QtCore as core
 from PyQt6 import QtGui as gui
 from PyQt6 import QtWidgets as widgets
@@ -96,6 +98,17 @@ class MainWindow(widgets.QMainWindow):
         self.assay_dropdown.currentIndexChanged.connect(self.__handle_assay_dropdown)
         hbox_layout.addWidget(self.assay_dropdown)
 
+        hbox_layout.addSpacerItem(
+            widgets.QSpacerItem(10, 10, widgets.QSizePolicy.Policy.Expanding)
+        )
+        hbox_layout.addWidget(
+            widgets.QLabel(f"version: {core.QCoreApplication.applicationVersion()}")
+        )
+        btn_check_update = widgets.QPushButton("check for updates")
+        btn_check_update.setStyleSheet("font-weight: normal;")
+        btn_check_update.pressed.connect(self.__check_updates)
+        hbox_layout.addWidget(btn_check_update)
+
         self.assay_description = widgets.QLabel(
             ASSAYS[self.assay_dropdown.currentIndex()].description
         )
@@ -121,7 +134,7 @@ class MainWindow(widgets.QMainWindow):
         box.addWidget(self.textbox)
 
         info_label = widgets.QLabel(
-            f"version: {core.QCoreApplication.applicationVersion()} ⋅ developed by Alberto Mosconi ⋅ <a href='https://gitlab.com/albertomosconi/spectrexcel'>source code</a> ⋅ LICENSE: GPLv3 or later"
+            "developed by Alberto Mosconi ⋅ <a href='https://gitlab.com/albertomosconi/spectrexcel'>source code</a> ⋅ LICENSE: GPLv3 or later"
         )
         info_label.setOpenExternalLinks(True)
         box.addWidget(info_label)
@@ -154,6 +167,51 @@ class MainWindow(widgets.QMainWindow):
             self.textbox.append(f"[ {ts} ] {text}")
         elif isinstance(text, list):
             self.textbox.append(*[f"[ {ts} ] {t}" for t in text])
+
+    def __check_updates(self):
+        try:
+            self.__log("checking for updates...")
+            current_version = core.QCoreApplication.applicationVersion()
+
+            response = requests.get(
+                "https://gitlab.com/api/v4/projects/65488480/repository/tags?order_by=name&sort=desc"
+            )
+            if response.status_code != 200:
+                self.__log("ERROR: unable to check for updates")
+                return
+
+            releases = response.json()
+            if len(releases) == 0:
+                self.__log("no updates found")
+                return
+            latest_release = releases[0]
+
+            exists_newer_version = latest_release["name"] > f"v{current_version}"
+            if not exists_newer_version:
+                self.__log("no updates found")
+                return
+
+            self.__log(f"NEW APP VERSION FOUND: {latest_release['name']}")
+
+            do_update = (
+                widgets.QMessageBox.question(
+                    self,
+                    "Update found!",
+                    "A new app version is available. Do you want to update?\n\nNOTE: this will close the app and open a new browser tab where you will be prompted to save the new executable. Make sure to overwrite the existing one.",
+                )
+                == widgets.QMessageBox.StandardButton.Yes
+            )
+            if not do_update:
+                self.__log("not updating")
+                return
+
+            self.__log(f"downloading update...")
+
+            download_url = f"https://gitlab.com/albertomosconi/spectrexcel/-/raw/{latest_release['name']}/dist/spectrexcel.exe"
+            webbrowser.open(download_url)
+            sys.exit(0)
+        except Exception as e:
+            self.__log(f"ERROR: {e}")
 
 
 def main():
