@@ -83,7 +83,7 @@ def parse_sd_file(filepath: Path) -> pd.DataFrame:
 
     headers = {
         "( A U ) ": (b"\x28\x00\x41\x00\x55\x00\x29\x00", 17),
-        "(AU) ": (b"\x28\x41\x55\x29", 5),
+        "(AU) ": (b"\x28\x41\x55\x29\x00", 5),
     }
     for _, (header, spacing) in headers.items():
         if contents.find(header, 0) != -1:
