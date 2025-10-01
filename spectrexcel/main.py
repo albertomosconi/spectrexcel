@@ -180,6 +180,7 @@ class MainWindow(widgets.QMainWindow):
 
     def __check_for_update(self, do_log=True):
         try:
+            self.latest_release_version = None
             if do_log:
                 self.__log("checking for updates...")
             current_version = core.QCoreApplication.applicationVersion()
@@ -215,7 +216,8 @@ class MainWindow(widgets.QMainWindow):
 
     def __check_and_download_update(self):
         try:
-            if not self.__check_for_update(do_log=False):
+            already_found_update = self.latest_release_version is not None
+            if not self.__check_for_update(do_log=(not already_found_update)):
                 return
 
             do_update = (
