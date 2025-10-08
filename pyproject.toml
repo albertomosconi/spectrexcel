@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "spectrexcel"
-version = "1.0.2"
+version = "1.0.3"
 description = ""
 authors = ["Alberto Mosconi <albertomaria.mosconi@gmail.com>"]
 readme = "README.md"
