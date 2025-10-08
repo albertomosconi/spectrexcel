@@ -10,6 +10,7 @@ def install():
             str(Path(__file__).parent.absolute() / "main.py"),
             "--name",
             "spectrexcel",
+            "--clean",
             "--onefile",
             "--noconsole",  # don't open console window
             "--optimize",
