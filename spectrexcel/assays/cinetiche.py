@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import Tuple
 
 import pandas as pd
+from natsort import natsorted
 from PyQt6 import QtCore as core
 from PyQt6 import QtGui as gui
 from PyQt6 import QtWidgets as widgets
@@ -144,7 +145,7 @@ class Cinetiche(AssayWidget):
             # TODO: fix filenames
 
             # sort uploaded files by name
-            self.dfs.sort(key=lambda t: t[0])
+            self.dfs = natsorted(self.dfs, lambda d: d[0])
 
             with pd.ExcelWriter(filename_excel, engine="xlsxwriter") as writer:
                 wb: Workbook = writer.book

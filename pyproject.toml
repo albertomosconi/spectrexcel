@@ -18,6 +18,7 @@ superqt = "^0.6.7"
 pyinstaller = "^6.11.1"
 pillow = "^11.0.0"
 requests = "^2.32.5"
+natsort = "^8.4.0"
 
 [tool.poetry.scripts]
 start = "spectrexcel.main:main"
