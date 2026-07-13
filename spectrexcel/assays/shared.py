@@ -7,6 +7,7 @@ from typing import Any, Callable, Tuple
 import dearpygui.dearpygui as dpg
 import pandas as pd
 
+from spectrexcel.dpi import DisplayScale
 from spectrexcel.settings import Settings
 
 
@@ -16,10 +17,12 @@ class AssayView:
         log: Callable[[str | list[str]], None],
         submit: Callable[..., None],
         settings: Settings,
+        display_scale: DisplayScale,
     ):
         self.log = log
         self._submit = submit
         self.settings = settings
+        self.display_scale = display_scale
         self.active = True
 
     def dispose(self) -> None:
@@ -58,6 +61,7 @@ class AssayView:
             if paths:
                 callback(paths)
 
+        px = self.display_scale.pixels
         with dpg.file_dialog(
             label=title,
             tag=tag,
@@ -67,8 +71,8 @@ class AssayView:
             cancel_callback=lambda sender: dpg.delete_item(sender),
             default_path=default_path,
             file_count=0 if multiple else 1,
-            width=700,
-            height=420,
+            width=px(700),
+            height=px(420),
         ):
             for extension in extensions:
                 dpg.add_file_extension(extension)
@@ -84,6 +88,8 @@ class AssayView:
     ) -> None:
         if dpg.does_item_exist(tag):
             dpg.delete_item(tag)
+
+        px = self.display_scale.pixels
 
         def selected(sender: Any, app_data: dict[str, Any]) -> None:
             path = Path(app_data["file_path_name"])
@@ -102,15 +108,17 @@ class AssayView:
                 tag=confirmation_tag,
                 modal=True,
                 no_close=True,
-                width=430,
-                height=145,
-                pos=(185, 175),
+                width=px(430),
+                height=px(145),
+                pos=self.display_scale.position((185, 175)),
             ):
-                dpg.add_text(f"{path.name} already exists. Replace it?", wrap=390)
+                dpg.add_text(
+                    f"{path.name} already exists. Replace it?", wrap=px(390)
+                )
                 with dpg.group(horizontal=True):
                     dpg.add_button(
                         label="Replace",
-                        width=100,
+                        width=px(100),
                         callback=lambda: (
                             dpg.delete_item(confirmation_tag),
                             callback(path),
@@ -118,7 +126,7 @@ class AssayView:
                     )
                     dpg.add_button(
                         label="Cancel",
-                        width=100,
+                        width=px(100),
                         callback=lambda: dpg.delete_item(confirmation_tag),
                     )
 
@@ -131,8 +139,8 @@ class AssayView:
             cancel_callback=lambda sender: dpg.delete_item(sender),
             default_path=default_path,
             default_filename=default_filename,
-            width=700,
-            height=420,
+            width=px(700),
+            height=px(420),
         ):
             dpg.add_file_extension("Excel workbook (*.xlsx){.xlsx}")
 

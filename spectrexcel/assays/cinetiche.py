@@ -111,16 +111,17 @@ class Cinetiche(AssayView):
         self.datasets: list[tuple[str, pd.DataFrame]] = []
 
     def build(self, parent: str) -> None:
+        px = self.display_scale.pixels
         dpg.add_text("1. Upload KD files", parent=parent, color=(104, 190, 255))
         dpg.add_button(
             label="Select input files (.KD)",
             tag="kinetics.upload",
             callback=self._choose_inputs,
-            width=260,
+            width=px(260),
             parent=parent,
         )
         dpg.add_text("No files selected", tag="kinetics.files", parent=parent, color=(150, 150, 150))
-        dpg.add_spacer(height=6, parent=parent)
+        dpg.add_spacer(height=px(6), parent=parent)
         dpg.add_text("2. Configure parameters", parent=parent, color=(104, 190, 255))
         with dpg.group(horizontal=True, parent=parent):
             with dpg.group():
@@ -132,7 +133,7 @@ class Cinetiche(AssayView):
                     max_value=1100,
                     min_clamped=True,
                     max_clamped=True,
-                    width=210,
+                    width=px(210),
                 )
             with dpg.group():
                 dpg.add_text("Correction wavelength (nm)")
@@ -143,16 +144,16 @@ class Cinetiche(AssayView):
                     max_value=1100,
                     min_clamped=True,
                     max_clamped=True,
-                    width=210,
+                    width=px(210),
                 )
-        dpg.add_spacer(height=6, parent=parent)
+        dpg.add_spacer(height=px(6), parent=parent)
         dpg.add_text("3. Create Excel file", parent=parent, color=(104, 190, 255))
         dpg.add_button(
             label="Generate Excel",
             tag="kinetics.export",
             callback=self._choose_output,
             enabled=False,
-            width=260,
+            width=px(260),
             parent=parent,
         )
 

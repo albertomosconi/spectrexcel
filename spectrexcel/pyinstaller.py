@@ -6,6 +6,12 @@ from PyInstaller.__main__ import run as pyinstaller_run
 def install():
     PATH_ICON = str(Path(__file__).parent.absolute() / "icon.ico")
     PATH_FONTS = str(Path(__file__).parent.absolute() / "fonts")
+    PATH_MANIFEST = str(
+        Path(__file__).parent.parent.absolute()
+        / "packaging"
+        / "windows"
+        / "spectrexcel.manifest"
+    )
     pyinstaller_run(
         [
             str(Path(__file__).parent.absolute() / "main.py"),
@@ -26,5 +32,7 @@ def install():
             f"{PATH_FONTS}:fonts",
             "--icon",
             PATH_ICON,
+            "--manifest",
+            PATH_MANIFEST,
         ]
     )

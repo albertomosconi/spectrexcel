@@ -81,16 +81,17 @@ class BindingTitolazione(AssayView):
         self.input_path: Path | None = None
 
     def build(self, parent: str) -> None:
+        px = self.display_scale.pixels
         dpg.add_text("1. Upload a TXT or SD file", parent=parent, color=(104, 190, 255))
         dpg.add_button(
             label="Select input file (.txt, .SD)",
             tag="binding.upload",
             callback=self._choose_input,
-            width=260,
+            width=px(260),
             parent=parent,
         )
         dpg.add_text("No file selected", tag="binding.file", parent=parent, color=(150, 150, 150))
-        dpg.add_spacer(height=6, parent=parent)
+        dpg.add_spacer(height=px(6), parent=parent)
         dpg.add_text("2. Configure axis ranges", parent=parent, color=(104, 190, 255))
         with dpg.group(horizontal=True, parent=parent):
             with dpg.group():
@@ -102,7 +103,7 @@ class BindingTitolazione(AssayView):
                     max_value=1_000_000,
                     min_clamped=True,
                     max_clamped=True,
-                    width=180,
+                    width=px(180),
                 )
             with dpg.group():
                 dpg.add_text("X-axis maximum (nm)")
@@ -113,7 +114,7 @@ class BindingTitolazione(AssayView):
                     max_value=1_000_000,
                     min_clamped=True,
                     max_clamped=True,
-                    width=180,
+                    width=px(180),
                 )
             with dpg.group():
                 dpg.add_text("Y-axis minimum (AU)")
@@ -126,7 +127,7 @@ class BindingTitolazione(AssayView):
                     max_clamped=True,
                     format="%.4f",
                     step=0.05,
-                    width=180,
+                    width=px(180),
                 )
             with dpg.group():
                 dpg.add_text("Y-axis maximum (AU)")
@@ -139,16 +140,16 @@ class BindingTitolazione(AssayView):
                     max_clamped=True,
                     format="%.4f",
                     step=0.05,
-                    width=180,
+                    width=px(180),
                 )
-        dpg.add_spacer(height=6, parent=parent)
+        dpg.add_spacer(height=px(6), parent=parent)
         dpg.add_text("3. Create Excel file", parent=parent, color=(104, 190, 255))
         dpg.add_button(
             label="Generate Excel",
             tag="binding.export",
             callback=self._choose_output,
             enabled=False,
-            width=260,
+            width=px(260),
             parent=parent,
         )
 

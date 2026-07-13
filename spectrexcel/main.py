@@ -13,6 +13,7 @@ import dearpygui.dearpygui as dpg
 
 from spectrexcel.assays import BindingTitolazione, Cinetiche, FamigliaDiSpettri
 from spectrexcel.assays.shared import AssayView
+from spectrexcel.dpi import DisplayScale, configure_display_scale
 from spectrexcel.settings import Settings
 from spectrexcel.updater import (
     REPOSITORY_URL,
@@ -39,8 +40,9 @@ ASSAYS = (
 
 
 class SpectrExcelApp:
-    def __init__(self, version: str) -> None:
+    def __init__(self, version: str, display_scale: DisplayScale) -> None:
         self.version = version
+        self.display_scale = display_scale
         self.settings = Settings()
         self.executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="spectrexcel")
         self.results: queue.SimpleQueue[
@@ -53,19 +55,20 @@ class SpectrExcelApp:
         self.log_scroll_pending = 0
 
     def build(self) -> None:
+        px = self.display_scale.pixels
         font_path = Path(__file__).parent / "fonts" / "InterVariable.ttf"
         log_font_path = Path(__file__).parent / "fonts" / "JetBrainsMono-Regular.ttf"
         with dpg.font_registry():
-            default_font = dpg.add_font(str(font_path), 16, tag="main.font")
-            dpg.add_font(str(log_font_path), 16, tag="main.log_font")
+            default_font = dpg.add_font(str(font_path), px(16), tag="main.font")
+            dpg.add_font(str(log_font_path), px(16), tag="main.log_font")
         dpg.bind_font(default_font)
 
         with dpg.theme() as theme:
             with dpg.theme_component(dpg.mvAll):
-                dpg.add_theme_style(dpg.mvStyleVar_WindowPadding, 18, 16)
-                dpg.add_theme_style(dpg.mvStyleVar_FramePadding, 10, 6)
-                dpg.add_theme_style(dpg.mvStyleVar_ItemSpacing, 8, 7)
-                dpg.add_theme_style(dpg.mvStyleVar_FrameRounding, 4)
+                dpg.add_theme_style(dpg.mvStyleVar_WindowPadding, px(18), px(16))
+                dpg.add_theme_style(dpg.mvStyleVar_FramePadding, px(10), px(6))
+                dpg.add_theme_style(dpg.mvStyleVar_ItemSpacing, px(8), px(7))
+                dpg.add_theme_style(dpg.mvStyleVar_FrameRounding, px(4))
                 dpg.add_theme_color(dpg.mvThemeCol_WindowBg, (24, 27, 32))
                 dpg.add_theme_color(dpg.mvThemeCol_ChildBg, (30, 34, 40))
                 dpg.add_theme_color(dpg.mvThemeCol_Button, (36, 91, 130))
@@ -75,12 +78,12 @@ class SpectrExcelApp:
 
         with dpg.theme() as header_theme:
             with dpg.theme_component(dpg.mvTable):
-                dpg.add_theme_style(dpg.mvStyleVar_CellPadding, 0, 4)
+                dpg.add_theme_style(dpg.mvStyleVar_CellPadding, 0, px(4))
 
         with dpg.theme() as log_theme:
             with dpg.theme_component(dpg.mvAll):
-                dpg.add_theme_style(dpg.mvStyleVar_ItemSpacing, 8, 0)
-                dpg.add_theme_style(dpg.mvStyleVar_WindowPadding, 8, 4)
+                dpg.add_theme_style(dpg.mvStyleVar_ItemSpacing, px(8), 0)
+                dpg.add_theme_style(dpg.mvStyleVar_WindowPadding, px(8), px(4))
 
         with dpg.theme() as assay_theme:
             with dpg.theme_component(dpg.mvChildWindow):
@@ -113,11 +116,11 @@ class SpectrExcelApp:
                             default_value=ASSAYS[selected_index].name,
                             tag="main.assay",
                             callback=self._assay_changed,
-                            width=250,
+                            width=px(250),
                         )
                     dpg.add_text(f"v{self.version}", color=(150, 150, 150))
                     with dpg.group(horizontal=True, horizontal_spacing=0):
-                        dpg.add_spacer(width=4)
+                        dpg.add_spacer(width=px(4))
                         dpg.add_button(
                             label="Check updates",
                             tag="main.update",
@@ -126,14 +129,14 @@ class SpectrExcelApp:
             dpg.bind_item_theme("main.header", header_theme)
 
             dpg.add_separator()
-            with dpg.child_window(tag="assay.content", height=-174, border=False):
+            with dpg.child_window(tag="assay.content", height=px(-174), border=False):
                 pass
             dpg.bind_item_theme("assay.content", assay_theme)
 
             dpg.add_text("ACTIVITY", color=(104, 190, 255))
             dpg.add_child_window(
                 tag="main.log",
-                height=105,
+                height=px(105),
                 width=-1,
                 horizontal_scrollbar=True,
             )
@@ -221,7 +224,9 @@ class SpectrExcelApp:
             self.assay_view.dispose()
         dpg.delete_item("assay.content", children_only=True)
         assay = ASSAYS[index]
-        self.assay_view = assay.view(self.log, self.submit, self.settings)
+        self.assay_view = assay.view(
+            self.log, self.submit, self.settings, self.display_scale
+        )
         self.assay_view.build("assay.content")
         self.settings.set("main/selected_assay", index)
         self.log(f"LOADED ASSAY: {assay.name}")
@@ -259,6 +264,7 @@ class SpectrExcelApp:
         self.log(f"ERROR: unable to check for updates: {error}")
 
     def _show_update_confirmation(self, release: UpdateRelease) -> None:
+        px = self.display_scale.pixels
         if dpg.does_item_exist("update.modal"):
             dpg.delete_item("update.modal")
         with dpg.window(
@@ -266,25 +272,25 @@ class SpectrExcelApp:
             tag="update.modal",
             modal=True,
             no_close=True,
-            width=470,
-            height=180,
-            pos=(165, 155),
+            width=px(470),
+            height=px(180),
+            pos=self.display_scale.position((165, 155)),
         ):
             dpg.add_text(
                 f"Version {release.tag} is available. Install it and restart SpectrExcel?",
-                wrap=430,
+                wrap=px(430),
             )
-            dpg.add_spacer(height=12)
+            dpg.add_spacer(height=px(12))
             with dpg.group(horizontal=True):
                 dpg.add_button(
                     label="Install and restart",
                     callback=lambda: self._download_update(release),
-                    width=180,
+                    width=px(180),
                 )
                 dpg.add_button(
                     label="Not now",
                     callback=lambda: dpg.delete_item("update.modal"),
-                    width=100,
+                    width=px(100),
                 )
 
     def _download_update(self, release: UpdateRelease) -> None:
@@ -327,9 +333,10 @@ class SpectrExcelApp:
         width = dpg.get_viewport_width()
         height = dpg.get_viewport_height()
         position = dpg.get_viewport_pos()
-        self.settings.set("window/width", width)
-        self.settings.set("window/height", height)
-        self.settings.set("window/position", list(position))
+        logical = self.display_scale.logical_pixels
+        self.settings.set("window/width", logical(width))
+        self.settings.set("window/height", logical(height))
+        self.settings.set("window/position", [logical(value) for value in position])
 
     def shutdown(self) -> None:
         self.executor.shutdown(wait=True, cancel_futures=True)
@@ -343,9 +350,10 @@ def application_version() -> str:
 
 
 def main() -> None:
+    display_scale = configure_display_scale()
     dpg.create_context()
     dpg.configure_app(manual_callback_management=True)
-    app = SpectrExcelApp(application_version())
+    app = SpectrExcelApp(application_version(), display_scale)
     width = app.settings.get("window/width", 800)
     height = app.settings.get("window/height", 560)
     position = app.settings.get("window/position", [100, 100])
@@ -359,16 +367,18 @@ def main() -> None:
     ):
         position = [100, 100]
     icon_path = Path(__file__).with_name("icon.ico")
+    px = display_scale.pixels
+    viewport_position = display_scale.position(position)
 
     try:
         dpg.create_viewport(
             title="SpectrExcel",
-            width=max(width, 720),
-            height=max(height, 520),
-            x_pos=position[0],
-            y_pos=position[1],
-            min_width=720,
-            min_height=520,
+            width=px(max(width, 720)),
+            height=px(max(height, 520)),
+            x_pos=viewport_position[0],
+            y_pos=viewport_position[1],
+            min_width=px(720),
+            min_height=px(520),
         )
         if icon_path.exists():
             dpg.set_viewport_large_icon(str(icon_path))

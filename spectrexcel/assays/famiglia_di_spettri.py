@@ -74,23 +74,24 @@ class FamigliaDiSpettri(AssayView):
         self.input_path: Path | None = None
 
     def build(self, parent: str) -> None:
+        px = self.display_scale.pixels
         dpg.add_text("1. Upload a KD file", parent=parent, color=(104, 190, 255))
         dpg.add_button(
             label="Select input file (.KD)",
             tag="spectra.upload",
             callback=self._choose_input,
-            width=260,
+            width=px(260),
             parent=parent,
         )
         dpg.add_text("No file selected", tag="spectra.file", parent=parent, color=(150, 150, 150))
-        dpg.add_spacer(height=12, parent=parent)
+        dpg.add_spacer(height=px(12), parent=parent)
         dpg.add_text("2. Create Excel file", parent=parent, color=(104, 190, 255))
         dpg.add_button(
             label="Generate Excel",
             tag="spectra.export",
             callback=self._choose_output,
             enabled=False,
-            width=260,
+            width=px(260),
             parent=parent,
         )
 
