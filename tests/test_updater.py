@@ -1,3 +1,4 @@
+import base64
 import hashlib
 import os
 from pathlib import Path
@@ -238,3 +239,45 @@ def test_linux_replacement_waits_for_startup_marker(monkeypatch, tmp_path):
     assert 'mv "$backup" "$target"' in script_text
     script.unlink()
     downloaded_path.unlink()
+
+
+def test_windows_replacement_uses_stock_powershell(monkeypatch, tmp_path):
+    target_path = tmp_path / "spectrexcel.exe"
+    downloaded_path = tmp_path / ".spectrexcel.exe-update-abc"
+    target_path.write_bytes(b"old")
+    downloaded_path.write_bytes(b"new")
+    release = updater.UpdateRelease(
+        tag="v1.1.0",
+        version=Version("1.1.0"),
+        asset=updater.ReleaseAsset(WINDOWS_ASSET, "https://example/windows", 3),
+        checksums=updater.ReleaseAsset("SHA256SUMS", "https://example/checksums", 1),
+        page_url="https://example/release",
+    )
+    launched = []
+    monkeypatch.setattr(updater.subprocess, "CREATE_NEW_PROCESS_GROUP", 1, raising=False)
+    monkeypatch.setattr(updater.subprocess, "DETACHED_PROCESS", 2, raising=False)
+    monkeypatch.setattr(updater.subprocess, "CREATE_NO_WINDOW", 4, raising=False)
+    monkeypatch.setattr(
+        updater.subprocess,
+        "Popen",
+        lambda command, **kwargs: launched.append((command, kwargs)),
+    )
+
+    updater.launch_replacement(
+        updater.PreparedUpdate(
+            release,
+            downloaded_path,
+            updater.InstallTarget("win32", target_path),
+        ),
+        current_pid=123,
+    )
+
+    command, options = launched[0]
+    script = base64.b64decode(command[-1]).decode("utf-16-le")
+    assert command[-2] == "-EncodedCommand"
+    assert "Wait-Process" not in script
+    assert "Get-Process -Id $OldPid" in script
+    assert options["env"]["SPECTREXCEL_UPDATE_TARGET"] == str(target_path)
+    assert options["env"]["SPECTREXCEL_UPDATE_FILE"] == str(downloaded_path)
+    assert options["env"]["SPECTREXCEL_UPDATE_PID"] == "123"
+    assert not Path(f"{downloaded_path}.ps1").exists()

@@ -1,3 +1,4 @@
+import base64
 import hashlib
 import os
 import stat
@@ -250,21 +251,24 @@ def _checksum_for(manifest: str, asset_name: str) -> str:
 
 
 def _launch_windows_replacement(update: PreparedUpdate, current_pid: int) -> None:
-    script = Path(f"{update.downloaded_path}.ps1")
-    script.write_text(
-        """param([string]$Target, [string]$Update, [int]$OldPid)
+    script = """$Target = $env:SPECTREXCEL_UPDATE_TARGET
+$Update = $env:SPECTREXCEL_UPDATE_FILE
+$OldPid = [int]$env:SPECTREXCEL_UPDATE_PID
 $ErrorActionPreference = "Stop"
 $Backup = "$Target.old"
 $Marker = "$Update.success"
-try {
-    Wait-Process -Id $OldPid -Timeout 120 -ErrorAction Stop
-} catch {
-    Remove-Item $Update, $PSCommandPath -Force -ErrorAction SilentlyContinue
+$Process = $null
+for ($Attempt = 0; $Attempt -lt 120; $Attempt++) {
+    if (-not (Get-Process -Id $OldPid -ErrorAction SilentlyContinue)) { break }
+    Start-Sleep -Seconds 1
+}
+if (Get-Process -Id $OldPid -ErrorAction SilentlyContinue) {
+    Remove-Item $Update -Force -ErrorAction SilentlyContinue
     exit 1
 }
-Remove-Item $Backup, $Marker -Force -ErrorAction SilentlyContinue
-Move-Item $Target $Backup -Force
 try {
+    Remove-Item $Backup, $Marker -Force -ErrorAction SilentlyContinue
+    Move-Item $Target $Backup -Force
     Move-Item $Update $Target -Force
     $env:SPECTREXCEL_UPDATE_MARKER = $Marker
     $Process = Start-Process -FilePath $Target -PassThru
@@ -278,15 +282,24 @@ try {
     Remove-Item $Backup, $Marker -Force -ErrorAction SilentlyContinue
 } catch {
     if ($Process -and -not $Process.HasExited) { Stop-Process -Id $Process.Id -Force }
-    Remove-Item $Target, $Marker -Force -ErrorAction SilentlyContinue
-    Move-Item $Backup $Target -Force
+    Remove-Item $Marker -Force -ErrorAction SilentlyContinue
+    if (Test-Path $Backup) {
+        Remove-Item $Target -Force -ErrorAction SilentlyContinue
+        Move-Item $Backup $Target -Force
+    }
+    Remove-Item $Update -Force -ErrorAction SilentlyContinue
     Remove-Item Env:SPECTREXCEL_UPDATE_MARKER -ErrorAction SilentlyContinue
-    Start-Process -FilePath $Target
-} finally {
-    Remove-Item $PSCommandPath -Force -ErrorAction SilentlyContinue
+    if (Test-Path $Target) { Start-Process -FilePath $Target }
 }
-""",
-        encoding="ascii",
+"""
+    encoded_script = base64.b64encode(script.encode("utf-16-le")).decode("ascii")
+    environment = os.environ.copy()
+    environment.update(
+        {
+            "SPECTREXCEL_UPDATE_TARGET": str(update.target.path),
+            "SPECTREXCEL_UPDATE_FILE": str(update.downloaded_path),
+            "SPECTREXCEL_UPDATE_PID": str(current_pid),
+        }
     )
     creation_flags = (
         subprocess.CREATE_NEW_PROCESS_GROUP
@@ -301,17 +314,14 @@ try {
                 "-NonInteractive",
                 "-ExecutionPolicy",
                 "Bypass",
-                "-File",
-                str(script),
-                str(update.target.path),
-                str(update.downloaded_path),
-                str(current_pid),
+                "-EncodedCommand",
+                encoded_script,
             ],
             close_fds=True,
             creationflags=creation_flags,
+            env=environment,
         )
     except Exception:
-        script.unlink(missing_ok=True)
         update.downloaded_path.unlink(missing_ok=True)
         raise
 
