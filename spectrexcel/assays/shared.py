@@ -322,6 +322,9 @@ def parse_kd_file(filepath: Path) -> pd.DataFrame | None:
 
 def clean_duplicate_spectra(df: pd.DataFrame) -> Tuple[pd.DataFrame, bool]:
 
+    if len(df) < 2 or len(df) % 2 != 0:
+        return df, False
+
     halfway_row = int(len(df) / 2)
     df_data = df.drop("#Sample", axis=1)
     df_1st_half = df_data.head(halfway_row).reset_index(drop=True)
