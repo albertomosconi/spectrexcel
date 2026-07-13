@@ -31,7 +31,49 @@ class BindingTitolazione(AssayWidget):
         button.pressed.connect(self.__upload_clicked)
         layout.addWidget(button)
 
-        self.title2 = widgets.QLabel("2. Create excel file")
+        title = widgets.QLabel("2. Configure axis ranges")
+        title.setStyleSheet("font: 16px; font-weight: bold;")
+        layout.addWidget(title)
+
+        form_settings = widgets.QWidget()
+        form_layout = widgets.QFormLayout()
+        form_layout.setContentsMargins(0, 0, 0, 0)
+        form_settings.setLayout(form_layout)
+        layout.addWidget(form_settings)
+
+        self.x_axis_min = widgets.QSpinBox()
+        self.x_axis_min.setRange(0, 1_000_000)
+        self.x_axis_min.setValue(
+            self.settings.value("titolazione/x_axis_min", 200, type=int)
+        )
+        form_layout.addRow("X-axis minimum (nm)", self.x_axis_min)
+
+        self.x_axis_max = widgets.QSpinBox()
+        self.x_axis_max.setRange(0, 1_000_000)
+        self.x_axis_max.setValue(
+            self.settings.value("titolazione/x_axis_max", 800, type=int)
+        )
+        form_layout.addRow("X-axis maximum (nm)", self.x_axis_max)
+
+        self.y_axis_min = widgets.QDoubleSpinBox()
+        self.y_axis_min.setRange(-1_000_000, 1_000_000)
+        self.y_axis_min.setDecimals(4)
+        self.y_axis_min.setSingleStep(0.05)
+        self.y_axis_min.setValue(
+            self.settings.value("titolazione/y_axis_min", 0.0, type=float)
+        )
+        form_layout.addRow("Y-axis minimum (AU)", self.y_axis_min)
+
+        self.y_axis_max = widgets.QDoubleSpinBox()
+        self.y_axis_max.setRange(-1_000_000, 1_000_000)
+        self.y_axis_max.setDecimals(4)
+        self.y_axis_max.setSingleStep(0.05)
+        self.y_axis_max.setValue(
+            self.settings.value("titolazione/y_axis_max", 0.5, type=float)
+        )
+        form_layout.addRow("Y-axis maximum (AU)", self.y_axis_max)
+
+        self.title2 = widgets.QLabel("3. Create excel file")
         self.title2.setDisabled(True)
         self.title2.setStyleSheet("font: 16px; font-weight: bold;")
         layout.addWidget(self.title2)
@@ -80,6 +122,16 @@ class BindingTitolazione(AssayWidget):
     def __btn_save_clicked(self):
         """"""
         try:
+            x_axis_min = self.x_axis_min.value()
+            x_axis_max = self.x_axis_max.value()
+            y_axis_min = self.y_axis_min.value()
+            y_axis_max = self.y_axis_max.value()
+
+            if x_axis_min >= x_axis_max:
+                raise ValueError("X-axis minimum must be lower than its maximum")
+            if y_axis_min >= y_axis_max:
+                raise ValueError("Y-axis minimum must be lower than its maximum")
+
             filename_excel, _ = widgets.QFileDialog.getSaveFileName(
                 self,
                 "Save excel file",
@@ -100,6 +152,10 @@ class BindingTitolazione(AssayWidget):
             self.settings.setValue(
                 "main/folder_output", str(Path(filename_excel).parent)
             )
+            self.settings.setValue("titolazione/x_axis_min", x_axis_min)
+            self.settings.setValue("titolazione/x_axis_max", x_axis_max)
+            self.settings.setValue("titolazione/y_axis_min", y_axis_min)
+            self.settings.setValue("titolazione/y_axis_max", y_axis_max)
 
             self.log("generating excel file...")
             with pd.ExcelWriter(filename_excel, engine="xlsxwriter") as writer:
@@ -134,8 +190,8 @@ class BindingTitolazione(AssayWidget):
                         "num_font": {"color": "gray"},
                         "line": {"color": "gray"},
                         "interval_unit": 50,
-                        "min": 200,
-                        "max": 800,
+                        "min": x_axis_min,
+                        "max": x_axis_max,
                         "major_tick_mark": "none",
                         "minor_tick_mark": "none",
                     }
@@ -148,8 +204,8 @@ class BindingTitolazione(AssayWidget):
                         "num_format": "#,##0.00",
                         "line": {"color": "gray"},
                         "major_gridlines": {"visible": False},
-                        "min": 0,
-                        "max": 0.5,
+                        "min": y_axis_min,
+                        "max": y_axis_max,
                         "major_tick_mark": "none",
                         "minor_tick_mark": "none",
                     }
