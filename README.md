@@ -39,6 +39,7 @@ chmod +x SpectrExcel-x86_64.AppImage
 
 The Linux application requires a working X11/GLX OpenGL implementation. The
 AppImage uses the graphics libraries and drivers installed by the host system.
+
 SpectrExcel checks the latest stable release at startup and can download,
 verify, install, and restart into an available update. Linux automatic updates
 require running the AppImage from a writable location.
@@ -48,8 +49,8 @@ To publish a release, update the version in `pyproject.toml`, refresh
 
 ```shell
 uv lock
-git tag v1.1.1
-git push origin main v1.1.1
+git tag v1.1.0
+git push origin main v1.1.0
 ```
 
 GitHub Actions validates the version, runs the tests, builds both supported
