@@ -1,0 +1,105 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate release version
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: astral-sh/setup-uv@94527f2e458b27549849d47d273a16bec83a01e9 # v7
+        with:
+          python-version: "3.12"
+      - name: Match tag and project version
+        run: |
+          project_version=$(uv run --no-project python -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')
+          test "$GITHUB_REF_NAME" = "v$project_version"
+
+  build:
+    name: Build ${{ matrix.name }}
+    needs: validate
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows x86-64
+            os: windows-latest
+            artifact: spectrexcel-windows-x86_64
+            path: dist/spectrexcel-windows-x86_64.exe
+          - name: Linux x86-64
+            os: ubuntu-22.04
+            artifact: SpectrExcel-linux-x86_64
+            path: dist/SpectrExcel-x86_64.AppImage
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: astral-sh/setup-uv@94527f2e458b27549849d47d273a16bec83a01e9 # v7
+        with:
+          python-version: "3.12"
+          enable-cache: true
+      - run: uv sync --frozen
+      - run: uv run pytest -q
+      - run: uv sync --frozen --no-default-groups --group build
+      - run: uv run --no-sync build
+      - name: Name Windows executable
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: Move-Item dist/spectrexcel.exe dist/spectrexcel-windows-x86_64.exe
+      - name: Install pinned appimagetool
+        if: runner.os == 'Linux'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          curl --fail --location --retry 3 \
+            --header "Accept: application/octet-stream" \
+            --header "Authorization: Bearer $GH_TOKEN" \
+            https://api.github.com/repos/AppImage/appimagetool/releases/assets/324406882 \
+            --output appimagetool
+          curl --fail --location --retry 3 \
+            --header "Accept: application/octet-stream" \
+            --header "Authorization: Bearer $GH_TOKEN" \
+            https://api.github.com/repos/AppImage/type2-runtime/releases/assets/456065460 \
+            --output runtime-x86_64
+          echo "a6d71e2b6cd66f8e8d16c37ad164658985e0cf5fcaa950c90a482890cb9d13e0  appimagetool" | sha256sum --check -
+          echo "1cc49bcf1e2ccd593c379adb17c9f85a36d619088296504de95b1d06215aebbf  runtime-x86_64" | sha256sum --check -
+          chmod +x appimagetool
+      - name: Build AppImage
+        if: runner.os == 'Linux'
+        run: sh packaging/linux/build-appimage.sh
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.path }}
+          if-no-files-found: error
+
+  publish:
+    name: Publish GitHub release
+    needs: build
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          path: release-assets
+          merge-multiple: true
+      - name: Create checksum manifest
+        working-directory: release-assets
+        run: sha256sum -- * > SHA256SUMS
+      - name: Publish release and assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" release-assets/* --clobber --repo "$GITHUB_REPOSITORY"
+          else
+            gh release create "$GITHUB_REF_NAME" release-assets/* \
+              --verify-tag --generate-notes --title "$GITHUB_REF_NAME" \
+              --repo "$GITHUB_REPOSITORY"
+          fi

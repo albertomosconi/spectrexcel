@@ -11,6 +11,9 @@ __pycache__/
 
 # Distribution / packaging
 .Python
+dist/
+appimagetool
+runtime-x86_64
 build/
 develop-eggs/
 downloads/

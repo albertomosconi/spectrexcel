@@ -1,0 +1,82 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Test Python ${{ matrix.python-version }}
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: astral-sh/setup-uv@94527f2e458b27549849d47d273a16bec83a01e9 # v7
+        with:
+          python-version: ${{ matrix.python-version }}
+          enable-cache: true
+      - run: uv sync --frozen
+      - run: uv run pytest -q
+
+  build:
+    name: Build ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows x86-64
+            os: windows-latest
+            artifact: spectrexcel-windows-x86_64
+            path: dist/spectrexcel-windows-x86_64.exe
+          - name: Linux x86-64
+            os: ubuntu-22.04
+            artifact: SpectrExcel-linux-x86_64
+            path: dist/SpectrExcel-x86_64.AppImage
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: astral-sh/setup-uv@94527f2e458b27549849d47d273a16bec83a01e9 # v7
+        with:
+          python-version: "3.12"
+          enable-cache: true
+      - run: uv sync --frozen --no-default-groups --group build
+      - run: uv run --no-sync build
+      - name: Name Windows executable
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: Move-Item dist/spectrexcel.exe dist/spectrexcel-windows-x86_64.exe
+      - name: Install pinned appimagetool
+        if: runner.os == 'Linux'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          curl --fail --location --retry 3 \
+            --header "Accept: application/octet-stream" \
+            --header "Authorization: Bearer $GH_TOKEN" \
+            https://api.github.com/repos/AppImage/appimagetool/releases/assets/324406882 \
+            --output appimagetool
+          curl --fail --location --retry 3 \
+            --header "Accept: application/octet-stream" \
+            --header "Authorization: Bearer $GH_TOKEN" \
+            https://api.github.com/repos/AppImage/type2-runtime/releases/assets/456065460 \
+            --output runtime-x86_64
+          echo "a6d71e2b6cd66f8e8d16c37ad164658985e0cf5fcaa950c90a482890cb9d13e0  appimagetool" | sha256sum --check -
+          echo "1cc49bcf1e2ccd593c379adb17c9f85a36d619088296504de95b1d06215aebbf  runtime-x86_64" | sha256sum --check -
+          chmod +x appimagetool
+      - name: Build AppImage
+        if: runner.os == 'Linux'
+        run: sh packaging/linux/build-appimage.sh
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.path }}
+          if-no-files-found: error
+          retention-days: 7

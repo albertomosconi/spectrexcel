@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=SpectrExcel
+Comment=Process spectroscopy data and export Excel workbooks
+Exec=spectrexcel
+Icon=spectrexcel
+Categories=Science;
+Terminal=false

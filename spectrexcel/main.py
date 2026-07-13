@@ -6,15 +6,23 @@ from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
+from threading import Lock
 from typing import Any, Callable
 
 import dearpygui.dearpygui as dpg
-import requests
-from packaging.version import InvalidVersion, Version
 
 from spectrexcel.assays import BindingTitolazione, Cinetiche, FamigliaDiSpettri
 from spectrexcel.assays.shared import AssayView
 from spectrexcel.settings import Settings
+from spectrexcel.updater import (
+    REPOSITORY_URL,
+    PreparedUpdate,
+    UpdateRelease,
+    confirm_update_startup,
+    find_update,
+    launch_replacement,
+    prepare_update,
+)
 
 
 @dataclass(frozen=True)
@@ -38,7 +46,9 @@ class SpectrExcelApp:
         self.results: queue.SimpleQueue[
             tuple[Callable[[Any], None], Any, Exception | None]
         ] = queue.SimpleQueue()
-        self.latest_release_version: str | None = None
+        self.futures: set[Future[Any]] = set()
+        self.futures_lock = Lock()
+        self.latest_release: UpdateRelease | None = None
         self.assay_view: AssayView | None = None
         self.log_scroll_pending = 0
 
@@ -146,14 +156,22 @@ class SpectrExcelApp:
         on_error: Callable[[Exception], None],
     ) -> None:
         future = self.executor.submit(task)
+        with self.futures_lock:
+            self.futures.add(future)
 
         def completed(done: Future[Any]) -> None:
+            with self.futures_lock:
+                self.futures.discard(done)
             try:
                 self.results.put((on_success, done.result(), None))
             except Exception as error:
                 self.results.put((on_error, None, error))
 
         future.add_done_callback(completed)
+
+    def has_running_tasks(self) -> bool:
+        with self.futures_lock:
+            return any(not future.done() for future in self.futures)
 
     def process_results(self) -> None:
         while True:
@@ -208,30 +226,13 @@ class SpectrExcelApp:
         self.settings.set("main/selected_assay", index)
         self.log(f"LOADED ASSAY: {assay.name}")
 
-    def _find_update(self) -> str | None:
-        response = requests.get(
-            "https://gitlab.com/api/v4/projects/65488480/repository/tags",
-            params={"order_by": "updated", "sort": "desc", "per_page": 100},
-            timeout=10,
-        )
-        response.raise_for_status()
-        current = Version(self.version)
-        available: list[tuple[Version, str]] = []
-        for release in response.json():
-            name = release.get("name", "")
-            try:
-                available.append((Version(name.removeprefix("v")), name))
-            except InvalidVersion:
-                continue
-        if not available:
-            return None
-        latest, name = max(available)
-        return name if latest > current else None
+    def _find_update(self) -> UpdateRelease | None:
+        return find_update(self.version)
 
-    def _update_check_finished(self, version: str | None) -> None:
-        self.latest_release_version = version
-        if version is not None:
-            dpg.configure_item("main.update", label=f"Update {version}")
+    def _update_check_finished(self, release: UpdateRelease | None) -> None:
+        self.latest_release = release
+        if release is not None:
+            dpg.configure_item("main.update", label=f"Update {release.tag}")
 
     def _update_check_failed(self, _error: Exception) -> None:
         # Startup update checks are intentionally silent.
@@ -242,22 +243,22 @@ class SpectrExcelApp:
         self.log("checking for updates...")
         self.submit(self._find_update, self._manual_update_finished, self._manual_update_failed)
 
-    def _manual_update_finished(self, version: str | None) -> None:
+    def _manual_update_finished(self, release: UpdateRelease | None) -> None:
         dpg.configure_item("main.update", enabled=True)
-        self.latest_release_version = version
-        if version is None:
+        self.latest_release = release
+        if release is None:
             dpg.configure_item("main.update", label="Check updates")
             self.log("no updates found")
             return
-        dpg.configure_item("main.update", label=f"Update {version}")
-        self.log(f"NEW APP VERSION FOUND: {version}")
-        self._show_update_confirmation(version)
+        dpg.configure_item("main.update", label=f"Update {release.tag}")
+        self.log(f"NEW APP VERSION FOUND: {release.tag}")
+        self._show_update_confirmation(release)
 
     def _manual_update_failed(self, error: Exception) -> None:
         dpg.configure_item("main.update", enabled=True, label="Check updates")
         self.log(f"ERROR: unable to check for updates: {error}")
 
-    def _show_update_confirmation(self, version: str) -> None:
+    def _show_update_confirmation(self, release: UpdateRelease) -> None:
         if dpg.does_item_exist("update.modal"):
             dpg.delete_item("update.modal")
         with dpg.window(
@@ -270,14 +271,14 @@ class SpectrExcelApp:
             pos=(165, 155),
         ):
             dpg.add_text(
-                f"Version {version} is available. Open the download page and close SpectrExcel?",
+                f"Version {release.tag} is available. Install it and restart SpectrExcel?",
                 wrap=430,
             )
             dpg.add_spacer(height=12)
             with dpg.group(horizontal=True):
                 dpg.add_button(
-                    label="Download and close",
-                    callback=lambda: self._download_update(version),
+                    label="Install and restart",
+                    callback=lambda: self._download_update(release),
                     width=180,
                 )
                 dpg.add_button(
@@ -286,17 +287,41 @@ class SpectrExcelApp:
                     width=100,
                 )
 
-    def _download_update(self, version: str) -> None:
-        download_url = (
-            "https://gitlab.com/albertomosconi/spectrexcel/-/raw/"
-            f"{version}/dist/spectrexcel.exe"
+    def _download_update(self, release: UpdateRelease) -> None:
+        if self.has_running_tasks():
+            self.log("finish the current operation before installing the update")
+            return
+        dpg.delete_item("update.modal")
+        dpg.configure_item("main.update", enabled=False, label="Downloading...")
+        self.log(f"downloading {release.asset.name}...")
+        self.submit(
+            lambda: prepare_update(release),
+            self._update_download_finished,
+            self._update_download_failed,
         )
-        webbrowser.open(download_url)
+
+    def _update_download_finished(self, update: PreparedUpdate) -> None:
+        if self.has_running_tasks():
+            update.downloaded_path.unlink(missing_ok=True)
+            self._update_download_failed(
+                RuntimeError("an application operation started during the download")
+            )
+            return
+        try:
+            launch_replacement(update)
+        except Exception as error:
+            self._update_download_failed(error)
+            return
+        self.log("update verified; restarting SpectrExcel...")
         dpg.stop_dearpygui()
+
+    def _update_download_failed(self, error: Exception) -> None:
+        dpg.configure_item("main.update", enabled=True, label="Check updates")
+        self.log(f"ERROR: unable to install update: {error}")
 
     @staticmethod
     def _open_source() -> None:
-        webbrowser.open("https://gitlab.com/albertomosconi/spectrexcel")
+        webbrowser.open(REPOSITORY_URL)
 
     def save_viewport(self) -> None:
         width = dpg.get_viewport_width()
@@ -351,6 +376,7 @@ def main() -> None:
         app.build()
         dpg.setup_dearpygui()
         dpg.show_viewport()
+        confirm_update_startup()
         while dpg.is_dearpygui_running():
             dpg.run_callbacks(dpg.get_callback_queue())
             app.process_results()
