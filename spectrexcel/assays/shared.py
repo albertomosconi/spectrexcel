@@ -2,17 +2,139 @@ import re
 import struct
 from pathlib import Path
 from struct import iter_unpack
-from typing import Callable, Tuple
+from typing import Any, Callable, Tuple
 
+import dearpygui.dearpygui as dpg
 import pandas as pd
-from PyQt6 import QtWidgets as widgets
+
+from spectrexcel.settings import Settings
 
 
-class AssayWidget(widgets.QWidget):
-    def __init__(self, log: Callable[[str | list[str]], None]):
-        super().__init__()
-
+class AssayView:
+    def __init__(
+        self,
+        log: Callable[[str | list[str]], None],
+        submit: Callable[..., None],
+        settings: Settings,
+    ):
         self.log = log
+        self._submit = submit
+        self.settings = settings
+        self.active = True
+
+    def dispose(self) -> None:
+        self.active = False
+
+    def submit(
+        self,
+        task: Callable[[], Any],
+        on_success: Callable[[Any], None],
+        on_error: Callable[[Exception], None],
+    ) -> None:
+        def if_active(callback: Callable[[Any], None]) -> Callable[[Any], None]:
+            return lambda value: callback(value) if self.active else None
+
+        self._submit(task, if_active(on_success), if_active(on_error))
+
+    def open_file_dialog(
+        self,
+        *,
+        tag: str,
+        title: str,
+        callback: Callable[[list[Path]], None],
+        extensions: tuple[str, ...],
+        default_path: str,
+        multiple: bool = False,
+    ) -> None:
+        if dpg.does_item_exist(tag):
+            dpg.delete_item(tag)
+
+        def selected(sender: Any, app_data: dict[str, Any]) -> None:
+            selections = app_data.get("selections", {})
+            paths = [Path(path) for path in selections.values()]
+            if not paths and app_data.get("file_path_name"):
+                paths = [Path(app_data["file_path_name"])]
+            dpg.delete_item(sender)
+            if paths:
+                callback(paths)
+
+        with dpg.file_dialog(
+            label=title,
+            tag=tag,
+            show=True,
+            modal=True,
+            callback=selected,
+            cancel_callback=lambda sender: dpg.delete_item(sender),
+            default_path=default_path,
+            file_count=0 if multiple else 1,
+            width=700,
+            height=420,
+        ):
+            for extension in extensions:
+                dpg.add_file_extension(extension)
+
+    def save_file_dialog(
+        self,
+        *,
+        tag: str,
+        title: str,
+        callback: Callable[[Path], None],
+        default_path: str,
+        default_filename: str,
+    ) -> None:
+        if dpg.does_item_exist(tag):
+            dpg.delete_item(tag)
+
+        def selected(sender: Any, app_data: dict[str, Any]) -> None:
+            path = Path(app_data["file_path_name"])
+            dpg.delete_item(sender)
+            if path.suffix.lower() != ".xlsx":
+                path = path.with_suffix(".xlsx")
+            if not path.exists():
+                callback(path)
+                return
+
+            confirmation_tag = f"{tag}.overwrite"
+            if dpg.does_item_exist(confirmation_tag):
+                dpg.delete_item(confirmation_tag)
+            with dpg.window(
+                label="Replace existing file?",
+                tag=confirmation_tag,
+                modal=True,
+                no_close=True,
+                width=430,
+                height=145,
+                pos=(185, 175),
+            ):
+                dpg.add_text(f"{path.name} already exists. Replace it?", wrap=390)
+                with dpg.group(horizontal=True):
+                    dpg.add_button(
+                        label="Replace",
+                        width=100,
+                        callback=lambda: (
+                            dpg.delete_item(confirmation_tag),
+                            callback(path),
+                        ),
+                    )
+                    dpg.add_button(
+                        label="Cancel",
+                        width=100,
+                        callback=lambda: dpg.delete_item(confirmation_tag),
+                    )
+
+        with dpg.file_dialog(
+            label=title,
+            tag=tag,
+            show=True,
+            modal=True,
+            callback=selected,
+            cancel_callback=lambda sender: dpg.delete_item(sender),
+            default_path=default_path,
+            default_filename=default_filename,
+            width=700,
+            height=420,
+        ):
+            dpg.add_file_extension("Excel workbook (*.xlsx){.xlsx}")
 
 
 def parse_txt_file(filepath: Path) -> pd.DataFrame:

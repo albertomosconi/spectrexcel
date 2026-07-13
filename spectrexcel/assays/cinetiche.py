@@ -1,239 +1,232 @@
 from datetime import datetime
 from pathlib import Path
-from typing import Tuple
 
+import dearpygui.dearpygui as dpg
 import pandas as pd
 from natsort import natsorted
-from PyQt6 import QtCore as core
-from PyQt6 import QtGui as gui
-from PyQt6 import QtWidgets as widgets
 from xlsxwriter import Workbook, worksheet
 
-from .shared import AssayWidget, parse_kd_file
+from .shared import AssayView, parse_kd_file
 
 
-class Cinetiche(AssayWidget):
-    dfs: list[Tuple[str, pd.DataFrame]] = []
+def export_kinetics(
+    datasets: list[tuple[str, pd.DataFrame]],
+    output_path: Path,
+    reading_wavelength: int,
+    correction_wavelength: int,
+) -> None:
+    datasets = natsorted(datasets, key=lambda dataset: dataset[0])
+    if not datasets:
+        raise ValueError("no kinetic data loaded")
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    with pd.ExcelWriter(output_path, engine="xlsxwriter") as writer:
+        workbook: Workbook = writer.book
+        sheet: worksheet.Worksheet = workbook.add_worksheet("data")
+        sheet.write(0, 0, "tracce")
+        sheet.write(1, 0, "Time (s)")
+        sheet.write(
+            0,
+            4 + len(datasets),
+            f"correction wavelength: {correction_wavelength}nm",
+        )
+        for row, value in enumerate(datasets[0][1].columns.values, start=2):
+            sheet.write(row, 0, float(value))
 
-        # load settings
-        self.settings = core.QSettings(
-            core.QCoreApplication.organizationName(),
-            core.QCoreApplication.applicationName(),
+        chart = workbook.add_chart({"type": "scatter", "subtype": "smooth"})
+        chart.set_title(
+            {
+                "name": "trends",
+                "name_font": {"color": "gray", "size": 14, "bold": False},
+            }
         )
 
-        layout = widgets.QVBoxLayout()
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setAlignment(core.Qt.AlignmentFlag.AlignTop)
-        self.setLayout(layout)
-
-        title = widgets.QLabel("1. Upload a KD file")
-        title.setStyleSheet("font: 16px; font-weight: bold;")
-        layout.addWidget(title)
-
-        button = widgets.QPushButton("select input file (.KD)")
-        button.pressed.connect(self.__upload_clicked)
-        layout.addWidget(button)
-
-        box = widgets.QWidget()
-        box.setDisabled(True)
-        self.box = box
-        layout.addWidget(box)
-        layout = widgets.QVBoxLayout()
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setAlignment(core.Qt.AlignmentFlag.AlignTop)
-        box.setLayout(layout)
-
-        title = widgets.QLabel("2. Configure parameters")
-        title.setStyleSheet("font: 16px; font-weight: bold;")
-        layout.addWidget(title)
-
-        form_settings = widgets.QWidget()
-        form_layout = widgets.QFormLayout()
-        form_layout.setContentsMargins(0, 0, 0, 0)
-        form_settings.setLayout(form_layout)
-        layout.addWidget(form_settings)
-
-        self.wlen_read = widgets.QLineEdit()
-        wl_r = self.settings.value("cinetiche/wl_read", 300, type=int)
-        self.wlen_read.setText(str(wl_r))
-        onlyInt = gui.QIntValidator()
-        self.wlen_read.setValidator(onlyInt)
-        form_layout.addRow("reading wavelength", self.wlen_read)
-
-        self.wlen_correction = widgets.QLineEdit()
-        wl_c = self.settings.value("cinetiche/wl_corr", 800, type=int)
-        self.wlen_correction.setText(str(wl_c))
-        onlyInt = gui.QIntValidator()
-        self.wlen_correction.setValidator(onlyInt)
-        form_layout.addRow("correction wavelength", self.wlen_correction)
-
-        title = widgets.QLabel("3. Create excel file")
-        title.setStyleSheet("font: 16px; font-weight: bold;")
-        layout.addWidget(title)
-
-        self.btn_save = widgets.QPushButton("generate excel")
-        self.btn_save.pressed.connect(self.__btn_save_clicked)
-        layout.addWidget(self.btn_save)
-
-    def __upload_clicked(self):
-        """"""
-        try:
-            filenames, _ = widgets.QFileDialog.getOpenFileNames(
-                self,
-                "Select multiple files",
-                self.settings.value("cinetiche/folder_input", ".", type=str),
-                "Kinetic Data Files (*.KD)",
+        absorbance_max = 0.0
+        for index, (filename, spectra) in enumerate(datasets):
+            if reading_wavelength not in spectra.index:
+                raise ValueError(f"reading wavelength {reading_wavelength}nm is unavailable")
+            if correction_wavelength not in spectra.index:
+                raise ValueError(
+                    f"correction wavelength {correction_wavelength}nm is unavailable"
+                )
+            final = spectra.loc[reading_wavelength] - spectra.loc[correction_wavelength]
+            absorbance_max = max(absorbance_max, float(final.max()))
+            final.to_excel(
+                writer,
+                sheet_name="data",
+                index=False,
+                header=False,
+                startrow=2,
+                startcol=1 + index,
             )
-            if len(filenames) == 0:
-                return
-
-            self.settings.setValue(
-                "cinetiche/folder_input", str(Path(filenames[0]).parent)
-            )
-            self.log(f"selected {len(filenames)} files")
-            self.dfs = []
-            for filename in filenames:
-                filepath = Path(filename)
-                self.log(f"loading {filepath.name}")
-
-                if filepath.suffix.upper() == ".KD":
-                    df = parse_kd_file(filepath)
-                else:
-                    raise Exception("unknown input format")
-
-                if df is None:
-                    raise Exception("failed to parse file")
-
-                self.dfs.append((filepath.stem, df))
-
-            self.box.setDisabled(False)
-        except Exception as e:
-            self.log(f"ERROR: {e}")
-
-    def __btn_save_clicked(self):
-        """"""
-        try:
-            filename_excel, _ = widgets.QFileDialog.getSaveFileName(
-                self,
-                "Save excel file",
-                str(
-                    Path(self.settings.value("cinetiche/folder_output", ".", type=str))
-                    / f"{datetime.now().strftime('%Y-%m-%d %H-%M-%S')} spectrexcel.xlsx"
-                ),
-                "Excel (*.xlsx)",
+            sheet.write(1, 1 + index, filename)
+            chart.add_series(
+                {
+                    "categories": ["data", 2, 0, len(final) + 1, 0],
+                    "values": ["data", 2, 1 + index, len(final) + 1, 1 + index],
+                    "line": {"width": 1.25},
+                    "name": ["data", 1, 1 + index],
+                }
             )
 
-            if not filename_excel:
-                return
+        chart.set_x_axis(
+            {
+                "name": "Time (s)",
+                "name_font": {"bold": False, "color": "gray"},
+                "position_axis": "on_tick",
+                "num_font": {"color": "gray"},
+                "line": {"color": "gray"},
+                "interval_unit": 50,
+                "min": 0,
+                "max": float(datasets[0][1].columns.values[-1]),
+                "major_tick_mark": "none",
+                "minor_tick_mark": "none",
+            }
+        )
+        chart.set_y_axis(
+            {
+                "name": f"Abs{reading_wavelength} (AU)",
+                "name_font": {"bold": False, "color": "gray"},
+                "num_font": {"color": "gray"},
+                "num_format": "#,##0.00",
+                "line": {"color": "gray"},
+                "major_gridlines": {"visible": False},
+                "interval_unit": 0.05,
+                "min": 0,
+                "max": absorbance_max,
+                "major_tick_mark": "none",
+                "minor_tick_mark": "none",
+            }
+        )
+        chart.set_size({"x_scale": 1.5, "y_scale": 1.5})
+        chart.set_legend(
+            {"position": "bottom", "font": {"color": "gray", "size": 9}}
+        )
+        chart.set_style(5)
+        sheet.insert_chart(4, 4 + len(datasets), chart=chart)
 
-            self.settings.setValue(
-                "cinetiche/folder_output", str(Path(filename_excel).parent)
-            )
 
-            wl_read = int(self.wlen_read.text())
-            wl_corr = int(self.wlen_correction.text())
+class Cinetiche(AssayView):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.datasets: list[tuple[str, pd.DataFrame]] = []
 
-            # save wl values
-            self.settings.setValue("cinetiche/wl_read", wl_read)
-            self.settings.setValue("cinetiche/wl_corr", wl_corr)
-
-            self.log("generating excel file...")
-
-            # TODO: fix filenames
-
-            # sort uploaded files by name
-            self.dfs = natsorted(self.dfs, lambda d: d[0])
-
-            with pd.ExcelWriter(filename_excel, engine="xlsxwriter") as writer:
-                wb: Workbook = writer.book
-                ws: worksheet.Worksheet = wb.add_worksheet("data")
-
-                ws.write(0, 0, "tracce")
-                ws.write(1, 0, "Time (s)")
-                ws.write(0, 4 + len(self.dfs), f"correction wavelength: {wl_corr}nm")
-
-                for col_num, value in enumerate(self.dfs[0][1].columns.values):
-                    ws.write(col_num + 2, 0, float(value))
-
-                chart = wb.add_chart({"type": "scatter", "subtype": "smooth"})
-                if not chart:
-                    return
-
-                chart.set_title(
-                    {
-                        "name": "trends",
-                        "name_font": {"color": "gray", "size": 14, "bold": False},
-                    }
+    def build(self, parent: str) -> None:
+        dpg.add_text("1. Upload KD files", parent=parent, color=(104, 190, 255))
+        dpg.add_button(
+            label="Select input files (.KD)",
+            tag="kinetics.upload",
+            callback=self._choose_inputs,
+            width=260,
+            parent=parent,
+        )
+        dpg.add_text("No files selected", tag="kinetics.files", parent=parent, color=(150, 150, 150))
+        dpg.add_spacer(height=6, parent=parent)
+        dpg.add_text("2. Configure parameters", parent=parent, color=(104, 190, 255))
+        with dpg.group(horizontal=True, parent=parent):
+            with dpg.group():
+                dpg.add_text("Reading wavelength (nm)")
+                dpg.add_input_int(
+                    tag="kinetics.reading",
+                    default_value=self.settings.get("cinetiche/wl_read", 300),
+                    min_value=190,
+                    max_value=1100,
+                    min_clamped=True,
+                    max_clamped=True,
+                    width=210,
                 )
-
-                abs_max = 0.0
-                for i, (filename, spectra_df) in enumerate(self.dfs):
-                    spectra_read = spectra_df.loc[[wl_read]].squeeze()
-                    spectra_corr = spectra_df.loc[[wl_corr]].squeeze()
-
-                    final: pd.Series = spectra_read - spectra_corr
-
-                    abs_max = max(abs_max, final.max())
-
-                    final.to_excel(
-                        writer,
-                        sheet_name="data",
-                        index=False,
-                        header=False,
-                        startrow=2,
-                        startcol=1 + i,
-                    )
-                    ws.write(1, 1 + i, filename)
-
-                    chart.add_series(
-                        {
-                            "categories": ["data", 2, 0, len(final) + 2, 0],
-                            "values": ["data", 2, 1 + i, len(final), 1 + i],
-                            "line": {"width": 1.25},
-                            "name": ["data", 1, 1 + i],
-                        }
-                    )
-
-                chart.set_x_axis(
-                    {
-                        "name": "Time (s)",
-                        "name_font": {"bold": False, "color": "gray"},
-                        "position_axis": "on_tick",
-                        "num_font": {"color": "gray"},
-                        "line": {"color": "gray"},
-                        "interval_unit": 50,
-                        "min": 0,
-                        "max": float(self.dfs[0][1].columns.values[-1]),
-                        "major_tick_mark": "none",
-                        "minor_tick_mark": "none",
-                    }
+            with dpg.group():
+                dpg.add_text("Correction wavelength (nm)")
+                dpg.add_input_int(
+                    tag="kinetics.correction",
+                    default_value=self.settings.get("cinetiche/wl_corr", 800),
+                    min_value=190,
+                    max_value=1100,
+                    min_clamped=True,
+                    max_clamped=True,
+                    width=210,
                 )
-                chart.set_y_axis(
-                    {
-                        "name": f"Abs{wl_read} (AU)",
-                        "name_font": {"bold": False, "color": "gray"},
-                        "num_font": {"color": "gray"},
-                        "num_format": "#,##0.00",
-                        "line": {"color": "gray"},
-                        "major_gridlines": {"visible": False},
-                        "interval_unit": 0.05,
-                        "min": 0,
-                        "max": abs_max,
-                        "major_tick_mark": "none",
-                        "minor_tick_mark": "none",
-                    }
-                )
-                chart.set_size({"x_scale": 1.5, "y_scale": 1.5})
-                chart.set_legend(
-                    {"position": "bottom", "font": {"color": "gray", "size": 9}}
-                )
+        dpg.add_spacer(height=6, parent=parent)
+        dpg.add_text("3. Create Excel file", parent=parent, color=(104, 190, 255))
+        dpg.add_button(
+            label="Generate Excel",
+            tag="kinetics.export",
+            callback=self._choose_output,
+            enabled=False,
+            width=260,
+            parent=parent,
+        )
 
-                chart.set_style(5)
-                ws.insert_chart(4, 4 + len(self.dfs), chart=chart)
+    def _choose_inputs(self) -> None:
+        self.open_file_dialog(
+            tag="kinetics.open_dialog",
+            title="Select kinetic data files",
+            callback=self._load_inputs,
+            extensions=("Kinetic data files (*.KD){.KD,.kd}",),
+            default_path=self.settings.get("cinetiche/folder_input", "."),
+            multiple=True,
+        )
 
-            self.log("excel file saved successfully")
-        except Exception as e:
-            self.log(f"ERROR: {e}")
+    def _load_inputs(self, paths: list[Path]) -> None:
+        self.log(f"selected {len(paths)} files")
+        dpg.configure_item("kinetics.upload", enabled=False)
+        dpg.configure_item("kinetics.export", enabled=False)
+        dpg.set_value("kinetics.files", f"Loading {len(paths)} files...")
+
+        def parse() -> list[tuple[str, pd.DataFrame]]:
+            datasets = []
+            for path in paths:
+                dataframe = parse_kd_file(path)
+                if dataframe is None:
+                    raise ValueError(f"failed to parse {path.name}")
+                datasets.append((path.stem, dataframe))
+            return datasets
+
+        def loaded(datasets: list[tuple[str, pd.DataFrame]]) -> None:
+            self.datasets = datasets
+            self.settings.set("cinetiche/folder_input", str(paths[0].parent))
+            dpg.set_value("kinetics.files", f"{len(datasets)} files ready")
+            dpg.configure_item("kinetics.upload", enabled=True)
+            dpg.configure_item("kinetics.export", enabled=True)
+            for path in paths:
+                self.log(f"loaded {path.name}")
+
+        self.submit(parse, loaded, lambda error: self._load_failed(error))
+
+    def _load_failed(self, error: Exception) -> None:
+        dpg.configure_item("kinetics.upload", enabled=True)
+        dpg.set_value("kinetics.files", "Failed to load files")
+        self.log(f"ERROR: {error}")
+
+    def _choose_output(self) -> None:
+        if not self.datasets:
+            return
+        self.save_file_dialog(
+            tag="kinetics.save_dialog",
+            title="Save Excel file",
+            callback=self._export,
+            default_path=self.settings.get("cinetiche/folder_output", "."),
+            default_filename=f"{datetime.now():%Y-%m-%d %H-%M-%S} spectrexcel.xlsx",
+        )
+
+    def _export(self, output_path: Path) -> None:
+        reading = dpg.get_value("kinetics.reading")
+        correction = dpg.get_value("kinetics.correction")
+        datasets = list(self.datasets)
+        self.settings.set("cinetiche/folder_output", str(output_path.parent))
+        self.settings.set("cinetiche/wl_read", reading)
+        self.settings.set("cinetiche/wl_corr", correction)
+        dpg.configure_item("kinetics.export", enabled=False)
+        self.log("generating excel file...")
+        self.submit(
+            lambda: export_kinetics(datasets, output_path, reading, correction),
+            lambda _: self._export_finished(),
+            self._export_failed,
+        )
+
+    def _export_finished(self) -> None:
+        dpg.configure_item("kinetics.export", enabled=True)
+        self.log("excel file saved successfully")
+
+    def _export_failed(self, error: Exception) -> None:
+        dpg.configure_item("kinetics.export", enabled=True)
+        self.log(f"ERROR: {error}")

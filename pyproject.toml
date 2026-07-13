@@ -1,29 +1,35 @@
-[tool.poetry]
+[project]
 name = "spectrexcel"
 version = "1.0.3"
 description = ""
-authors = ["Alberto Mosconi <albertomaria.mosconi@gmail.com>"]
 readme = "README.md"
-package-mode = true
-packages = [
-{ include = "spectrexcel" }
+requires-python = ">=3.10,<3.14"
+license = { file = "LICENSE" }
+authors = [
+    { name = "Alberto Mosconi", email = "albertomaria.mosconi@gmail.com" },
+]
+dependencies = [
+    "dearpygui>=2.3.1,<3",
+    "natsort>=8.4.0,<9",
+    "packaging>=25.0,<26",
+    "pandas>=2.2.3,<3",
+    "platformdirs>=4.3.8,<5",
+    "requests>=2.32.5,<3",
+    "xlsxwriter>=3.2.0,<4",
 ]
 
-[tool.poetry.dependencies]
-python = ">=3.10,<3.14"
-pyqt6 = "^6.7.1"
-pandas = "^2.2.3"
-xlsxwriter = "^3.2.0"
-superqt = "^0.6.7"
-pyinstaller = "^6.11.1"
-pillow = "^11.0.0"
-requests = "^2.32.5"
-natsort = "^8.4.0"
-
-[tool.poetry.scripts]
+[project.scripts]
 start = "spectrexcel.main:main"
 build = "spectrexcel.pyinstaller:install"
 
+[dependency-groups]
+dev = [
+    "pyinstaller>=6.11.1,<7",
+]
+
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["spectrexcel"]
