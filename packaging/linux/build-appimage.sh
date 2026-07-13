@@ -21,3 +21,7 @@ install -m 644 "$project_root/spectrexcel/icon.png" \
 
 ARCH=x86_64 "$appimagetool" --appimage-extract-and-run --runtime-file "$runtime" \
     "$appdir" "$project_root/dist/SpectrExcel-x86_64.AppImage"
+chmod 755 "$project_root/dist/SpectrExcel-x86_64.AppImage"
+tar -C "$project_root/dist" -czf \
+    "$project_root/dist/SpectrExcel-x86_64.AppImage.tar.gz" \
+    "SpectrExcel-x86_64.AppImage"

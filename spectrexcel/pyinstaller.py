@@ -1,9 +1,20 @@
+import sys
 from pathlib import Path
 
 from PyInstaller.__main__ import run as pyinstaller_run
 
 
 def install():
+    if sys.platform == "linux":
+        spec = (
+            Path(__file__).parent.parent
+            / "packaging"
+            / "linux"
+            / "spectrexcel.spec"
+        )
+        pyinstaller_run([str(spec), "--clean", "--noconfirm"])
+        return
+
     PATH_ICON = str(Path(__file__).parent.absolute() / "icon.ico")
     PATH_FONTS = str(Path(__file__).parent.absolute() / "fonts")
     PATH_MANIFEST = str(

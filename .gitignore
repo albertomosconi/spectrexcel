@@ -37,6 +37,7 @@ MANIFEST
 *.manifest
 !packaging/windows/spectrexcel.manifest
 *.spec
+!packaging/linux/spectrexcel.spec
 
 # Installer logs
 pip-log.txt

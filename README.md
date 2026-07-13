@@ -28,6 +28,17 @@ uv run pytest
 
 Windows x86-64 executables and Linux x86-64 AppImages are published on the
 [GitHub Releases](https://github.com/albertomosconi/spectrexcel/releases) page.
+On Linux, download and extract the `.AppImage.tar.gz` asset to preserve the
+executable permission. If you download the raw AppImage instead, enable it
+before launching:
+
+```shell
+chmod +x SpectrExcel-x86_64.AppImage
+./SpectrExcel-x86_64.AppImage
+```
+
+The Linux application requires a working X11/GLX OpenGL implementation. The
+AppImage uses the graphics libraries and drivers installed by the host system.
 SpectrExcel checks the latest stable release at startup and can download,
 verify, install, and restart into an available update. Linux automatic updates
 require running the AppImage from a writable location.
@@ -37,8 +48,8 @@ To publish a release, update the version in `pyproject.toml`, refresh
 
 ```shell
 uv lock
-git tag v1.1.0
-git push origin main v1.1.0
+git tag v1.1.1
+git push origin main v1.1.1
 ```
 
 GitHub Actions validates the version, runs the tests, builds both supported
