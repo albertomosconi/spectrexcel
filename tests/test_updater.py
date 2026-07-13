@@ -1,4 +1,5 @@
 import hashlib
+import os
 from pathlib import Path
 
 import pytest
@@ -136,7 +137,8 @@ def test_prepare_update_verifies_checksum(monkeypatch, tmp_path):
     )
 
     assert prepared.downloaded_path.read_bytes() == content
-    assert prepared.downloaded_path.stat().st_mode & 0o111
+    if os.name != "nt":
+        assert prepared.downloaded_path.stat().st_mode & 0o111
     prepared.downloaded_path.unlink()
 
 
@@ -188,10 +190,11 @@ def test_rejects_development_install():
         )
 
 
-def test_confirms_successful_appimage_startup(tmp_path):
+def test_confirms_successful_appimage_startup(monkeypatch, tmp_path):
     appimage = tmp_path / "SpectrExcel.AppImage"
     appimage.write_bytes(b"app")
     marker = tmp_path / ".SpectrExcel.AppImage-update-abc.success"
+    monkeypatch.setattr(updater.sys, "platform", "linux")
 
     updater.confirm_update_startup(
         {
