@@ -149,6 +149,9 @@ class SpectrExcelApp:
                 dpg.add_text("GPLv3 or later", color=(135, 135, 135))
 
         dpg.set_primary_window("main.window", True)
+        dpg.configure_item(
+            "main.window", no_scrollbar=True, no_scroll_with_mouse=True
+        )
         self._load_assay(selected_index)
         self.submit(self._find_update, self._update_check_finished, self._update_check_failed)
 
