@@ -15,7 +15,6 @@ def export_kinetics(
     reading_wavelength: int,
     correction_wavelength: int,
 ) -> None:
-    datasets = natsorted(datasets, key=lambda dataset: dataset[0])
     if not datasets:
         raise ValueError("no kinetic data loaded")
 
@@ -114,13 +113,20 @@ class Cinetiche(AssayView):
         px = self.display_scale.pixels
         title = dpg.add_text("1. Upload KD files", parent=parent)
         dpg.bind_item_theme(title, "theme.accent")
-        dpg.add_button(
-            label="Select input files (.KD)",
-            tag="kinetics.upload",
-            callback=self._choose_inputs,
-            width=px(260),
-            parent=parent,
-        )
+        with dpg.group(horizontal=True, parent=parent):
+            dpg.add_button(
+                label="Select input files (.KD)",
+                tag="kinetics.upload",
+                callback=self._choose_inputs,
+                width=px(260),
+            )
+            dpg.add_button(
+                label="Reorder files",
+                tag="kinetics.reorder",
+                callback=self._show_reorder,
+                enabled=False,
+                width=px(150),
+            )
         dpg.add_text("No files selected", tag="kinetics.files", parent=parent)
         dpg.bind_item_theme("kinetics.files", "theme.muted")
         dpg.add_spacer(height=px(6), parent=parent)
@@ -173,6 +179,7 @@ class Cinetiche(AssayView):
     def _load_inputs(self, paths: list[Path]) -> None:
         self.log(f"selected {len(paths)} files")
         dpg.configure_item("kinetics.upload", enabled=False)
+        dpg.configure_item("kinetics.reorder", enabled=False)
         dpg.configure_item("kinetics.export", enabled=False)
         dpg.set_value("kinetics.files", f"Loading {len(paths)} files...")
 
@@ -186,15 +193,85 @@ class Cinetiche(AssayView):
             return datasets
 
         def loaded(datasets: list[tuple[str, pd.DataFrame]]) -> None:
-            self.datasets = datasets
+            self.datasets = natsorted(datasets, key=lambda dataset: dataset[0])
             self.settings.set("cinetiche/folder_input", str(paths[0].parent))
             dpg.set_value("kinetics.files", f"{len(datasets)} files ready")
             dpg.configure_item("kinetics.upload", enabled=True)
+            dpg.configure_item("kinetics.reorder", enabled=len(datasets) > 1)
             dpg.configure_item("kinetics.export", enabled=True)
             for path in paths:
                 self.log(f"loaded {path.name}")
 
         self.submit(parse, loaded, lambda error: self._load_failed(error))
+
+    def _show_reorder(self) -> None:
+        if len(self.datasets) < 2:
+            return
+
+        px = self.display_scale.pixels
+        tag = "kinetics.reorder.modal"
+        if dpg.does_item_exist(tag):
+            dpg.delete_item(tag)
+
+        width = px(560)
+        list_height = px(min(350, 34 * len(self.datasets)))
+        height = list_height + px(130)
+        position = (
+            max(0, (dpg.get_viewport_client_width() - width) // 2),
+            max(0, (dpg.get_viewport_client_height() - height) // 2),
+        )
+        with dpg.window(
+            label="Reorder kinetic files",
+            tag=tag,
+            modal=True,
+            no_move=True,
+            no_resize=True,
+            no_collapse=True,
+            no_close=True,
+            width=width,
+            height=height,
+            pos=position,
+        ):
+            dpg.add_text("Files and chart traces will use this order.")
+            with dpg.child_window(height=list_height, border=True):
+                for index, (filename, _dataframe) in enumerate(self.datasets):
+                    with dpg.group(horizontal=True):
+                        dpg.add_button(
+                            label="Up",
+                            enabled=index > 0,
+                            user_data=(index, -1),
+                            callback=self._move_dataset,
+                            width=px(60),
+                        )
+                        dpg.add_button(
+                            label="Down",
+                            enabled=index < len(self.datasets) - 1,
+                            user_data=(index, 1),
+                            callback=self._move_dataset,
+                            width=px(60),
+                        )
+                        dpg.add_text(
+                            filename,
+                            tag=f"kinetics.reorder.filename.{index}",
+                            wrap=px(360),
+                        )
+            dpg.add_button(
+                label="Close",
+                callback=lambda: dpg.delete_item(tag),
+                width=px(90),
+            )
+
+    def _move_dataset(self, _sender, _app_data, move: tuple[int, int]) -> None:
+        index, offset = move
+        destination = index + offset
+        if not 0 <= destination < len(self.datasets):
+            return
+        self.datasets[index], self.datasets[destination] = (
+            self.datasets[destination],
+            self.datasets[index],
+        )
+        for row, (filename, _dataframe) in enumerate(self.datasets):
+            dpg.set_value(f"kinetics.reorder.filename.{row}", filename)
 
     def _load_failed(self, error: Exception) -> None:
         dpg.configure_item("kinetics.upload", enabled=True)
