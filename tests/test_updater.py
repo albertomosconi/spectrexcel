@@ -276,8 +276,9 @@ def test_windows_replacement_uses_stock_powershell(monkeypatch, tmp_path):
     script = base64.b64decode(command[-1]).decode("utf-16-le")
     assert command[-2] == "-EncodedCommand"
     assert "Wait-Process" not in script
-    assert "Get-Process -Id $OldPid" in script
+    assert "Move-Item $Target $Backup" in script
+    assert "PYINSTALLER_RESET_ENVIRONMENT" in script
     assert options["env"]["SPECTREXCEL_UPDATE_TARGET"] == str(target_path)
     assert options["env"]["SPECTREXCEL_UPDATE_FILE"] == str(downloaded_path)
-    assert options["env"]["SPECTREXCEL_UPDATE_PID"] == "123"
+    assert "SPECTREXCEL_UPDATE_PID" not in options["env"]
     assert not Path(f"{downloaded_path}.ps1").exists()

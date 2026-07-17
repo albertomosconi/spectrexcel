@@ -209,7 +209,7 @@ def prepare_update(
 def launch_replacement(update: PreparedUpdate, current_pid: int | None = None) -> None:
     current_pid = current_pid or os.getpid()
     if update.target.platform == "win32":
-        _launch_windows_replacement(update, current_pid)
+        _launch_windows_replacement(update)
     elif update.target.platform == "linux":
         _launch_linux_replacement(update, current_pid)
     else:
@@ -250,27 +250,32 @@ def _checksum_for(manifest: str, asset_name: str) -> str:
     raise UpdateError(f"no valid checksum found for {asset_name}")
 
 
-def _launch_windows_replacement(update: PreparedUpdate, current_pid: int) -> None:
+def _launch_windows_replacement(update: PreparedUpdate) -> None:
     script = """$Target = $env:SPECTREXCEL_UPDATE_TARGET
 $Update = $env:SPECTREXCEL_UPDATE_FILE
-$OldPid = [int]$env:SPECTREXCEL_UPDATE_PID
 $ErrorActionPreference = "Stop"
 $Backup = "$Target.old"
 $Marker = "$Update.success"
 $Process = $null
+$Moved = $false
+Remove-Item $Backup, $Marker -Force -ErrorAction SilentlyContinue
 for ($Attempt = 0; $Attempt -lt 120; $Attempt++) {
-    if (-not (Get-Process -Id $OldPid -ErrorAction SilentlyContinue)) { break }
-    Start-Sleep -Seconds 1
+    try {
+        Move-Item $Target $Backup -Force
+        $Moved = $true
+        break
+    } catch {
+        Start-Sleep -Seconds 1
+    }
 }
-if (Get-Process -Id $OldPid -ErrorAction SilentlyContinue) {
+if (-not $Moved) {
     Remove-Item $Update -Force -ErrorAction SilentlyContinue
     exit 1
 }
 try {
-    Remove-Item $Backup, $Marker -Force -ErrorAction SilentlyContinue
-    Move-Item $Target $Backup -Force
     Move-Item $Update $Target -Force
     $env:SPECTREXCEL_UPDATE_MARKER = $Marker
+    $env:PYINSTALLER_RESET_ENVIRONMENT = "1"
     $Process = Start-Process -FilePath $Target -PassThru
     $Ready = $false
     for ($Attempt = 0; $Attempt -lt 30; $Attempt++) {
@@ -298,7 +303,6 @@ try {
         {
             "SPECTREXCEL_UPDATE_TARGET": str(update.target.path),
             "SPECTREXCEL_UPDATE_FILE": str(update.downloaded_path),
-            "SPECTREXCEL_UPDATE_PID": str(current_pid),
         }
     )
     creation_flags = (
