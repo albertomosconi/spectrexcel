@@ -21,7 +21,7 @@ def test_zenity_open_multiple(monkeypatch, tmp_path):
     )
 
     assert selected == ["/tmp/one.KD", "/tmp/two.KD"]
-    assert f"--filename={tmp_path}/" in commands[0]
+    assert f"--filename={tmp_path}{native_dialogs.os.sep}" in commands[0]
 
 
 def test_native_dialog_cancel_returns_no_paths(monkeypatch, tmp_path):
