@@ -82,7 +82,8 @@ class BindingTitolazione(AssayView):
 
     def build(self, parent: str) -> None:
         px = self.display_scale.pixels
-        dpg.add_text("1. Upload a TXT or SD file", parent=parent, color=(104, 190, 255))
+        title = dpg.add_text("1. Upload a TXT or SD file", parent=parent)
+        dpg.bind_item_theme(title, "theme.accent")
         dpg.add_button(
             label="Select input file (.txt, .SD)",
             tag="binding.upload",
@@ -90,9 +91,11 @@ class BindingTitolazione(AssayView):
             width=px(260),
             parent=parent,
         )
-        dpg.add_text("No file selected", tag="binding.file", parent=parent, color=(150, 150, 150))
+        dpg.add_text("No file selected", tag="binding.file", parent=parent)
+        dpg.bind_item_theme("binding.file", "theme.muted")
         dpg.add_spacer(height=px(6), parent=parent)
-        dpg.add_text("2. Configure axis ranges", parent=parent, color=(104, 190, 255))
+        title = dpg.add_text("2. Configure axis ranges", parent=parent)
+        dpg.bind_item_theme(title, "theme.accent")
         with dpg.group(horizontal=True, parent=parent):
             with dpg.group():
                 dpg.add_text("X-axis minimum (nm)")
@@ -143,7 +146,8 @@ class BindingTitolazione(AssayView):
                     width=px(180),
                 )
         dpg.add_spacer(height=px(6), parent=parent)
-        dpg.add_text("3. Create Excel file", parent=parent, color=(104, 190, 255))
+        title = dpg.add_text("3. Create Excel file", parent=parent)
+        dpg.bind_item_theme(title, "theme.accent")
         dpg.add_button(
             label="Generate Excel",
             tag="binding.export",
@@ -155,10 +159,9 @@ class BindingTitolazione(AssayView):
 
     def _choose_input(self) -> None:
         self.open_file_dialog(
-            tag="binding.open_dialog",
             title="Select a spectra file",
             callback=lambda paths: self._load_input(paths[0]),
-            extensions=("Spectra files (*.txt *.SD){.txt,.TXT,.SD,.sd}",),
+            filters={"Spectra files": ["*.txt", "*.TXT", "*.SD", "*.sd"]},
             default_path=self.settings.get("main/folder_input", "."),
         )
 
@@ -199,7 +202,6 @@ class BindingTitolazione(AssayView):
         if self.input_path is None or self.dataframe is None:
             return
         self.save_file_dialog(
-            tag="binding.save_dialog",
             title="Save Excel file",
             callback=self._export,
             default_path=self.settings.get("main/folder_output", "."),

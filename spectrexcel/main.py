@@ -13,6 +13,7 @@ import dearpygui.dearpygui as dpg
 
 from spectrexcel.assays import BindingTitolazione, Cinetiche, FamigliaDiSpettri
 from spectrexcel.assays.shared import AssayView
+from spectrexcel.appearance import THEME_OPTIONS, resolve_theme
 from spectrexcel.dpi import DisplayScale, configure_display_scale
 from spectrexcel.settings import Settings
 from spectrexcel.updater import (
@@ -38,6 +39,76 @@ ASSAYS = (
     Assay("famiglia di spettri", FamigliaDiSpettri),
 )
 
+GEAR_ICON = (
+    "    #####    ",
+    " ##  ###  ## ",
+    " ### ### ### ",
+    "  #########  ",
+    "  ###   ###  ",
+    "####     ####",
+    "####     ####",
+    "####     ####",
+    "  ###   ###  ",
+    "  #########  ",
+    " ### ### ### ",
+    " ##  ###  ## ",
+    "    #####    ",
+)
+
+THEME_COLORS = {
+    "Dark": {
+        "Text": (235, 235, 235),
+        "TextDisabled": (135, 135, 135),
+        "WindowBg": (24, 27, 32),
+        "ChildBg": (30, 34, 40),
+        "PopupBg": (30, 34, 40),
+        "Border": (65, 70, 78),
+        "FrameBg": (42, 47, 55),
+        "FrameBgHovered": (52, 59, 69),
+        "FrameBgActive": (62, 70, 82),
+        "Button": (36, 91, 130),
+        "ButtonHovered": (46, 116, 163),
+        "ButtonActive": (31, 78, 111),
+        "Header": (36, 91, 130),
+        "HeaderHovered": (46, 116, 163),
+        "HeaderActive": (31, 78, 111),
+        "CheckMark": (104, 190, 255),
+        "Separator": (65, 70, 78),
+        "ScrollbarBg": (24, 27, 32),
+        "ScrollbarGrab": (72, 78, 88),
+        "TableBorderStrong": (65, 70, 78),
+        "TableBorderLight": (50, 55, 63),
+    },
+    "Light": {
+        "Text": (255, 255, 255),
+        "TextDisabled": (205, 215, 222),
+        "WindowBg": (244, 246, 248),
+        "ChildBg": (252, 252, 253),
+        "PopupBg": (252, 252, 253),
+        "Border": (180, 185, 192),
+        "FrameBg": (36, 91, 130),
+        "FrameBgHovered": (46, 116, 163),
+        "FrameBgActive": (31, 78, 111),
+        "Button": (36, 91, 130),
+        "ButtonHovered": (46, 116, 163),
+        "ButtonActive": (31, 78, 111),
+        "Header": (36, 91, 130),
+        "HeaderHovered": (46, 116, 163),
+        "HeaderActive": (31, 78, 111),
+        "CheckMark": (255, 255, 255),
+        "Separator": (180, 185, 192),
+        "ScrollbarBg": (235, 238, 241),
+        "ScrollbarGrab": (170, 176, 184),
+        "TableBorderStrong": (180, 185, 192),
+        "TableBorderLight": (210, 214, 220),
+    },
+}
+
+SEMANTIC_TEXT_COLORS = {
+    "Dark": {"accent": (104, 190, 255), "muted": (150, 150, 150)},
+    "Light": {"accent": (24, 91, 138), "muted": (95, 100, 108)},
+}
+
 
 class SpectrExcelApp:
     def __init__(self, version: str, display_scale: DisplayScale) -> None:
@@ -53,6 +124,10 @@ class SpectrExcelApp:
         self.latest_release: UpdateRelease | None = None
         self.assay_view: AssayView | None = None
         self.log_scroll_pending = 0
+        self.theme_preference = self.settings.get("main/theme", "System")
+        if self.theme_preference not in THEME_OPTIONS:
+            self.theme_preference = "System"
+        self.active_theme = "Dark"
 
     def build(self) -> None:
         px = self.display_scale.pixels
@@ -63,18 +138,68 @@ class SpectrExcelApp:
             dpg.add_font(str(log_font_path), px(16), tag="main.log_font")
         dpg.bind_font(default_font)
 
-        with dpg.theme() as theme:
-            with dpg.theme_component(dpg.mvAll):
-                dpg.add_theme_style(dpg.mvStyleVar_WindowPadding, px(18), px(16))
-                dpg.add_theme_style(dpg.mvStyleVar_FramePadding, px(10), px(6))
-                dpg.add_theme_style(dpg.mvStyleVar_ItemSpacing, px(8), px(7))
-                dpg.add_theme_style(dpg.mvStyleVar_FrameRounding, px(4))
-                dpg.add_theme_color(dpg.mvThemeCol_WindowBg, (24, 27, 32))
-                dpg.add_theme_color(dpg.mvThemeCol_ChildBg, (30, 34, 40))
-                dpg.add_theme_color(dpg.mvThemeCol_Button, (36, 91, 130))
-                dpg.add_theme_color(dpg.mvThemeCol_ButtonHovered, (46, 116, 163))
-                dpg.add_theme_color(dpg.mvThemeCol_FrameBg, (42, 47, 55))
-        dpg.bind_theme(theme)
+        for name, colors in THEME_COLORS.items():
+            with dpg.theme(tag=f"theme.{name.lower()}"):
+                with dpg.theme_component(dpg.mvAll):
+                    dpg.add_theme_style(dpg.mvStyleVar_WindowPadding, px(18), px(16))
+                    dpg.add_theme_style(dpg.mvStyleVar_FramePadding, px(10), px(6))
+                    dpg.add_theme_style(dpg.mvStyleVar_ItemSpacing, px(8), px(7))
+                    dpg.add_theme_style(dpg.mvStyleVar_FrameRounding, px(4))
+                    for color, value in colors.items():
+                        dpg.add_theme_color(getattr(dpg, f"mvThemeCol_{color}"), value)
+                with dpg.theme_component(dpg.mvButton):
+                    dpg.add_theme_color(dpg.mvThemeCol_Text, (255, 255, 255))
+                    dpg.add_theme_color(
+                        dpg.mvThemeCol_TextDisabled,
+                        (205, 215, 222) if name == "Light" else (135, 135, 135),
+                    )
+                for control in (
+                    dpg.mvCombo,
+                    dpg.mvInputText,
+                    dpg.mvInputInt,
+                    dpg.mvInputFloat,
+                    dpg.mvInputDouble,
+                ):
+                    with dpg.theme_component(control):
+                        dpg.add_theme_color(dpg.mvThemeCol_Text, (255, 255, 255))
+                        dpg.add_theme_color(
+                            dpg.mvThemeCol_TextDisabled,
+                            (205, 215, 222) if name == "Light" else (135, 135, 135),
+                        )
+                        if control == dpg.mvCombo:
+                            dpg.add_theme_color(
+                                dpg.mvThemeCol_PopupBg, (36, 91, 130)
+                            )
+                with dpg.theme_component(dpg.mvText):
+                    dpg.add_theme_color(
+                        dpg.mvThemeCol_Text,
+                        (30, 34, 40) if name == "Light" else (235, 235, 235),
+                    )
+
+        with dpg.theme(tag="theme.accent"):
+            with dpg.theme_component(dpg.mvText):
+                dpg.add_theme_color(
+                    dpg.mvThemeCol_Text,
+                    SEMANTIC_TEXT_COLORS["Dark"]["accent"],
+                    tag="theme.accent.color",
+                )
+        with dpg.theme(tag="theme.muted"):
+            with dpg.theme_component(dpg.mvText):
+                dpg.add_theme_color(
+                    dpg.mvThemeCol_Text,
+                    SEMANTIC_TEXT_COLORS["Dark"]["muted"],
+                    tag="theme.muted.color",
+                )
+        self._apply_theme()
+
+        gear_pixels = [
+            channel
+            for row in GEAR_ICON
+            for pixel in row
+            for channel in ((1.0, 1.0, 1.0, 1.0) if pixel == "#" else (0.0,) * 4)
+        ]
+        with dpg.texture_registry():
+            dpg.add_static_texture(13, 13, gear_pixels, tag="main.gear.texture")
 
         with dpg.theme() as header_theme:
             with dpg.theme_component(dpg.mvTable):
@@ -84,10 +209,6 @@ class SpectrExcelApp:
             with dpg.theme_component(dpg.mvAll):
                 dpg.add_theme_style(dpg.mvStyleVar_ItemSpacing, px(8), 0)
                 dpg.add_theme_style(dpg.mvStyleVar_WindowPadding, px(8), px(4))
-
-        with dpg.theme() as assay_theme:
-            with dpg.theme_component(dpg.mvChildWindow):
-                dpg.add_theme_color(dpg.mvThemeCol_ChildBg, (24, 27, 32))
 
         with dpg.window(
             tag="main.window",
@@ -118,7 +239,8 @@ class SpectrExcelApp:
                             callback=self._assay_changed,
                             width=px(250),
                         )
-                    dpg.add_text(f"v{self.version}", color=(150, 150, 150))
+                    version_text = dpg.add_text(f"v{self.version}")
+                    dpg.bind_item_theme(version_text, "theme.muted")
                     with dpg.group(horizontal=True, horizontal_spacing=0):
                         dpg.add_spacer(width=px(4))
                         dpg.add_button(
@@ -126,14 +248,25 @@ class SpectrExcelApp:
                             tag="main.update",
                             callback=self._check_and_download_update,
                         )
+                        dpg.add_spacer(width=px(4))
+                        dpg.add_image_button(
+                            "main.gear.texture",
+                            tag="main.settings",
+                            callback=self._show_settings,
+                            width=px(16),
+                            height=px(16),
+                            tint_color=(235, 235, 235),
+                        )
+                        with dpg.tooltip("main.settings"):
+                            dpg.add_text("App settings")
             dpg.bind_item_theme("main.header", header_theme)
 
             dpg.add_separator()
             with dpg.child_window(tag="assay.content", height=px(-174), border=False):
                 pass
-            dpg.bind_item_theme("assay.content", assay_theme)
 
-            dpg.add_text("ACTIVITY", color=(104, 190, 255))
+            activity_title = dpg.add_text("ACTIVITY")
+            dpg.bind_item_theme(activity_title, "theme.accent")
             dpg.add_child_window(
                 tag="main.log",
                 height=px(105),
@@ -144,9 +277,11 @@ class SpectrExcelApp:
             dpg.add_text("", tag="main.log.text", parent="main.log")
             dpg.bind_item_font("main.log.text", "main.log_font")
             with dpg.group(horizontal=True):
-                dpg.add_text("Developed by Alberto Mosconi", color=(135, 135, 135))
+                developer_text = dpg.add_text("Developed by Alberto Mosconi")
+                dpg.bind_item_theme(developer_text, "theme.muted")
                 dpg.add_button(label="Source code", small=True, callback=self._open_source)
-                dpg.add_text("GPLv3 or later", color=(135, 135, 135))
+                license_text = dpg.add_text("GPLv3 or later")
+                dpg.bind_item_theme(license_text, "theme.muted")
 
         dpg.set_primary_window("main.window", True)
         dpg.configure_item(
@@ -154,6 +289,63 @@ class SpectrExcelApp:
         )
         self._load_assay(selected_index)
         self.submit(self._find_update, self._update_check_finished, self._update_check_failed)
+
+    def _apply_theme(self) -> None:
+        self.active_theme = resolve_theme(self.theme_preference)
+        dpg.bind_theme(f"theme.{self.active_theme.lower()}")
+        semantic_colors = SEMANTIC_TEXT_COLORS[self.active_theme]
+        dpg.set_value("theme.accent.color", semantic_colors["accent"])
+        dpg.set_value("theme.muted.color", semantic_colors["muted"])
+
+    def _show_settings(self) -> None:
+        px = self.display_scale.pixels
+        width, height = px(430), px(190)
+        if dpg.does_item_exist("settings.modal"):
+            dpg.delete_item("settings.modal")
+        position = (
+            max(0, (dpg.get_viewport_client_width() - width) // 2),
+            max(0, (dpg.get_viewport_client_height() - height) // 2),
+        )
+        with dpg.window(
+            label="App settings",
+            tag="settings.modal",
+            modal=True,
+            no_move=True,
+            no_resize=True,
+            no_collapse=True,
+            no_close=True,
+            width=width,
+            height=height,
+            pos=position,
+        ):
+            dpg.add_combo(
+                label="Theme",
+                items=list(THEME_OPTIONS),
+                default_value=self.theme_preference,
+                callback=self._theme_changed,
+                width=px(180),
+            )
+            dpg.add_text(
+                "System is detected now. Restart or reselect System after changing your OS theme.",
+                tag="settings.system_note",
+                show=self.theme_preference == "System",
+                wrap=px(390),
+            )
+            dpg.add_spacer(height=px(10))
+            dpg.add_button(
+                label="Close",
+                callback=lambda: dpg.delete_item("settings.modal"),
+                width=px(90),
+            )
+
+    def _theme_changed(self, _sender: Any, preference: str) -> None:
+        if preference not in THEME_OPTIONS:
+            return
+        self.theme_preference = preference
+        if not self.settings.set("main/theme", preference):
+            self.log("ERROR: unable to save the theme preference")
+        self._apply_theme()
+        dpg.configure_item("settings.system_note", show=preference == "System")
 
     def submit(
         self,
@@ -268,6 +460,8 @@ class SpectrExcelApp:
 
     def _show_update_confirmation(self, release: UpdateRelease) -> None:
         px = self.display_scale.pixels
+        if dpg.does_item_exist("settings.modal"):
+            dpg.delete_item("settings.modal")
         if dpg.does_item_exist("update.modal"):
             dpg.delete_item("update.modal")
         with dpg.window(

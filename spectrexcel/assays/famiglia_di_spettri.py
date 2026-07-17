@@ -75,7 +75,8 @@ class FamigliaDiSpettri(AssayView):
 
     def build(self, parent: str) -> None:
         px = self.display_scale.pixels
-        dpg.add_text("1. Upload a KD file", parent=parent, color=(104, 190, 255))
+        title = dpg.add_text("1. Upload a KD file", parent=parent)
+        dpg.bind_item_theme(title, "theme.accent")
         dpg.add_button(
             label="Select input file (.KD)",
             tag="spectra.upload",
@@ -83,9 +84,11 @@ class FamigliaDiSpettri(AssayView):
             width=px(260),
             parent=parent,
         )
-        dpg.add_text("No file selected", tag="spectra.file", parent=parent, color=(150, 150, 150))
+        dpg.add_text("No file selected", tag="spectra.file", parent=parent)
+        dpg.bind_item_theme("spectra.file", "theme.muted")
         dpg.add_spacer(height=px(12), parent=parent)
-        dpg.add_text("2. Create Excel file", parent=parent, color=(104, 190, 255))
+        title = dpg.add_text("2. Create Excel file", parent=parent)
+        dpg.bind_item_theme(title, "theme.accent")
         dpg.add_button(
             label="Generate Excel",
             tag="spectra.export",
@@ -97,10 +100,9 @@ class FamigliaDiSpettri(AssayView):
 
     def _choose_input(self) -> None:
         self.open_file_dialog(
-            tag="spectra.open_dialog",
             title="Select a kinetic data file",
             callback=lambda paths: self._load_input(paths[0]),
-            extensions=("Kinetic data files (*.KD){.KD,.kd}",),
+            filters={"Kinetic data files": ["*.KD", "*.kd"]},
             default_path=self.settings.get("famiglia_di_spettri/folder_input", "."),
         )
 
@@ -140,7 +142,6 @@ class FamigliaDiSpettri(AssayView):
         if self.input_path is None or self.dataframe is None:
             return
         self.save_file_dialog(
-            tag="spectra.save_dialog",
             title="Save Excel file",
             callback=self._export,
             default_path=self.settings.get("famiglia_di_spettri/folder_output", "."),

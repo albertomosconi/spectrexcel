@@ -112,7 +112,8 @@ class Cinetiche(AssayView):
 
     def build(self, parent: str) -> None:
         px = self.display_scale.pixels
-        dpg.add_text("1. Upload KD files", parent=parent, color=(104, 190, 255))
+        title = dpg.add_text("1. Upload KD files", parent=parent)
+        dpg.bind_item_theme(title, "theme.accent")
         dpg.add_button(
             label="Select input files (.KD)",
             tag="kinetics.upload",
@@ -120,9 +121,11 @@ class Cinetiche(AssayView):
             width=px(260),
             parent=parent,
         )
-        dpg.add_text("No files selected", tag="kinetics.files", parent=parent, color=(150, 150, 150))
+        dpg.add_text("No files selected", tag="kinetics.files", parent=parent)
+        dpg.bind_item_theme("kinetics.files", "theme.muted")
         dpg.add_spacer(height=px(6), parent=parent)
-        dpg.add_text("2. Configure parameters", parent=parent, color=(104, 190, 255))
+        title = dpg.add_text("2. Configure parameters", parent=parent)
+        dpg.bind_item_theme(title, "theme.accent")
         with dpg.group(horizontal=True, parent=parent):
             with dpg.group():
                 dpg.add_text("Reading wavelength (nm)")
@@ -147,7 +150,8 @@ class Cinetiche(AssayView):
                     width=px(210),
                 )
         dpg.add_spacer(height=px(6), parent=parent)
-        dpg.add_text("3. Create Excel file", parent=parent, color=(104, 190, 255))
+        title = dpg.add_text("3. Create Excel file", parent=parent)
+        dpg.bind_item_theme(title, "theme.accent")
         dpg.add_button(
             label="Generate Excel",
             tag="kinetics.export",
@@ -159,10 +163,9 @@ class Cinetiche(AssayView):
 
     def _choose_inputs(self) -> None:
         self.open_file_dialog(
-            tag="kinetics.open_dialog",
             title="Select kinetic data files",
             callback=self._load_inputs,
-            extensions=("Kinetic data files (*.KD){.KD,.kd}",),
+            filters={"Kinetic data files": ["*.KD", "*.kd"]},
             default_path=self.settings.get("cinetiche/folder_input", "."),
             multiple=True,
         )
@@ -202,7 +205,6 @@ class Cinetiche(AssayView):
         if not self.datasets:
             return
         self.save_file_dialog(
-            tag="kinetics.save_dialog",
             title="Save Excel file",
             callback=self._export,
             default_path=self.settings.get("cinetiche/folder_output", "."),

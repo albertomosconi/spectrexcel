@@ -8,6 +8,7 @@ import dearpygui.dearpygui as dpg
 import pandas as pd
 
 from spectrexcel.dpi import DisplayScale
+from spectrexcel import native_dialogs
 from spectrexcel.settings import Settings
 
 
@@ -42,107 +43,80 @@ class AssayView:
     def open_file_dialog(
         self,
         *,
-        tag: str,
         title: str,
         callback: Callable[[list[Path]], None],
-        extensions: tuple[str, ...],
+        filters: dict[str, list[str]],
         default_path: str,
         multiple: bool = False,
     ) -> None:
-        if dpg.does_item_exist(tag):
-            dpg.delete_item(tag)
-
-        def selected(sender: Any, app_data: dict[str, Any]) -> None:
-            selections = app_data.get("selections", {})
-            paths = [Path(path) for path in selections.values()]
-            if not paths and app_data.get("file_path_name"):
-                paths = [Path(app_data["file_path_name"])]
-            dpg.delete_item(sender)
-            if paths:
-                callback(paths)
-
-        px = self.display_scale.pixels
-        with dpg.file_dialog(
-            label=title,
-            tag=tag,
-            show=True,
-            modal=True,
-            callback=selected,
-            cancel_callback=lambda sender: dpg.delete_item(sender),
-            default_path=default_path,
-            file_count=0 if multiple else 1,
-            width=px(700),
-            height=px(420),
-        ):
-            for extension in extensions:
-                dpg.add_file_extension(extension)
+        try:
+            selected = native_dialogs.open_files(title, default_path, filters, multiple)
+        except Exception as error:
+            self.log(f"ERROR: unable to open the system file picker: {error}")
+            return
+        paths = [Path(value) for value in selected if value]
+        if paths:
+            callback(paths)
 
     def save_file_dialog(
         self,
         *,
-        tag: str,
         title: str,
         callback: Callable[[Path], None],
         default_path: str,
         default_filename: str,
     ) -> None:
+        try:
+            selected = native_dialogs.save_file(
+                title,
+                default_path,
+                default_filename,
+                {"Excel workbook": ["*.xlsx"]},
+            )
+        except Exception as error:
+            self.log(f"ERROR: unable to open the system file picker: {error}")
+            return
+        if not selected:
+            return
+        selected_path = Path(selected)
+        path = (
+            selected_path
+            if selected_path.suffix.lower() == ".xlsx"
+            else selected_path.with_suffix(".xlsx")
+        )
+        if path != selected_path and path.exists():
+            self._confirm_overwrite(path, callback)
+        else:
+            callback(path)
+
+    def _confirm_overwrite(
+        self, path: Path, callback: Callable[[Path], None]
+    ) -> None:
+        px = self.display_scale.pixels
+        tag = "save.overwrite"
         if dpg.does_item_exist(tag):
             dpg.delete_item(tag)
-
-        px = self.display_scale.pixels
-
-        def selected(sender: Any, app_data: dict[str, Any]) -> None:
-            path = Path(app_data["file_path_name"])
-            dpg.delete_item(sender)
-            if path.suffix.lower() != ".xlsx":
-                path = path.with_suffix(".xlsx")
-            if not path.exists():
-                callback(path)
-                return
-
-            confirmation_tag = f"{tag}.overwrite"
-            if dpg.does_item_exist(confirmation_tag):
-                dpg.delete_item(confirmation_tag)
-            with dpg.window(
-                label="Replace existing file?",
-                tag=confirmation_tag,
-                modal=True,
-                no_close=True,
-                width=px(430),
-                height=px(145),
-                pos=self.display_scale.position((185, 175)),
-            ):
-                dpg.add_text(
-                    f"{path.name} already exists. Replace it?", wrap=px(390)
-                )
-                with dpg.group(horizontal=True):
-                    dpg.add_button(
-                        label="Replace",
-                        width=px(100),
-                        callback=lambda: (
-                            dpg.delete_item(confirmation_tag),
-                            callback(path),
-                        ),
-                    )
-                    dpg.add_button(
-                        label="Cancel",
-                        width=px(100),
-                        callback=lambda: dpg.delete_item(confirmation_tag),
-                    )
-
-        with dpg.file_dialog(
-            label=title,
+        with dpg.window(
+            label="Replace existing file?",
             tag=tag,
-            show=True,
             modal=True,
-            callback=selected,
-            cancel_callback=lambda sender: dpg.delete_item(sender),
-            default_path=default_path,
-            default_filename=default_filename,
-            width=px(700),
-            height=px(420),
+            no_close=True,
+            width=px(430),
+            height=px(145),
+            pos=self.display_scale.position((185, 175)),
         ):
-            dpg.add_file_extension("Excel workbook (*.xlsx){.xlsx}")
+            dpg.add_text(f"{path.name} already exists. Replace it?", wrap=px(390))
+            with dpg.group(horizontal=True):
+                dpg.add_button(
+                    label="Replace",
+                    width=px(100),
+                    callback=lambda: (dpg.delete_item(tag), callback(path)),
+                )
+                dpg.add_button(
+                    label="Cancel",
+                    width=px(100),
+                    callback=lambda: dpg.delete_item(tag),
+                )
 
 
 def parse_txt_file(filepath: Path) -> pd.DataFrame:
