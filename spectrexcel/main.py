@@ -18,12 +18,8 @@ from spectrexcel.dpi import DisplayScale, configure_display_scale
 from spectrexcel.settings import Settings
 from spectrexcel.updater import (
     REPOSITORY_URL,
-    PreparedUpdate,
     UpdateRelease,
-    confirm_update_startup,
     find_update,
-    launch_replacement,
-    prepare_update,
 )
 
 
@@ -246,7 +242,7 @@ class SpectrExcelApp:
                         dpg.add_button(
                             label="Check updates",
                             tag="main.update",
-                            callback=self._check_and_download_update,
+                            callback=self._check_for_update,
                         )
                         dpg.add_spacer(width=px(4))
                         dpg.add_image_button(
@@ -438,7 +434,7 @@ class SpectrExcelApp:
         # Startup update checks are intentionally silent.
         pass
 
-    def _check_and_download_update(self) -> None:
+    def _check_for_update(self) -> None:
         dpg.configure_item("main.update", enabled=False, label="Checking...")
         self.log("checking for updates...")
         self.submit(self._find_update, self._manual_update_finished, self._manual_update_failed)
@@ -474,14 +470,16 @@ class SpectrExcelApp:
             pos=self.display_scale.position((165, 155)),
         ):
             dpg.add_text(
-                f"Version {release.tag} is available. Install it and restart SpectrExcel?",
+                f"Version {release.tag} is available. Open the download in your "
+                "browser and close SpectrExcel? Replace the old application file "
+                "with the downloaded one.",
                 wrap=px(430),
             )
             dpg.add_spacer(height=px(12))
             with dpg.group(horizontal=True):
                 dpg.add_button(
-                    label="Install and restart",
-                    callback=lambda: self._download_update(release),
+                    label="Download and close",
+                    callback=lambda: self._open_update_download(release),
                     width=px(180),
                 )
                 dpg.add_button(
@@ -490,37 +488,20 @@ class SpectrExcelApp:
                     width=px(100),
                 )
 
-    def _download_update(self, release: UpdateRelease) -> None:
+    def _open_update_download(self, release: UpdateRelease) -> None:
         if self.has_running_tasks():
-            self.log("finish the current operation before installing the update")
-            return
-        dpg.delete_item("update.modal")
-        dpg.configure_item("main.update", enabled=False, label="Downloading...")
-        self.log(f"downloading {release.asset.name}...")
-        self.submit(
-            lambda: prepare_update(release),
-            self._update_download_finished,
-            self._update_download_failed,
-        )
-
-    def _update_download_finished(self, update: PreparedUpdate) -> None:
-        if self.has_running_tasks():
-            update.downloaded_path.unlink(missing_ok=True)
-            self._update_download_failed(
-                RuntimeError("an application operation started during the download")
-            )
+            self.log("finish the current operation before downloading the update")
             return
         try:
-            launch_replacement(update)
+            opened = webbrowser.open(release.asset.download_url)
         except Exception as error:
-            self._update_download_failed(error)
+            self.log(f"ERROR: unable to open update download: {error}")
             return
-        self.log("update verified; restarting SpectrExcel...")
+        if not opened:
+            self.log("ERROR: unable to open update download in the browser")
+            return
+        self.log("update opened in the browser; closing SpectrExcel...")
         dpg.stop_dearpygui()
-
-    def _update_download_failed(self, error: Exception) -> None:
-        dpg.configure_item("main.update", enabled=True, label="Check updates")
-        self.log(f"ERROR: unable to install update: {error}")
 
     @staticmethod
     def _open_source() -> None:
@@ -583,7 +564,6 @@ def main() -> None:
         app.build()
         dpg.setup_dearpygui()
         dpg.show_viewport()
-        confirm_update_startup()
         while dpg.is_dearpygui_running():
             dpg.run_callbacks(dpg.get_callback_queue())
             app.process_results()
