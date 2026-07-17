@@ -1,7 +1,9 @@
 import base64
+import ctypes
 import hashlib
 import os
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from packaging.version import Version
@@ -254,6 +256,15 @@ def test_windows_replacement_uses_stock_powershell(monkeypatch, tmp_path):
         page_url="https://example/release",
     )
     launched = []
+    dll_directories = []
+    monkeypatch.setattr(
+        ctypes,
+        "windll",
+        SimpleNamespace(
+            kernel32=SimpleNamespace(SetDllDirectoryW=dll_directories.append)
+        ),
+        raising=False,
+    )
     monkeypatch.setattr(updater.subprocess, "CREATE_NEW_PROCESS_GROUP", 1, raising=False)
     monkeypatch.setattr(updater.subprocess, "DETACHED_PROCESS", 2, raising=False)
     monkeypatch.setattr(updater.subprocess, "CREATE_NO_WINDOW", 4, raising=False)
@@ -274,6 +285,7 @@ def test_windows_replacement_uses_stock_powershell(monkeypatch, tmp_path):
 
     command, options = launched[0]
     script = base64.b64decode(command[-1]).decode("utf-16-le")
+    assert dll_directories == [None]
     assert command[-2] == "-EncodedCommand"
     assert "Wait-Process" not in script
     assert "Move-Item $Target $Backup" in script
@@ -281,4 +293,7 @@ def test_windows_replacement_uses_stock_powershell(monkeypatch, tmp_path):
     assert options["env"]["SPECTREXCEL_UPDATE_TARGET"] == str(target_path)
     assert options["env"]["SPECTREXCEL_UPDATE_FILE"] == str(downloaded_path)
     assert "SPECTREXCEL_UPDATE_PID" not in options["env"]
+    assert options["stdin"] == updater.subprocess.DEVNULL
+    assert options["stdout"] == updater.subprocess.DEVNULL
+    assert options["stderr"] == updater.subprocess.DEVNULL
     assert not Path(f"{downloaded_path}.ps1").exists()

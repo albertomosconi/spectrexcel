@@ -1,4 +1,5 @@
 import base64
+import ctypes
 import hashlib
 import os
 import stat
@@ -311,6 +312,7 @@ try {
         | subprocess.CREATE_NO_WINDOW
     )
     try:
+        ctypes.windll.kernel32.SetDllDirectoryW(None)
         subprocess.Popen(
             [
                 "powershell.exe",
@@ -324,6 +326,9 @@ try {
             close_fds=True,
             creationflags=creation_flags,
             env=environment,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
         )
     except Exception:
         update.downloaded_path.unlink(missing_ok=True)
