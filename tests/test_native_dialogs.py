@@ -5,6 +5,7 @@ from spectrexcel import native_dialogs
 
 def test_zenity_open_multiple(monkeypatch, tmp_path):
     commands = []
+    monkeypatch.setattr(native_dialogs.sys, "platform", "linux")
     monkeypatch.setattr(native_dialogs.shutil, "which", lambda command: command == "zenity")
 
     def run(command, **_kwargs):
@@ -24,6 +25,7 @@ def test_zenity_open_multiple(monkeypatch, tmp_path):
 
 
 def test_native_dialog_cancel_returns_no_paths(monkeypatch, tmp_path):
+    monkeypatch.setattr(native_dialogs.sys, "platform", "linux")
     monkeypatch.setattr(native_dialogs.shutil, "which", lambda command: command == "zenity")
     monkeypatch.setattr(
         native_dialogs.subprocess,
@@ -35,6 +37,7 @@ def test_native_dialog_cancel_returns_no_paths(monkeypatch, tmp_path):
 
 
 def test_missing_linux_picker_is_reported(monkeypatch, tmp_path):
+    monkeypatch.setattr(native_dialogs.sys, "platform", "linux")
     monkeypatch.setattr(native_dialogs.shutil, "which", lambda _command: None)
 
     try:
