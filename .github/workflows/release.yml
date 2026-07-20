@@ -96,6 +96,52 @@ jobs:
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+          fetch-depth: 0
+      - name: Generate release notes
+        run: |
+          set -euo pipefail
+          prev_tag=$(git describe --tags --abbrev=0 "$RELEASE_TAG^" 2>/dev/null || true)
+          range="${prev_tag:+$prev_tag..}$RELEASE_TAG"
+
+          section_items() {
+            git log --pretty=format:'%s' "$range" | grep -E "$1" | sed -E 's/^[a-z]+(\([^)]*\))?!?: //' || true
+          }
+
+          {
+            echo "## What's Changed"
+
+            features=$(section_items '^(feat|perf)(\([^)]*\))?!?: ')
+            if [ -n "$features" ]; then
+              echo
+              echo "### Features"
+              echo "$features" | sed 's/^/- /'
+            fi
+
+            fixes=$(section_items '^(fix|revert)(\([^)]*\))?!?: ')
+            if [ -n "$fixes" ]; then
+              echo
+              echo "### Bug Fixes"
+              echo "$fixes" | sed 's/^/- /'
+            fi
+
+            others=$(git log --pretty=format:'%s' "$range" \
+              | grep -vE '^(feat|perf|fix|revert)(\([^)]*\))?!?: ' \
+              | grep -vE '^chore: bump version' \
+              | sed -E 's/^[a-z]+(\([^)]*\))?!?: //' || true)
+            if [ -n "$others" ]; then
+              echo
+              echo "### Other Changes"
+              echo "$others" | sed 's/^/- /'
+            fi
+
+            if [ -n "$prev_tag" ]; then
+              echo
+              echo "**Full Changelog**: https://github.com/$GITHUB_REPOSITORY/compare/$prev_tag...$RELEASE_TAG"
+            fi
+          } > release-notes.md
       - uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
         with:
           path: release-assets
@@ -111,6 +157,6 @@ jobs:
             gh release upload "$RELEASE_TAG" release-assets/* --clobber --repo "$GITHUB_REPOSITORY"
           else
             gh release create "$RELEASE_TAG" release-assets/* \
-              --verify-tag --generate-notes --title "$RELEASE_TAG" \
+              --verify-tag --notes-file release-notes.md --title "$RELEASE_TAG" \
               --repo "$GITHUB_REPOSITORY"
           fi
