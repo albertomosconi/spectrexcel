@@ -5,6 +5,8 @@ import dearpygui.dearpygui as dpg
 import pandas as pd
 from xlsxwriter import Workbook, worksheet
 
+from spectrexcel.i18n import _
+
 from .shared import AssayView, parse_kd_file
 
 
@@ -75,22 +77,22 @@ class FamigliaDiSpettri(AssayView):
 
     def build(self, parent: str) -> None:
         px = self.display_scale.pixels
-        title = dpg.add_text("1. Upload a KD file", parent=parent)
+        title = dpg.add_text(_("1. Upload a KD file"), parent=parent)
         dpg.bind_item_theme(title, "theme.accent")
         dpg.add_button(
-            label="Select input file (.KD)",
+            label=_("Select input file (.KD)"),
             tag="spectra.upload",
             callback=self._choose_input,
             width=px(260),
             parent=parent,
         )
-        dpg.add_text("No file selected", tag="spectra.file", parent=parent)
+        dpg.add_text(_("No file selected"), tag="spectra.file", parent=parent)
         dpg.bind_item_theme("spectra.file", "theme.muted")
         dpg.add_spacer(height=px(12), parent=parent)
-        title = dpg.add_text("2. Create Excel file", parent=parent)
+        title = dpg.add_text(_("2. Create Excel file"), parent=parent)
         dpg.bind_item_theme(title, "theme.accent")
         dpg.add_button(
-            label="Generate Excel",
+            label=_("Generate Excel"),
             tag="spectra.export",
             callback=self._choose_output,
             enabled=False,
@@ -100,32 +102,34 @@ class FamigliaDiSpettri(AssayView):
 
     def _choose_input(self) -> None:
         self.open_file_dialog(
-            title="Select a kinetic data file",
+            title=_("Select a kinetic data file"),
             callback=lambda paths: self._load_input(paths[0]),
-            filters={"Kinetic data files": ["*.KD", "*.kd"]},
+            filters={_("Kinetic data files"): ["*.KD", "*.kd"]},
             default_path=self.settings.get("famiglia_di_spettri/folder_input", "."),
         )
 
     def _load_input(self, path: Path) -> None:
-        self.log(f"selected {path}")
+        self.log(_("selected {path}").format(path=path))
         dpg.configure_item("spectra.upload", enabled=False)
         dpg.configure_item("spectra.export", enabled=False)
-        dpg.set_value("spectra.file", f"Loading {path.name}...")
+        dpg.set_value("spectra.file", _("Loading {name}...").format(name=path.name))
 
         def parsed(dataframe: pd.DataFrame | None) -> None:
             if dataframe is None:
-                self._load_failed(ValueError("failed to parse file"), path)
+                self._load_failed(ValueError(_("failed to parse file")), path)
                 return
             self.dataframe = dataframe
             self.input_path = path
             self.settings.set("famiglia_di_spettri/folder_input", str(path.parent))
             dpg.set_value(
                 "spectra.file",
-                f"{path.name} - {len(dataframe.columns)} spectra",
+                _("{name} - {count} spectra").format(
+                    name=path.name, count=len(dataframe.columns)
+                ),
             )
             dpg.configure_item("spectra.upload", enabled=True)
             dpg.configure_item("spectra.export", enabled=True)
-            self.log(f"loaded {path.name}")
+            self.log(_("loaded {name}").format(name=path.name))
 
         self.submit(
             lambda: parse_kd_file(path),
@@ -135,14 +139,16 @@ class FamigliaDiSpettri(AssayView):
 
     def _load_failed(self, error: Exception, path: Path) -> None:
         dpg.configure_item("spectra.upload", enabled=True)
-        dpg.set_value("spectra.file", f"Failed to load {path.name}")
-        self.log(f"ERROR: {error}")
+        dpg.set_value(
+            "spectra.file", _("Failed to load {name}").format(name=path.name)
+        )
+        self.log(_("ERROR: {error}").format(error=error))
 
     def _choose_output(self) -> None:
         if self.input_path is None or self.dataframe is None:
             return
         self.save_file_dialog(
-            title="Save Excel file",
+            title=_("Save Excel file"),
             callback=self._export,
             default_path=self.settings.get("famiglia_di_spettri/folder_output", "."),
             default_filename=f"{datetime.now():%Y-%m-%d %H-%M-%S} spectrexcel.xlsx",
@@ -155,17 +161,17 @@ class FamigliaDiSpettri(AssayView):
         dataframe = self.dataframe
         self.settings.set("famiglia_di_spettri/folder_output", str(output_path.parent))
         dpg.configure_item("spectra.export", enabled=False)
-        self.log("generating excel file...")
+        self.log(_("generating excel file..."))
         self.submit(
             lambda: export_spectrum_family(dataframe, input_path, output_path),
-            lambda _: self._export_finished(),
+            lambda _result: self._export_finished(),
             self._export_failed,
         )
 
     def _export_finished(self) -> None:
         dpg.configure_item("spectra.export", enabled=True)
-        self.log("excel file saved successfully")
+        self.log(_("excel file saved successfully"))
 
     def _export_failed(self, error: Exception) -> None:
         dpg.configure_item("spectra.export", enabled=True)
-        self.log(f"ERROR: {error}")
+        self.log(_("ERROR: {error}").format(error=error))

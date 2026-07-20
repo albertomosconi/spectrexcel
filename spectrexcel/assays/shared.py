@@ -9,6 +9,7 @@ import pandas as pd
 
 from spectrexcel.dpi import DisplayScale
 from spectrexcel import native_dialogs
+from spectrexcel.i18n import _
 from spectrexcel.settings import Settings
 
 
@@ -52,7 +53,11 @@ class AssayView:
         try:
             selected = native_dialogs.open_files(title, default_path, filters, multiple)
         except Exception as error:
-            self.log(f"ERROR: unable to open the system file picker: {error}")
+            self.log(
+                _("ERROR: unable to open the system file picker: {error}").format(
+                    error=error
+                )
+            )
             return
         paths = [Path(value) for value in selected if value]
         if paths:
@@ -71,10 +76,14 @@ class AssayView:
                 title,
                 default_path,
                 default_filename,
-                {"Excel workbook": ["*.xlsx"]},
+                {_("Excel workbook"): ["*.xlsx"]},
             )
         except Exception as error:
-            self.log(f"ERROR: unable to open the system file picker: {error}")
+            self.log(
+                _("ERROR: unable to open the system file picker: {error}").format(
+                    error=error
+                )
+            )
             return
         if not selected:
             return
@@ -97,7 +106,7 @@ class AssayView:
         if dpg.does_item_exist(tag):
             dpg.delete_item(tag)
         with dpg.window(
-            label="Replace existing file?",
+            label=_("Replace existing file?"),
             tag=tag,
             modal=True,
             no_close=True,
@@ -105,15 +114,18 @@ class AssayView:
             height=px(145),
             pos=self.display_scale.position((185, 175)),
         ):
-            dpg.add_text(f"{path.name} already exists. Replace it?", wrap=px(390))
+            dpg.add_text(
+                _("{name} already exists. Replace it?").format(name=path.name),
+                wrap=px(390),
+            )
             with dpg.group(horizontal=True):
                 dpg.add_button(
-                    label="Replace",
+                    label=_("Replace"),
                     width=px(100),
                     callback=lambda: (dpg.delete_item(tag), callback(path)),
                 )
                 dpg.add_button(
-                    label="Cancel",
+                    label=_("Cancel"),
                     width=px(100),
                     callback=lambda: dpg.delete_item(tag),
                 )
@@ -147,7 +159,7 @@ def parse_txt_file(filepath: Path) -> pd.DataFrame:
 def parse_sd_file(filepath: Path) -> pd.DataFrame:
 
     if filepath.suffix.upper() != ".SD":
-        raise Exception("Invalid file extension")
+        raise Exception(_("Invalid file extension"))
 
     with filepath.open("rb") as fp:
         contents = fp.read()
@@ -161,11 +173,11 @@ def parse_sd_file(filepath: Path) -> pd.DataFrame:
         ),
         "(`DataType": (b"\x28\x60\x44\x61\x74\x61\x54\x79\x70\x65", 33, b"\x02"),
     }
-    for _, (header, spacing, end_char) in headers.items():
+    for _key, (header, spacing, end_char) in headers.items():
         if contents.find(header, 0) != -1:
             break
     else:
-        raise Exception("Unable to read file contents: no headers found.")
+        raise Exception(_("Unable to read file contents: no headers found."))
 
     position = 0
     out = []
@@ -189,11 +201,11 @@ def parse_sd_file(filepath: Path) -> pd.DataFrame:
         "( A U ) ": (b"\x28\x00\x41\x00\x55\x00\x29\x00", 17),
         "(AU) ": (b"\x28\x41\x55\x29\x00", 5),
     }
-    for _, (header, spacing) in headers.items():
+    for _key, (header, spacing) in headers.items():
         if contents.find(header, 0) != -1:
             break
     else:
-        raise Exception("Unable to read file contents: no headers found.")
+        raise Exception(_("Unable to read file contents: no headers found."))
 
     position = 0
     out = []
@@ -249,7 +261,7 @@ def parse_kd_file(filepath: Path) -> pd.DataFrame | None:
         return pd.Series(absorbance_values, index=range(190, 1101))
 
     if filepath.suffix.upper() != ".KD":
-        raise Exception("Invalid file extension")
+        raise Exception(_("Invalid file extension"))
 
     with filepath.open("rb") as fp:
         contents = fp.read()
@@ -273,7 +285,7 @@ def parse_kd_file(filepath: Path) -> pd.DataFrame | None:
         if contents.find(H[0], 0) != -1:
             break
     else:
-        raise Exception("Unable to read file contents: no headers found.")
+        raise Exception(_("Unable to read file contents: no headers found."))
 
     spectra_times = _extract_data(
         contents, {"header": H[0], "spacing": H[1]}, _parse_spectratimes

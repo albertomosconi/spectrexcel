@@ -4,6 +4,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+from spectrexcel.i18n import _
+
 
 FileFilters = dict[str, list[str]]
 
@@ -65,13 +67,15 @@ def _linux_dialog(
             command.extend(["--multiple", "--separate-output"])
         command.extend(["--title", title])
     else:
-        raise RuntimeError("install Zenity or KDialog to use the system file picker")
+        raise RuntimeError(
+            _("install Zenity or KDialog to use the system file picker")
+        )
 
     result = subprocess.run(command, capture_output=True, text=True)
     if result.returncode == 1:
         return []
     if result.returncode != 0:
-        raise RuntimeError(result.stderr.strip() or "system file picker failed")
+        raise RuntimeError(result.stderr.strip() or _("system file picker failed"))
     return [path for path in result.stdout.splitlines() if path]
 
 
@@ -175,6 +179,10 @@ def _windows_dialog(
     if not picker(ctypes.byref(options)):
         error = ctypes.windll.comdlg32.CommDlgExtendedError()
         if error:
-            raise OSError(f"Windows file picker failed with error 0x{error:04x}")
+            raise OSError(
+                _("Windows file picker failed with error 0x{code:04x}").format(
+                    code=error
+                )
+            )
         return []
     return [value for value in file_buffer[:].split("\0") if value]

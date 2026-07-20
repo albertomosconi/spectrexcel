@@ -6,6 +6,8 @@ import pandas as pd
 from natsort import natsorted
 from xlsxwriter import Workbook, worksheet
 
+from spectrexcel.i18n import _
+
 from .shared import AssayView, parse_kd_file
 
 
@@ -16,7 +18,7 @@ def export_kinetics(
     correction_wavelength: int,
 ) -> None:
     if not datasets:
-        raise ValueError("no kinetic data loaded")
+        raise ValueError(_("no kinetic data loaded"))
 
     with pd.ExcelWriter(output_path, engine="xlsxwriter") as writer:
         workbook: Workbook = writer.book
@@ -42,10 +44,16 @@ def export_kinetics(
         absorbance_max = 0.0
         for index, (filename, spectra) in enumerate(datasets):
             if reading_wavelength not in spectra.index:
-                raise ValueError(f"reading wavelength {reading_wavelength}nm is unavailable")
+                raise ValueError(
+                    _("reading wavelength {wl}nm is unavailable").format(
+                        wl=reading_wavelength
+                    )
+                )
             if correction_wavelength not in spectra.index:
                 raise ValueError(
-                    f"correction wavelength {correction_wavelength}nm is unavailable"
+                    _("correction wavelength {wl}nm is unavailable").format(
+                        wl=correction_wavelength
+                    )
                 )
             final = spectra.loc[reading_wavelength] - spectra.loc[correction_wavelength]
             absorbance_max = max(absorbance_max, float(final.max()))
@@ -111,30 +119,30 @@ class Cinetiche(AssayView):
 
     def build(self, parent: str) -> None:
         px = self.display_scale.pixels
-        title = dpg.add_text("1. Upload KD files", parent=parent)
+        title = dpg.add_text(_("1. Upload KD files"), parent=parent)
         dpg.bind_item_theme(title, "theme.accent")
         with dpg.group(horizontal=True, parent=parent):
             dpg.add_button(
-                label="Select input files (.KD)",
+                label=_("Select input files (.KD)"),
                 tag="kinetics.upload",
                 callback=self._choose_inputs,
                 width=px(260),
             )
             dpg.add_button(
-                label="Reorder files",
+                label=_("Reorder files"),
                 tag="kinetics.reorder",
                 callback=self._show_reorder,
                 enabled=False,
                 width=px(150),
             )
-        dpg.add_text("No files selected", tag="kinetics.files", parent=parent)
+        dpg.add_text(_("No files selected"), tag="kinetics.files", parent=parent)
         dpg.bind_item_theme("kinetics.files", "theme.muted")
         dpg.add_spacer(height=px(6), parent=parent)
-        title = dpg.add_text("2. Configure parameters", parent=parent)
+        title = dpg.add_text(_("2. Configure parameters"), parent=parent)
         dpg.bind_item_theme(title, "theme.accent")
         with dpg.group(horizontal=True, parent=parent):
             with dpg.group():
-                dpg.add_text("Reading wavelength (nm)")
+                dpg.add_text(_("Reading wavelength (nm)"))
                 dpg.add_input_int(
                     tag="kinetics.reading",
                     default_value=self.settings.get("cinetiche/wl_read", 300),
@@ -145,7 +153,7 @@ class Cinetiche(AssayView):
                     width=px(210),
                 )
             with dpg.group():
-                dpg.add_text("Correction wavelength (nm)")
+                dpg.add_text(_("Correction wavelength (nm)"))
                 dpg.add_input_int(
                     tag="kinetics.correction",
                     default_value=self.settings.get("cinetiche/wl_corr", 800),
@@ -156,10 +164,10 @@ class Cinetiche(AssayView):
                     width=px(210),
                 )
         dpg.add_spacer(height=px(6), parent=parent)
-        title = dpg.add_text("3. Create Excel file", parent=parent)
+        title = dpg.add_text(_("3. Create Excel file"), parent=parent)
         dpg.bind_item_theme(title, "theme.accent")
         dpg.add_button(
-            label="Generate Excel",
+            label=_("Generate Excel"),
             tag="kinetics.export",
             callback=self._choose_output,
             enabled=False,
@@ -169,38 +177,43 @@ class Cinetiche(AssayView):
 
     def _choose_inputs(self) -> None:
         self.open_file_dialog(
-            title="Select kinetic data files",
+            title=_("Select kinetic data files"),
             callback=self._load_inputs,
-            filters={"Kinetic data files": ["*.KD", "*.kd"]},
+            filters={_("Kinetic data files"): ["*.KD", "*.kd"]},
             default_path=self.settings.get("cinetiche/folder_input", "."),
             multiple=True,
         )
 
     def _load_inputs(self, paths: list[Path]) -> None:
-        self.log(f"selected {len(paths)} files")
+        self.log(_("selected {count} files").format(count=len(paths)))
         dpg.configure_item("kinetics.upload", enabled=False)
         dpg.configure_item("kinetics.reorder", enabled=False)
         dpg.configure_item("kinetics.export", enabled=False)
-        dpg.set_value("kinetics.files", f"Loading {len(paths)} files...")
+        dpg.set_value(
+            "kinetics.files", _("Loading {count} files...").format(count=len(paths))
+        )
 
         def parse() -> list[tuple[str, pd.DataFrame]]:
             datasets = []
             for path in paths:
                 dataframe = parse_kd_file(path)
                 if dataframe is None:
-                    raise ValueError(f"failed to parse {path.name}")
+                    raise ValueError(_("failed to parse {name}").format(name=path.name))
                 datasets.append((path.stem, dataframe))
             return datasets
 
         def loaded(datasets: list[tuple[str, pd.DataFrame]]) -> None:
             self.datasets = natsorted(datasets, key=lambda dataset: dataset[0])
             self.settings.set("cinetiche/folder_input", str(paths[0].parent))
-            dpg.set_value("kinetics.files", f"{len(datasets)} files ready")
+            dpg.set_value(
+                "kinetics.files",
+                _("{count} files ready").format(count=len(datasets)),
+            )
             dpg.configure_item("kinetics.upload", enabled=True)
             dpg.configure_item("kinetics.reorder", enabled=len(datasets) > 1)
             dpg.configure_item("kinetics.export", enabled=True)
             for path in paths:
-                self.log(f"loaded {path.name}")
+                self.log(_("loaded {name}").format(name=path.name))
 
         self.submit(parse, loaded, lambda error: self._load_failed(error))
 
@@ -221,7 +234,7 @@ class Cinetiche(AssayView):
             max(0, (dpg.get_viewport_client_height() - height) // 2),
         )
         with dpg.window(
-            label="Reorder kinetic files",
+            label=_("Reorder kinetic files"),
             tag=tag,
             modal=True,
             no_move=True,
@@ -232,19 +245,19 @@ class Cinetiche(AssayView):
             height=height,
             pos=position,
         ):
-            dpg.add_text("Files and chart traces will use this order.")
+            dpg.add_text(_("Files and chart traces will use this order."))
             with dpg.child_window(height=list_height, border=True):
                 for index, (filename, _dataframe) in enumerate(self.datasets):
                     with dpg.group(horizontal=True):
                         dpg.add_button(
-                            label="Up",
+                            label=_("Up"),
                             enabled=index > 0,
                             user_data=(index, -1),
                             callback=self._move_dataset,
                             width=px(60),
                         )
                         dpg.add_button(
-                            label="Down",
+                            label=_("Down"),
                             enabled=index < len(self.datasets) - 1,
                             user_data=(index, 1),
                             callback=self._move_dataset,
@@ -256,7 +269,7 @@ class Cinetiche(AssayView):
                             wrap=px(360),
                         )
             dpg.add_button(
-                label="Close",
+                label=_("Close"),
                 callback=lambda: dpg.delete_item(tag),
                 width=px(90),
             )
@@ -275,14 +288,14 @@ class Cinetiche(AssayView):
 
     def _load_failed(self, error: Exception) -> None:
         dpg.configure_item("kinetics.upload", enabled=True)
-        dpg.set_value("kinetics.files", "Failed to load files")
-        self.log(f"ERROR: {error}")
+        dpg.set_value("kinetics.files", _("Failed to load files"))
+        self.log(_("ERROR: {error}").format(error=error))
 
     def _choose_output(self) -> None:
         if not self.datasets:
             return
         self.save_file_dialog(
-            title="Save Excel file",
+            title=_("Save Excel file"),
             callback=self._export,
             default_path=self.settings.get("cinetiche/folder_output", "."),
             default_filename=f"{datetime.now():%Y-%m-%d %H-%M-%S} spectrexcel.xlsx",
@@ -296,17 +309,17 @@ class Cinetiche(AssayView):
         self.settings.set("cinetiche/wl_read", reading)
         self.settings.set("cinetiche/wl_corr", correction)
         dpg.configure_item("kinetics.export", enabled=False)
-        self.log("generating excel file...")
+        self.log(_("generating excel file..."))
         self.submit(
             lambda: export_kinetics(datasets, output_path, reading, correction),
-            lambda _: self._export_finished(),
+            lambda _result: self._export_finished(),
             self._export_failed,
         )
 
     def _export_finished(self) -> None:
         dpg.configure_item("kinetics.export", enabled=True)
-        self.log("excel file saved successfully")
+        self.log(_("excel file saved successfully"))
 
     def _export_failed(self, error: Exception) -> None:
         dpg.configure_item("kinetics.export", enabled=True)
-        self.log(f"ERROR: {error}")
+        self.log(_("ERROR: {error}").format(error=error))

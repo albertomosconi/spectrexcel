@@ -4,6 +4,8 @@ from dataclasses import dataclass
 import requests
 from packaging.version import InvalidVersion, Version
 
+from spectrexcel.i18n import _
+
 
 API_URL = "https://api.github.com/repos/albertomosconi/spectrexcel/releases/latest"
 REPOSITORY_URL = "https://github.com/albertomosconi/spectrexcel"
@@ -39,7 +41,9 @@ def find_update(current_version: str, platform: str | None = None) -> UpdateRele
     platform = platform or sys.platform
     asset_name = ASSET_NAMES.get(platform)
     if asset_name is None:
-        raise UpdateError(f"updates are not supported on {platform}")
+        raise UpdateError(
+            _("updates are not supported on {platform}").format(platform=platform)
+        )
 
     response = requests.get(API_URL, headers=REQUEST_HEADERS, timeout=10)
     response.raise_for_status()
@@ -49,7 +53,9 @@ def find_update(current_version: str, platform: str | None = None) -> UpdateRele
         available_version = Version(tag.removeprefix("v"))
         installed_version = Version(current_version)
     except InvalidVersion as error:
-        raise UpdateError(f"invalid release version: {error}") from error
+        raise UpdateError(
+            _("invalid release version: {error}").format(error=error)
+        ) from error
 
     if available_version <= installed_version:
         return None
@@ -63,7 +69,9 @@ def find_update(current_version: str, platform: str | None = None) -> UpdateRele
         None,
     )
     if asset is None:
-        raise UpdateError(f"release {tag} is missing {asset_name}")
+        raise UpdateError(
+            _("release {tag} is missing {asset}").format(tag=tag, asset=asset_name)
+        )
 
     return UpdateRelease(
         tag=tag,

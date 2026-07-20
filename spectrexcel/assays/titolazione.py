@@ -4,6 +4,8 @@ import dearpygui.dearpygui as dpg
 import pandas as pd
 from xlsxwriter import Workbook, worksheet
 
+from spectrexcel.i18n import _
+
 from .shared import AssayView, clean_duplicate_spectra, parse_sd_file, parse_txt_file
 
 
@@ -16,9 +18,9 @@ def export_binding(
     y_axis_max: float,
 ) -> None:
     if x_axis_min >= x_axis_max:
-        raise ValueError("X-axis minimum must be lower than its maximum")
+        raise ValueError(_("X-axis minimum must be lower than its maximum"))
     if y_axis_min >= y_axis_max:
-        raise ValueError("Y-axis minimum must be lower than its maximum")
+        raise ValueError(_("Y-axis minimum must be lower than its maximum"))
 
     if "Std.Dev." in dataframe.columns:
         dataframe = dataframe.drop("Std.Dev.", axis=1)
@@ -82,23 +84,23 @@ class BindingTitolazione(AssayView):
 
     def build(self, parent: str) -> None:
         px = self.display_scale.pixels
-        title = dpg.add_text("1. Upload a TXT or SD file", parent=parent)
+        title = dpg.add_text(_("1. Upload a TXT or SD file"), parent=parent)
         dpg.bind_item_theme(title, "theme.accent")
         dpg.add_button(
-            label="Select input file (.txt, .SD)",
+            label=_("Select input file (.txt, .SD)"),
             tag="binding.upload",
             callback=self._choose_input,
             width=px(260),
             parent=parent,
         )
-        dpg.add_text("No file selected", tag="binding.file", parent=parent)
+        dpg.add_text(_("No file selected"), tag="binding.file", parent=parent)
         dpg.bind_item_theme("binding.file", "theme.muted")
         dpg.add_spacer(height=px(6), parent=parent)
-        title = dpg.add_text("2. Configure axis ranges", parent=parent)
+        title = dpg.add_text(_("2. Configure axis ranges"), parent=parent)
         dpg.bind_item_theme(title, "theme.accent")
         with dpg.group(horizontal=True, parent=parent):
             with dpg.group():
-                dpg.add_text("X-axis minimum (nm)")
+                dpg.add_text(_("X-axis minimum (nm)"))
                 dpg.add_input_int(
                     tag="binding.x_min",
                     default_value=self.settings.get("titolazione/x_axis_min", 200),
@@ -109,7 +111,7 @@ class BindingTitolazione(AssayView):
                     width=px(180),
                 )
             with dpg.group():
-                dpg.add_text("X-axis maximum (nm)")
+                dpg.add_text(_("X-axis maximum (nm)"))
                 dpg.add_input_int(
                     tag="binding.x_max",
                     default_value=self.settings.get("titolazione/x_axis_max", 800),
@@ -120,7 +122,7 @@ class BindingTitolazione(AssayView):
                     width=px(180),
                 )
             with dpg.group():
-                dpg.add_text("Y-axis minimum (AU)")
+                dpg.add_text(_("Y-axis minimum (AU)"))
                 dpg.add_input_float(
                     tag="binding.y_min",
                     default_value=self.settings.get("titolazione/y_axis_min", 0.0),
@@ -133,7 +135,7 @@ class BindingTitolazione(AssayView):
                     width=px(180),
                 )
             with dpg.group():
-                dpg.add_text("Y-axis maximum (AU)")
+                dpg.add_text(_("Y-axis maximum (AU)"))
                 dpg.add_input_float(
                     tag="binding.y_max",
                     default_value=self.settings.get("titolazione/y_axis_max", 0.5),
@@ -146,10 +148,10 @@ class BindingTitolazione(AssayView):
                     width=px(180),
                 )
         dpg.add_spacer(height=px(6), parent=parent)
-        title = dpg.add_text("3. Create Excel file", parent=parent)
+        title = dpg.add_text(_("3. Create Excel file"), parent=parent)
         dpg.bind_item_theme(title, "theme.accent")
         dpg.add_button(
-            label="Generate Excel",
+            label=_("Generate Excel"),
             tag="binding.export",
             callback=self._choose_output,
             enabled=False,
@@ -159,17 +161,17 @@ class BindingTitolazione(AssayView):
 
     def _choose_input(self) -> None:
         self.open_file_dialog(
-            title="Select a spectra file",
+            title=_("Select a spectra file"),
             callback=lambda paths: self._load_input(paths[0]),
-            filters={"Spectra files": ["*.txt", "*.TXT", "*.SD", "*.sd"]},
+            filters={_("Spectra files"): ["*.txt", "*.TXT", "*.SD", "*.sd"]},
             default_path=self.settings.get("main/folder_input", "."),
         )
 
     def _load_input(self, path: Path) -> None:
-        self.log(f"selected {path}")
+        self.log(_("selected {path}").format(path=path))
         dpg.configure_item("binding.upload", enabled=False)
         dpg.configure_item("binding.export", enabled=False)
-        dpg.set_value("binding.file", f"Loading {path.name}...")
+        dpg.set_value("binding.file", _("Loading {name}...").format(name=path.name))
 
         def parse() -> tuple[pd.DataFrame, bool]:
             if path.suffix.upper() == ".SD":
@@ -177,32 +179,43 @@ class BindingTitolazione(AssayView):
             elif path.suffix.upper() == ".TXT":
                 dataframe = parse_txt_file(path)
             else:
-                raise ValueError("unknown input format")
+                raise ValueError(_("unknown input format"))
             return clean_duplicate_spectra(dataframe)
 
         def loaded(result: tuple[pd.DataFrame, bool]) -> None:
             self.dataframe, did_clean = result
             self.input_path = path
             self.settings.set("main/folder_input", str(path.parent))
-            dpg.set_value("binding.file", f"{path.name} - {len(self.dataframe)} signals")
+            dpg.set_value(
+                "binding.file",
+                _("{name} - {count} signals").format(
+                    name=path.name, count=len(self.dataframe)
+                ),
+            )
             dpg.configure_item("binding.upload", enabled=True)
             dpg.configure_item("binding.export", enabled=True)
             if did_clean:
-                self.log("deleted duplicate spectra")
-            self.log(f"the file contains {len(self.dataframe)} signals")
+                self.log(_("deleted duplicate spectra"))
+            self.log(
+                _("the file contains {count} signals").format(
+                    count=len(self.dataframe)
+                )
+            )
 
         self.submit(parse, loaded, lambda error: self._load_failed(error, path))
 
     def _load_failed(self, error: Exception, path: Path) -> None:
         dpg.configure_item("binding.upload", enabled=True)
-        dpg.set_value("binding.file", f"Failed to load {path.name}")
-        self.log(f"ERROR: {error}")
+        dpg.set_value(
+            "binding.file", _("Failed to load {name}").format(name=path.name)
+        )
+        self.log(_("ERROR: {error}").format(error=error))
 
     def _choose_output(self) -> None:
         if self.input_path is None or self.dataframe is None:
             return
         self.save_file_dialog(
-            title="Save Excel file",
+            title=_("Save Excel file"),
             callback=self._export,
             default_path=self.settings.get("main/folder_output", "."),
             default_filename=f"{self.input_path.stem}.xlsx",
@@ -216,7 +229,7 @@ class BindingTitolazione(AssayView):
         y_min = dpg.get_value("binding.y_min")
         y_max = dpg.get_value("binding.y_max")
         if x_min >= x_max or y_min >= y_max:
-            self.log("ERROR: axis minimum must be lower than its maximum")
+            self.log(_("ERROR: axis minimum must be lower than its maximum"))
             return
 
         self.settings.set("main/folder_output", str(output_path.parent))
@@ -226,20 +239,20 @@ class BindingTitolazione(AssayView):
         self.settings.set("titolazione/y_axis_max", y_max)
         dpg.configure_item("binding.export", enabled=False)
         dpg.configure_item("binding.upload", enabled=False)
-        self.log("generating excel file...")
+        self.log(_("generating excel file..."))
         dataframe = self.dataframe
         self.submit(
             lambda: export_binding(dataframe, output_path, x_min, x_max, y_min, y_max),
-            lambda _: self._export_finished(),
+            lambda _result: self._export_finished(),
             self._export_failed,
         )
 
     def _export_finished(self) -> None:
         dpg.configure_item("binding.export", enabled=True)
         dpg.configure_item("binding.upload", enabled=True)
-        self.log("excel file saved successfully")
+        self.log(_("excel file saved successfully"))
 
     def _export_failed(self, error: Exception) -> None:
         dpg.configure_item("binding.export", enabled=True)
         dpg.configure_item("binding.upload", enabled=True)
-        self.log(f"ERROR: {error}")
+        self.log(_("ERROR: {error}").format(error=error))

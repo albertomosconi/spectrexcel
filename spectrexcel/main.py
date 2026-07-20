@@ -15,6 +15,13 @@ from spectrexcel.assays import BindingTitolazione, Cinetiche, FamigliaDiSpettri
 from spectrexcel.assays.shared import AssayView
 from spectrexcel.appearance import THEME_OPTIONS, resolve_theme
 from spectrexcel.dpi import DisplayScale, configure_display_scale
+from spectrexcel.i18n import (
+    LANGUAGES,
+    _,
+    detect_language,
+    get_language,
+    set_language,
+)
 from spectrexcel.settings import Settings
 from spectrexcel.updater import (
     REPOSITORY_URL,
@@ -30,9 +37,9 @@ class Assay:
 
 
 ASSAYS = (
-    Assay("binding / titolazione", BindingTitolazione),
-    Assay("cinetiche", Cinetiche),
-    Assay("famiglia di spettri", FamigliaDiSpettri),
+    Assay("binding / titration", BindingTitolazione),
+    Assay("kinetics", Cinetiche),
+    Assay("spectrum family", FamigliaDiSpettri),
 )
 
 GEAR_ICON = (
@@ -120,6 +127,8 @@ class SpectrExcelApp:
         self.latest_release: UpdateRelease | None = None
         self.assay_view: AssayView | None = None
         self.log_scroll_pending = 0
+        set_language(self.settings.get("main/language", detect_language()))
+        self.language = get_language()
         self.theme_preference = self.settings.get("main/theme", "System")
         if self.theme_preference not in THEME_OPTIONS:
             self.theme_preference = "System"
@@ -224,13 +233,13 @@ class SpectrExcelApp:
                 dpg.add_table_column(width_fixed=True)
                 with dpg.table_row():
                     with dpg.group(horizontal=True):
-                        dpg.add_text("ASSAY")
+                        dpg.add_text(_("ASSAY"))
                         selected_index = self.settings.get("main/selected_assay", 0)
                         if not 0 <= selected_index < len(ASSAYS):
                             selected_index = 0
                         dpg.add_combo(
-                            items=[assay.name for assay in ASSAYS],
-                            default_value=ASSAYS[selected_index].name,
+                            items=[_(assay.name) for assay in ASSAYS],
+                            default_value=_(ASSAYS[selected_index].name),
                             tag="main.assay",
                             callback=self._assay_changed,
                             width=px(250),
@@ -240,7 +249,7 @@ class SpectrExcelApp:
                     with dpg.group(horizontal=True, horizontal_spacing=0):
                         dpg.add_spacer(width=px(4))
                         dpg.add_button(
-                            label="Check updates",
+                            label=_("Check updates"),
                             tag="main.update",
                             callback=self._check_for_update,
                         )
@@ -254,14 +263,14 @@ class SpectrExcelApp:
                             tint_color=(235, 235, 235),
                         )
                         with dpg.tooltip("main.settings"):
-                            dpg.add_text("App settings")
+                            dpg.add_text(_("App settings"))
             dpg.bind_item_theme("main.header", header_theme)
 
             dpg.add_separator()
             with dpg.child_window(tag="assay.content", height=px(-174), border=False):
                 pass
 
-            activity_title = dpg.add_text("ACTIVITY")
+            activity_title = dpg.add_text(_("ACTIVITY"))
             dpg.bind_item_theme(activity_title, "theme.accent")
             dpg.add_child_window(
                 tag="main.log",
@@ -273,10 +282,10 @@ class SpectrExcelApp:
             dpg.add_text("", tag="main.log.text", parent="main.log")
             dpg.bind_item_font("main.log.text", "main.log_font")
             with dpg.group(horizontal=True):
-                developer_text = dpg.add_text("Developed by Alberto Mosconi")
+                developer_text = dpg.add_text(_("Developed by Alberto Mosconi"))
                 dpg.bind_item_theme(developer_text, "theme.muted")
-                dpg.add_button(label="Source code", small=True, callback=self._open_source)
-                license_text = dpg.add_text("GPLv3 or later")
+                dpg.add_button(label=_("Source code"), small=True, callback=self._open_source)
+                license_text = dpg.add_text(_("GPLv3 or later"))
                 dpg.bind_item_theme(license_text, "theme.muted")
 
         dpg.set_primary_window("main.window", True)
@@ -295,7 +304,7 @@ class SpectrExcelApp:
 
     def _show_settings(self) -> None:
         px = self.display_scale.pixels
-        width, height = px(430), px(190)
+        width, height = px(430), px(250)
         if dpg.does_item_exist("settings.modal"):
             dpg.delete_item("settings.modal")
         position = (
@@ -303,7 +312,7 @@ class SpectrExcelApp:
             max(0, (dpg.get_viewport_client_height() - height) // 2),
         )
         with dpg.window(
-            label="App settings",
+            label=_("App settings"),
             tag="settings.modal",
             modal=True,
             no_move=True,
@@ -314,34 +323,67 @@ class SpectrExcelApp:
             height=height,
             pos=position,
         ):
-            dpg.add_combo(
-                label="Theme",
-                items=list(THEME_OPTIONS),
-                default_value=self.theme_preference,
-                callback=self._theme_changed,
-                width=px(180),
-            )
+            with dpg.group(horizontal=True):
+                dpg.add_text(_("Theme:"))
+                dpg.add_combo(
+                    items=[_(option) for option in THEME_OPTIONS],
+                    default_value=_(self.theme_preference),
+                    callback=self._theme_changed,
+                    width=px(180),
+                )
             dpg.add_text(
-                "System is detected now. Restart or reselect System after changing your OS theme.",
+                _(
+                    "System is detected now. Restart or reselect System after changing your OS theme."
+                ),
                 tag="settings.system_note",
                 show=self.theme_preference == "System",
                 wrap=px(390),
             )
+            with dpg.group(horizontal=True):
+                dpg.add_text(_("Language:"))
+                dpg.add_combo(
+                    items=list(LANGUAGES.values()),
+                    default_value=LANGUAGES[self.language],
+                    callback=self._language_changed,
+                    width=px(180),
+                )
+            dpg.add_text(
+                _("Restart SpectrExcel to apply the language."),
+                tag="settings.language_note",
+                show=False,
+                wrap=px(390),
+            )
             dpg.add_spacer(height=px(10))
             dpg.add_button(
-                label="Close",
+                label=_("Close"),
                 callback=lambda: dpg.delete_item("settings.modal"),
                 width=px(90),
             )
 
     def _theme_changed(self, _sender: Any, preference: str) -> None:
+        preference = next(
+            (option for option in THEME_OPTIONS if _(option) == preference),
+            "",
+        )
         if preference not in THEME_OPTIONS:
             return
         self.theme_preference = preference
         if not self.settings.set("main/theme", preference):
-            self.log("ERROR: unable to save the theme preference")
+            self.log(_("ERROR: unable to save the theme preference"))
         self._apply_theme()
         dpg.configure_item("settings.system_note", show=preference == "System")
+
+    def _language_changed(self, _sender: Any, label: str) -> None:
+        code = next(
+            (code for code, name in LANGUAGES.items() if name == label),
+            None,
+        )
+        if code is None:
+            return
+        if not self.settings.set("main/language", code):
+            self.log(_("ERROR: unable to save the language preference"))
+            return
+        dpg.configure_item("settings.language_note", show=code != self.language)
 
     def submit(
         self,
@@ -377,12 +419,12 @@ class SpectrExcelApp:
                 try:
                     callback(value)
                 except Exception as callback_error:
-                    self.log(f"ERROR: {callback_error}")
+                    self.log(_("ERROR: {error}").format(error=callback_error))
             else:
                 try:
                     callback(error)
                 except Exception as callback_error:
-                    self.log(f"ERROR: {callback_error}")
+                    self.log(_("ERROR: {error}").format(error=callback_error))
 
     def log(self, text: str | list[str]) -> None:
         messages = [text] if isinstance(text, str) else text
@@ -406,7 +448,7 @@ class SpectrExcelApp:
 
     def _assay_changed(self, _sender: Any, assay_name: str) -> None:
         index = next(
-            index for index, assay in enumerate(ASSAYS) if assay.name == assay_name
+            index for index, assay in enumerate(ASSAYS) if _(assay.name) == assay_name
         )
         self._load_assay(index)
 
@@ -420,7 +462,7 @@ class SpectrExcelApp:
         )
         self.assay_view.build("assay.content")
         self.settings.set("main/selected_assay", index)
-        self.log(f"LOADED ASSAY: {assay.name}")
+        self.log(_("LOADED ASSAY: {name}").format(name=_(assay.name)))
 
     def _find_update(self) -> UpdateRelease | None:
         return find_update(self.version)
@@ -428,31 +470,35 @@ class SpectrExcelApp:
     def _update_check_finished(self, release: UpdateRelease | None) -> None:
         self.latest_release = release
         if release is not None:
-            dpg.configure_item("main.update", label=f"Update {release.tag}")
+            dpg.configure_item(
+                "main.update", label=_("Update {tag}").format(tag=release.tag)
+            )
 
     def _update_check_failed(self, _error: Exception) -> None:
         # Startup update checks are intentionally silent.
         pass
 
     def _check_for_update(self) -> None:
-        dpg.configure_item("main.update", enabled=False, label="Checking...")
-        self.log("checking for updates...")
+        dpg.configure_item("main.update", enabled=False, label=_("Checking..."))
+        self.log(_("checking for updates..."))
         self.submit(self._find_update, self._manual_update_finished, self._manual_update_failed)
 
     def _manual_update_finished(self, release: UpdateRelease | None) -> None:
         dpg.configure_item("main.update", enabled=True)
         self.latest_release = release
         if release is None:
-            dpg.configure_item("main.update", label="Check updates")
-            self.log("no updates found")
+            dpg.configure_item("main.update", label=_("Check updates"))
+            self.log(_("no updates found"))
             return
-        dpg.configure_item("main.update", label=f"Update {release.tag}")
-        self.log(f"NEW APP VERSION FOUND: {release.tag}")
+        dpg.configure_item(
+            "main.update", label=_("Update {tag}").format(tag=release.tag)
+        )
+        self.log(_("NEW APP VERSION FOUND: {tag}").format(tag=release.tag))
         self._show_update_confirmation(release)
 
     def _manual_update_failed(self, error: Exception) -> None:
-        dpg.configure_item("main.update", enabled=True, label="Check updates")
-        self.log(f"ERROR: unable to check for updates: {error}")
+        dpg.configure_item("main.update", enabled=True, label=_("Check updates"))
+        self.log(_("ERROR: unable to check for updates: {error}").format(error=error))
 
     def _show_update_confirmation(self, release: UpdateRelease) -> None:
         px = self.display_scale.pixels
@@ -461,7 +507,7 @@ class SpectrExcelApp:
         if dpg.does_item_exist("update.modal"):
             dpg.delete_item("update.modal")
         with dpg.window(
-            label="Update available",
+            label=_("Update available"),
             tag="update.modal",
             modal=True,
             no_close=True,
@@ -470,37 +516,41 @@ class SpectrExcelApp:
             pos=self.display_scale.position((165, 155)),
         ):
             dpg.add_text(
-                f"Version {release.tag} is available. Open the download in your "
-                "browser and close SpectrExcel? Replace the old application file "
-                "with the downloaded one.",
+                _(
+                    "Version {tag} is available. Open the download in your "
+                    "browser and close SpectrExcel? Replace the old application "
+                    "file with the downloaded one."
+                ).format(tag=release.tag),
                 wrap=px(430),
             )
             dpg.add_spacer(height=px(12))
             with dpg.group(horizontal=True):
                 dpg.add_button(
-                    label="Download and close",
+                    label=_("Download and close"),
                     callback=lambda: self._open_update_download(release),
                     width=px(180),
                 )
                 dpg.add_button(
-                    label="Not now",
+                    label=_("Not now"),
                     callback=lambda: dpg.delete_item("update.modal"),
                     width=px(100),
                 )
 
     def _open_update_download(self, release: UpdateRelease) -> None:
         if self.has_running_tasks():
-            self.log("finish the current operation before downloading the update")
+            self.log(_("finish the current operation before downloading the update"))
             return
         try:
             opened = webbrowser.open(release.asset.download_url)
         except Exception as error:
-            self.log(f"ERROR: unable to open update download: {error}")
+            self.log(
+                _("ERROR: unable to open update download: {error}").format(error=error)
+            )
             return
         if not opened:
-            self.log("ERROR: unable to open update download in the browser")
+            self.log(_("ERROR: unable to open update download in the browser"))
             return
-        self.log("update opened in the browser; closing SpectrExcel...")
+        self.log(_("update opened in the browser; closing SpectrExcel..."))
         dpg.stop_dearpygui()
 
     @staticmethod

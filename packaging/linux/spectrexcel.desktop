@@ -2,6 +2,7 @@
 Type=Application
 Name=SpectrExcel
 Comment=Process spectroscopy data and export Excel workbooks
+Comment[it]=Elabora dati di spettroscopia ed esporta cartelle Excel
 Exec=spectrexcel
 Icon=spectrexcel
 Categories=Science;
