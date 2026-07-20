@@ -323,14 +323,17 @@ class SpectrExcelApp:
             height=height,
             pos=position,
         ):
-            with dpg.group(horizontal=True):
-                dpg.add_text(_("Theme:"))
-                dpg.add_combo(
-                    items=[_(option) for option in THEME_OPTIONS],
-                    default_value=_(self.theme_preference),
-                    callback=self._theme_changed,
-                    width=px(180),
-                )
+            with dpg.table(header_row=False, no_pad_outerX=True):
+                dpg.add_table_column(width_fixed=True, init_width_or_weight=px(90))
+                dpg.add_table_column(width_fixed=True)
+                with dpg.table_row():
+                    dpg.add_text(_("Theme:"))
+                    dpg.add_combo(
+                        items=[_(option) for option in THEME_OPTIONS],
+                        default_value=_(self.theme_preference),
+                        callback=self._theme_changed,
+                        width=px(180),
+                    )
             dpg.add_text(
                 _(
                     "System is detected now. Restart or reselect System after changing your OS theme."
@@ -339,14 +342,17 @@ class SpectrExcelApp:
                 show=self.theme_preference == "System",
                 wrap=px(390),
             )
-            with dpg.group(horizontal=True):
-                dpg.add_text(_("Language:"))
-                dpg.add_combo(
-                    items=list(LANGUAGES.values()),
-                    default_value=LANGUAGES[self.language],
-                    callback=self._language_changed,
-                    width=px(180),
-                )
+            with dpg.table(header_row=False, no_pad_outerX=True):
+                dpg.add_table_column(width_fixed=True, init_width_or_weight=px(90))
+                dpg.add_table_column(width_fixed=True)
+                with dpg.table_row():
+                    dpg.add_text(_("Language:"))
+                    dpg.add_combo(
+                        items=list(LANGUAGES.values()),
+                        default_value=LANGUAGES[self.language],
+                        callback=self._language_changed,
+                        width=px(180),
+                    )
             dpg.add_text(
                 _("Restart SpectrExcel to apply the language."),
                 tag="settings.language_note",
