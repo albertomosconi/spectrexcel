@@ -76,3 +76,54 @@ def test_export_kinetics_preserves_dataset_and_chart_order(tmp_path):
     assert all(
         item.find("c:spPr/a:ln/a:solidFill", chart_ns) is None for item in series
     )
+
+
+def test_export_kinetics_zeroes_time_axis(tmp_path):
+    spectra = pd.DataFrame({8.4: [0.2, 0.1], 15.7: [0.3, 0.1]}, index=[300, 800])
+    output_path = tmp_path / "kinetics.xlsx"
+
+    export_kinetics(
+        [("sample-1", spectra)],
+        output_path,
+        reading_wavelength=300,
+        correction_wavelength=800,
+    )
+
+    spreadsheet_ns = {
+        "s": "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
+    }
+    chart_ns = {
+        "a": "http://schemas.openxmlformats.org/drawingml/2006/main",
+        "c": "http://schemas.openxmlformats.org/drawingml/2006/chart",
+    }
+    with ZipFile(output_path) as workbook:
+        sheet = ElementTree.fromstring(workbook.read("xl/worksheets/sheet1.xml"))
+        chart = ElementTree.fromstring(workbook.read("xl/charts/chart1.xml"))
+
+    def cell_number(reference: str) -> float:
+        cell = sheet.find(f".//s:c[@r='{reference}']", spreadsheet_ns)
+        assert cell is not None
+        value = cell.find("s:v", spreadsheet_ns)
+        assert value is not None and value.text is not None
+        return float(value.text)
+
+    assert cell_number("A3") == 0.0
+    assert cell_number("A4") == 15.7 - 8.4
+
+    def axis_position(axis) -> str:
+        position = axis.find("c:axPos", chart_ns)
+        assert position is not None
+        return position.get("val")
+
+    x_axis = next(
+        axis
+        for axis in chart.findall(".//c:valAx", chart_ns)
+        if axis_position(axis) == "b"
+    )
+    scaling = x_axis.find("c:scaling", chart_ns)
+    assert scaling is not None
+    minimum = scaling.find("c:min", chart_ns)
+    maximum = scaling.find("c:max", chart_ns)
+    assert minimum is not None and maximum is not None
+    assert float(minimum.get("val")) == 0.0
+    assert float(maximum.get("val")) == 15.7 - 8.4

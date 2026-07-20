@@ -30,7 +30,9 @@ def export_kinetics(
             4 + len(datasets),
             f"correction wavelength: {correction_wavelength}nm",
         )
-        for row, value in enumerate(datasets[0][1].columns.values, start=2):
+        times = datasets[0][1].columns.values.astype(float)
+        times = times - times[0]
+        for row, value in enumerate(times, start=2):
             sheet.write(row, 0, float(value))
 
         chart = workbook.add_chart({"type": "scatter", "subtype": "smooth"})
@@ -84,7 +86,7 @@ def export_kinetics(
                 "line": {"color": "gray"},
                 "interval_unit": 50,
                 "min": 0,
-                "max": float(datasets[0][1].columns.values[-1]),
+                "max": float(times[-1]),
                 "major_tick_mark": "none",
                 "minor_tick_mark": "none",
             }
