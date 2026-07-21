@@ -35,6 +35,26 @@ class UpdateRelease:
     tag: str
     version: Version
     asset: ReleaseAsset
+    notes: str = ""
+
+
+def format_notes(body: str) -> str:
+    """Convert a GitHub release body into plain text for the update dialog."""
+    lines: list[str] = []
+    for raw_line in body.splitlines():
+        line = raw_line.strip()
+        if line.startswith("### "):
+            line = f"{line[4:].strip()}:"
+        elif line.startswith("## ") or line.startswith("**Full Changelog**"):
+            continue
+        if not line:
+            if lines and lines[-1]:
+                lines.append("")
+            continue
+        lines.append(line)
+    while lines and not lines[-1]:
+        lines.pop()
+    return "\n".join(lines)
 
 
 def find_update(current_version: str, platform: str | None = None) -> UpdateRelease | None:
@@ -77,4 +97,5 @@ def find_update(current_version: str, platform: str | None = None) -> UpdateRele
         tag=tag,
         version=available_version,
         asset=ReleaseAsset(asset_name, asset["browser_download_url"]),
+        notes=release.get("body") or "",
     )

@@ -19,9 +19,20 @@ class FakeResponse:
         return None
 
 
+RELEASE_BODY = (
+    "## What's Changed\n"
+    "\n"
+    "### Features\n"
+    "- something new\n"
+    "\n"
+    "**Full Changelog**: https://example/compare/v1.0.3...v1.1.0\n"
+)
+
+
 def release_payload(tag="v1.1.0"):
     return {
         "tag_name": tag,
+        "body": RELEASE_BODY,
         "assets": [
             {
                 "name": WINDOWS_ASSET,
@@ -48,6 +59,7 @@ def test_find_update_selects_platform_download(monkeypatch):
     assert update.tag == "v1.1.0"
     assert update.version == Version("1.1.0")
     assert update.asset == updater.ReleaseAsset(LINUX_ASSET, "https://example/linux")
+    assert update.notes == RELEASE_BODY
 
 
 def test_find_update_returns_none_for_installed_version(monkeypatch):
@@ -74,6 +86,56 @@ def test_find_update_rejects_missing_platform_asset(monkeypatch):
 def test_find_update_rejects_unsupported_platform():
     with pytest.raises(updater.UpdateError, match="not supported"):
         updater.find_update("1.0.3", platform="darwin")
+
+
+def test_find_update_defaults_missing_notes(monkeypatch):
+    payload = release_payload()
+    del payload["body"]
+    monkeypatch.setattr(
+        updater.requests, "get", lambda *args, **kwargs: FakeResponse(payload)
+    )
+
+    update = updater.find_update("1.0.3", platform="linux")
+
+    assert update is not None
+    assert update.notes == ""
+
+
+def test_format_notes_summarizes_generated_release():
+    body = (
+        "## What's Changed\n"
+        "\n"
+        "### Features\n"
+        "- add translations\n"
+        "- reorder kinetic files\n"
+        "\n"
+        "### Bug Fixes\n"
+        "- align selects\n"
+        "\n"
+        "**Full Changelog**: https://example/compare/v1.0.0...v1.1.0\n"
+    )
+
+    assert updater.format_notes(body) == (
+        "Features:\n"
+        "- add translations\n"
+        "- reorder kinetic files\n"
+        "\n"
+        "Bug Fixes:\n"
+        "- align selects"
+    )
+
+
+def test_format_notes_handles_empty_body():
+    assert updater.format_notes("") == ""
+    assert updater.format_notes("  \n \n  ") == ""
+    assert updater.format_notes("## What's Changed\n") == ""
+
+
+def test_format_notes_passes_through_plain_text():
+    assert (
+        updater.format_notes("Just a note.\n\nAnother line.")
+        == "Just a note.\n\nAnother line."
+    )
 
 
 def test_download_closes_only_after_browser_opens(monkeypatch):
