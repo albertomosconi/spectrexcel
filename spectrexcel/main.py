@@ -509,7 +509,12 @@ class SpectrExcelApp:
 
     def _show_update_confirmation(self, release: UpdateRelease) -> None:
         px = self.display_scale.pixels
-        notes = format_notes(release.notes)
+        notes, has_hidden = format_notes(release.notes)
+        height = 180
+        if notes:
+            height += 180
+        if has_hidden:
+            height += 40
         if dpg.does_item_exist("settings.modal"):
             dpg.delete_item("settings.modal")
         if dpg.does_item_exist("update.modal"):
@@ -520,7 +525,7 @@ class SpectrExcelApp:
             modal=True,
             no_close=True,
             width=px(470),
-            height=px(360) if notes else px(180),
+            height=px(height),
             pos=self.display_scale.position((165, 155)),
         ):
             dpg.add_text(
@@ -536,6 +541,15 @@ class SpectrExcelApp:
                 dpg.add_text(_("What's new in {tag}:").format(tag=release.tag))
                 with dpg.child_window(width=px(430), height=px(150), border=True):
                     dpg.add_text(notes, wrap=px(410))
+            if has_hidden:
+                dpg.add_spacer(height=px(12))
+                dpg.add_button(
+                    label=_("View full changelog"),
+                    callback=lambda: webbrowser.open(
+                        f"{REPOSITORY_URL}/releases/tag/{release.tag}"
+                    ),
+                    width=px(240),
+                )
             dpg.add_spacer(height=px(12))
             with dpg.group(horizontal=True):
                 dpg.add_button(

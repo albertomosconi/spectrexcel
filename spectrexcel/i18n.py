@@ -59,6 +59,7 @@ TRANSLATIONS_IT: dict[str, str] = {
         "chiudere SpectrExcel? Sostituisci il vecchio file dell'applicazione "
         "con quello scaricato.",
     "What's new in {tag}:": "Novità nella versione {tag}:",
+    "View full changelog": "Visualizza il changelog completo",
     "Download and close": "Scarica e chiudi",
     "Not now": "Non ora",
     "finish the current operation before downloading the update":

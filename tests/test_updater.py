@@ -121,21 +121,61 @@ def test_format_notes_summarizes_generated_release():
         "- reorder kinetic files\n"
         "\n"
         "Bug Fixes:\n"
-        "- align selects"
+        "- align selects",
+        False,
     )
 
 
 def test_format_notes_handles_empty_body():
-    assert updater.format_notes("") == ""
-    assert updater.format_notes("  \n \n  ") == ""
-    assert updater.format_notes("## What's Changed\n") == ""
+    assert updater.format_notes("") == ("", False)
+    assert updater.format_notes("  \n \n  ") == ("", False)
+    assert updater.format_notes("## What's Changed\n") == ("", False)
 
 
 def test_format_notes_passes_through_plain_text():
     assert (
         updater.format_notes("Just a note.\n\nAnother line.")
-        == "Just a note.\n\nAnother line."
+        == ("Just a note.\n\nAnother line.", False)
     )
+
+
+def test_format_notes_hides_other_changes_section():
+    body = (
+        "## What's Changed\n"
+        "\n"
+        "### Features\n"
+        "- add translations\n"
+        "\n"
+        "### Other Changes\n"
+        "- split parsing module\n"
+        "- generate release notes\n"
+        "\n"
+        "**Full Changelog**: https://example/compare/v1.0.0...v1.1.0\n"
+    )
+
+    assert updater.format_notes(body) == ("Features:\n- add translations", True)
+
+
+def test_format_notes_reports_hidden_only_changes():
+    body = "## What's Changed\n\n### Other Changes\n- tidy up\n"
+
+    assert updater.format_notes(body) == ("", True)
+
+
+def test_format_notes_ignores_empty_other_changes_heading():
+    assert updater.format_notes("### Other Changes\n") == ("", False)
+
+
+def test_format_notes_keeps_sections_after_other_changes():
+    body = (
+        "### Other Changes\n"
+        "- tidy up\n"
+        "\n"
+        "### Bug Fixes\n"
+        "- align selects\n"
+    )
+
+    assert updater.format_notes(body) == ("Bug Fixes:\n- align selects", True)
 
 
 def test_download_closes_only_after_browser_opens(monkeypatch):

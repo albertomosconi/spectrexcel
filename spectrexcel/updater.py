@@ -38,23 +38,37 @@ class UpdateRelease:
     notes: str = ""
 
 
-def format_notes(body: str) -> str:
-    """Convert a GitHub release body into plain text for the update dialog."""
+def format_notes(body: str) -> tuple[str, bool]:
+    """Convert a GitHub release body into plain text for the update dialog.
+
+    The "Other Changes" section (maintenance commits) is omitted from the
+    dialog; the second return value reports whether anything was hidden, so
+    the dialog can link to the full release notes on GitHub.
+    """
     lines: list[str] = []
+    has_hidden = False
+    in_other_changes = False
     for raw_line in body.splitlines():
         line = raw_line.strip()
         if line.startswith("### "):
+            in_other_changes = line == "### Other Changes"
+            if in_other_changes:
+                continue
             line = f"{line[4:].strip()}:"
         elif line.startswith("## ") or line.startswith("**Full Changelog**"):
+            in_other_changes = False
             continue
         if not line:
             if lines and lines[-1]:
                 lines.append("")
             continue
+        if in_other_changes:
+            has_hidden = True
+            continue
         lines.append(line)
     while lines and not lines[-1]:
         lines.pop()
-    return "\n".join(lines)
+    return "\n".join(lines), has_hidden
 
 
 def find_update(current_version: str, platform: str | None = None) -> UpdateRelease | None:
