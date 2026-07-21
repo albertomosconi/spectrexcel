@@ -7,7 +7,8 @@ from xlsxwriter import Workbook, worksheet
 
 from spectrexcel.i18n import _
 
-from .shared import AssayView, parse_kd_file
+from .parsing import WAVELENGTH_MAX, WAVELENGTH_MIN, parse_kd_file
+from .view import AssayView
 
 
 def export_spectrum_family(
@@ -36,8 +37,8 @@ def export_spectrum_family(
                 "num_font": {"color": "gray"},
                 "line": {"color": "gray"},
                 "interval_unit": 50,
-                "min": 190,
-                "max": 1100,
+                "min": WAVELENGTH_MIN,
+                "max": WAVELENGTH_MAX,
                 "major_tick_mark": "none",
                 "minor_tick_mark": "none",
             }
@@ -114,10 +115,7 @@ class FamigliaDiSpettri(AssayView):
         dpg.configure_item("spectra.export", enabled=False)
         dpg.set_value("spectra.file", _("Loading {name}...").format(name=path.name))
 
-        def parsed(dataframe: pd.DataFrame | None) -> None:
-            if dataframe is None:
-                self._load_failed(ValueError(_("failed to parse file")), path)
-                return
+        def parsed(dataframe: pd.DataFrame) -> None:
             self.dataframe = dataframe
             self.input_path = path
             self.settings.set("famiglia_di_spettri/folder_input", str(path.parent))

@@ -8,7 +8,8 @@ from xlsxwriter import Workbook, worksheet
 
 from spectrexcel.i18n import _
 
-from .shared import AssayView, parse_kd_file
+from .parsing import WAVELENGTH_MAX, WAVELENGTH_MIN, parse_kd_file
+from .view import AssayView
 
 
 def export_kinetics(
@@ -148,8 +149,8 @@ class Cinetiche(AssayView):
                 dpg.add_input_int(
                     tag="kinetics.reading",
                     default_value=self.settings.get("cinetiche/wl_read", 300),
-                    min_value=190,
-                    max_value=1100,
+                    min_value=WAVELENGTH_MIN,
+                    max_value=WAVELENGTH_MAX,
                     min_clamped=True,
                     max_clamped=True,
                     width=px(210),
@@ -159,8 +160,8 @@ class Cinetiche(AssayView):
                 dpg.add_input_int(
                     tag="kinetics.correction",
                     default_value=self.settings.get("cinetiche/wl_corr", 800),
-                    min_value=190,
-                    max_value=1100,
+                    min_value=WAVELENGTH_MIN,
+                    max_value=WAVELENGTH_MAX,
                     min_clamped=True,
                     max_clamped=True,
                     width=px(210),
@@ -199,8 +200,6 @@ class Cinetiche(AssayView):
             datasets = []
             for path in paths:
                 dataframe = parse_kd_file(path)
-                if dataframe is None:
-                    raise ValueError(_("failed to parse {name}").format(name=path.name))
                 datasets.append((path.stem, dataframe))
             return datasets
 

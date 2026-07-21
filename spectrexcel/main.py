@@ -12,7 +12,7 @@ from typing import Any, Callable
 import dearpygui.dearpygui as dpg
 
 from spectrexcel.assays import BindingTitolazione, Cinetiche, FamigliaDiSpettri
-from spectrexcel.assays.shared import AssayView
+from spectrexcel.assays.view import AssayView
 from spectrexcel.appearance import THEME_OPTIONS, resolve_theme
 from spectrexcel.dpi import DisplayScale, configure_display_scale
 from spectrexcel.i18n import (

@@ -1,0 +1,221 @@
+import re
+import struct
+from pathlib import Path
+from struct import iter_unpack
+from typing import Callable
+
+import pandas as pd
+
+from spectrexcel.i18n import _
+
+WAVELENGTH_MIN = 190
+WAVELENGTH_MAX = 1100
+WAVELENGTH_COUNT = WAVELENGTH_MAX - WAVELENGTH_MIN + 1
+
+
+class ParseError(Exception):
+    pass
+
+
+def parse_txt_file(filepath: Path) -> pd.DataFrame:
+
+    with filepath.open("r") as fp:
+        contents = fp.read()
+
+    contents = re.sub(r"[ \t]+", " ", contents.strip())
+    contents = contents.split("\n")
+
+    # TODO: validate file format
+
+    first_line = contents[0]
+    first_line = re.sub(r"<(\d+) nm>", r"\g<1>", first_line)
+    columns = first_line[1:-1].split('" "')
+
+    df = pd.DataFrame(
+        data=[line.split(" ") for line in contents[1:]],
+        columns=columns,
+    )
+
+    df = df.drop("WL Result", axis=1)
+    df = df.apply(pd.to_numeric)
+
+    return df
+
+
+def parse_sd_file(filepath: Path) -> pd.DataFrame:
+
+    if filepath.suffix.upper() != ".SD":
+        raise ParseError(_("Invalid file extension"))
+
+    with filepath.open("rb") as fp:
+        contents = fp.read()
+
+    headers = {
+        "S a m p l e N a m e ": (
+            b"\x53\x00\x61\x00\x6d\x00\x70\x00\x6c\x00\x65"
+            b"\x00\x4e\x00\x61\x00\x6d\x00\x65\x00",
+            28,
+            b"\x09",
+        ),
+        "(`DataType": (b"\x28\x60\x44\x61\x74\x61\x54\x79\x70\x65", 33, b"\x02"),
+    }
+    for _key, (header, spacing, end_char) in headers.items():
+        if contents.find(header, 0) != -1:
+            break
+    else:
+        raise ParseError(_("Unable to read file contents: no headers found."))
+
+    position = 0
+    out = []
+    while True:
+        header_idx = contents.find(header, position)
+        if header_idx == -1:
+            break
+
+        start_idx = header_idx + spacing
+        end_idx = contents.find(end_char, start_idx)
+        end_idx = end_idx if end_idx != -1 else None
+        if end_idx is None:
+            break
+
+        out.append(decode_string_with_fallback(contents[start_idx:end_idx]))
+        position = end_idx
+
+    df = pd.DataFrame([[s] for s in out], columns=["#Sample"])
+
+    headers = {
+        "( A U ) ": (b"\x28\x00\x41\x00\x55\x00\x29\x00", 17),
+        "(AU) ": (b"\x28\x41\x55\x29\x00", 5),
+    }
+    for _key, (header, spacing) in headers.items():
+        if contents.find(header, 0) != -1:
+            break
+    else:
+        raise ParseError(_("Unable to read file contents: no headers found."))
+
+    position = 0
+    out = []
+    while True:
+        header_idx = contents.find(header, position)
+        if header_idx == -1:
+            break
+
+        start_idx = header_idx + spacing
+        end_idx = start_idx + WAVELENGTH_COUNT * 8
+
+        out.append([val for val, in iter_unpack("<d", contents[start_idx:end_idx])])
+        position = end_idx
+
+    df = pd.concat(
+        [df, pd.DataFrame(out, columns=range(WAVELENGTH_MIN, WAVELENGTH_MAX + 1))],
+        axis=1,
+    )
+
+    for i in range(len(df)):
+        if df.at[i, "#Sample"] == "":
+            df.at[i, "#Sample"] = i + 1
+
+    return df
+
+
+def parse_kd_file(filepath: Path) -> pd.DataFrame:
+
+    def _extract_data(data: bytes, header: dict, parse_func: Callable) -> list | None:
+        data_list = []
+        position = 0
+        data_header = header["header"]
+        spacing = header["spacing"]
+        chunk = WAVELENGTH_COUNT * 8
+
+        while True:
+            header_idx = data.find(data_header, position)
+            if header_idx == -1:
+                break
+
+            data_idx = header_idx + spacing
+            data_list.append(parse_func(data, data_idx))
+            position = data_idx + chunk
+
+        return data_list if data_list else None
+
+    def _parse_spectratimes(data: bytes, data_start: int) -> float:
+        return float(struct.unpack_from("<d", data, data_start)[0])
+
+    def _parse_spectra(data, data_start: int) -> pd.Series:
+        data_end = data_start + WAVELENGTH_COUNT * 8
+        absorbance_data = data[data_start:data_end]
+        absorbance_values = [
+            value for (value,) in struct.iter_unpack("<d", absorbance_data)
+        ]
+        return pd.Series(
+            absorbance_values, index=range(WAVELENGTH_MIN, WAVELENGTH_MAX + 1)
+        )
+
+    if filepath.suffix.upper() != ".KD":
+        raise ParseError(_("Invalid file extension"))
+
+    with filepath.open("rb") as fp:
+        contents = fp.read()
+
+    HEADERS = {
+        "NEW": (
+            b"\x52\x00\x65\x00\x6c\x00\x54\x00\x69\x00\x6d\x00\x65\x00",
+            20,
+            b"\x28\x00\x41\x00\x55\x00\x29\x00",
+            17,
+        ),
+        "OLD": (
+            b"\x52\x65\x6c\x54\x69\x6d\x65",
+            21,
+            b"\x28\x41\x55\x29",
+            5,
+        ),
+    }
+
+    for H in HEADERS.values():
+        if contents.find(H[0], 0) != -1:
+            break
+    else:
+        raise ParseError(_("Unable to read file contents: no headers found."))
+
+    spectra_times = _extract_data(
+        contents, {"header": H[0], "spacing": H[1]}, _parse_spectratimes
+    )
+    spectra_list = _extract_data(
+        contents, {"header": H[2], "spacing": H[3]}, _parse_spectra
+    )
+    if not spectra_times or not spectra_list:
+        raise ParseError(_("Unable to read file contents: no spectra found."))
+
+    df = pd.concat(spectra_list, axis=1)
+    df.index = pd.Index(
+        range(WAVELENGTH_MIN, WAVELENGTH_MAX + 1), name="Wavelength (nm)"
+    )
+    df.columns = spectra_times
+
+    return df
+
+
+def decode_string_with_fallback(byte_string: bytes) -> str:
+    byte_string = byte_string.replace(b"\x00", b"")
+
+    for encoding in [
+        "utf8",
+        "latin1",
+        "windows-1252",
+        "latin9",
+        "cyrillic",
+        "windows-1251",
+        "latin2",
+        "latin5",
+        "sjis",
+        "korean",
+        "gb18030",
+        "big5",
+        "utf16",
+    ]:
+        try:
+            return byte_string.decode(encoding)
+        except UnicodeDecodeError:
+            continue
+    return byte_string.decode("utf8", "replace")

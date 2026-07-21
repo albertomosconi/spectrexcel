@@ -6,7 +6,25 @@ from xlsxwriter import Workbook, worksheet
 
 from spectrexcel.i18n import _
 
-from .shared import AssayView, clean_duplicate_spectra, parse_sd_file, parse_txt_file
+from .parsing import parse_sd_file, parse_txt_file
+from .view import AssayView
+
+
+def clean_duplicate_spectra(df: pd.DataFrame) -> tuple[pd.DataFrame, bool]:
+
+    if len(df) < 2 or len(df) % 2 != 0:
+        return df, False
+
+    halfway_row = int(len(df) / 2)
+    df_data = df.drop("#Sample", axis=1)
+    df_1st_half = df_data.head(halfway_row).reset_index(drop=True)
+    df_2nd_half = df_data.tail(halfway_row).reset_index(drop=True)
+
+    if df_1st_half.equals(df_2nd_half):
+        df = df.head(halfway_row)
+        return df, True
+
+    return df, False
 
 
 def export_binding(

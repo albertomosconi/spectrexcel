@@ -80,6 +80,8 @@ TRANSLATIONS_IT: dict[str, str] = {
     "Invalid file extension": "Estensione del file non valida",
     "Unable to read file contents: no headers found.":
         "Impossibile leggere il contenuto del file: nessuna intestazione trovata.",
+    "Unable to read file contents: no spectra found.":
+        "Impossibile leggere il contenuto del file: nessuno spettro trovato.",
     "ERROR: {error}": "ERRORE: {error}",
     "Save Excel file": "Salva file Excel",
     "generating excel file...": "generazione del file excel in corso...",
