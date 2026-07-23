@@ -1,0 +1,132 @@
+:root {
+  color-scheme: dark;
+  --background: #101716;
+  --surface: #16211e;
+  --surface-strong: #1a2924;
+  --border: #4f7968;
+  --text: #f3fff9;
+  --text-secondary: #d0e3da;
+  --accent: #62e7ae;
+  --accent-text: #07120e;
+  --focus: #8fffcf;
+  font-family: "Courier New", Courier, monospace;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; min-width: 320px; background: var(--background); color: var(--text); }
+a { color: inherit; }
+.button, summary { min-height: 44px; min-width: 44px; }
+:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
+.hero, .workflow-grid, .docs-layout { display: grid; grid-template-columns: 1fr; }
+.actions { display: grid; gap: .75rem; }
+.button { display: inline-flex; align-items: center; justify-content: center; }
+
+body {
+  background-image:
+    linear-gradient(rgb(98 231 174 / 4%) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(98 231 174 / 4%) 1px, transparent 1px);
+  background-size: 2rem 2rem;
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
+img { max-width: 100%; height: auto; }
+main, .site-header, .site-footer { width: min(100% - 2rem, 72rem); margin-inline: auto; }
+main { min-height: calc(100vh - 13rem); }
+h1, h2, h3, p { margin-top: 0; }
+h1, h2, h3 { line-height: 1.2; }
+p, li { max-width: 72ch; }
+
+.site-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-block: 1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.site-header > a {
+  display: inline-flex;
+  align-items: center;
+  gap: .75rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.site-header img { width: 2.5rem; height: 2.5rem; }
+.nav-disclosure { position: relative; }
+.nav-disclosure summary { display: flex; align-items: center; cursor: pointer; }
+.nav-disclosure nav {
+  position: absolute;
+  z-index: 1;
+  right: 0;
+  width: max-content;
+  padding: .75rem;
+  background: var(--surface-strong);
+  border: 1px solid var(--border);
+}
+.nav-disclosure nav a { display: block; padding: .5rem .75rem; }
+
+.hero { align-items: center; gap: 2rem; padding-block: clamp(3rem, 8vw, 7rem); }
+.hero img { width: min(100%, 18rem); justify-self: center; }
+.actions { margin-top: 1.5rem; }
+.button {
+  padding: .65rem 1rem;
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: var(--accent-text);
+  font-weight: 700;
+  text-align: center;
+  text-decoration: none;
+}
+.button:hover { background: var(--focus); border-color: var(--focus); }
+.button.secondary { background: transparent; color: var(--text); }
+.button.secondary:hover { background: var(--surface-strong); }
+
+.workflow-grid { gap: 1rem; margin-block: 2rem 4rem; }
+.panel { padding: clamp(1rem, 3vw, 1.5rem); background: var(--surface); border: 1px solid var(--border); }
+.panel:hover { border-color: var(--accent); }
+
+.docs-layout { gap: 2rem; padding-block: 2rem 4rem; }
+.docs-nav { padding: 1rem; background: var(--surface); border: 1px solid var(--border); }
+.docs-nav a { display: block; padding: .35rem 0; color: var(--text-secondary); }
+.docs-nav a:hover { color: var(--text); }
+.docs-layout article { min-width: 0; }
+.docs-layout pre { overflow-x: auto; padding: 1rem; background: var(--surface); border: 1px solid var(--border); }
+
+.site-footer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-block: 2rem;
+  color: var(--text-secondary);
+  border-top: 1px solid var(--border);
+}
+
+@media (min-width: 48rem) {
+  .hero { grid-template-columns: minmax(0, 1fr) minmax(12rem, 20rem); }
+  .workflow-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .docs-layout { grid-template-columns: minmax(12rem, 16rem) minmax(0, 1fr); }
+  .actions { display: flex; flex-wrap: wrap; }
+  .nav-disclosure summary { display: none; }
+  .nav-disclosure nav { position: static; display: flex; align-items: center; gap: .25rem; padding: 0; background: transparent; border: 0; }
+  details.nav-disclosure:not([open]) > nav { display: flex; }
+  .docs-nav { align-self: start; position: sticky; top: 1rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { animation-duration: .01ms !important; transition: none !important; }
+}
+
+@media print {
+  :root { color-scheme: light; }
+  body { background: white; color: black; }
+  .site-header, .site-footer, .docs-nav, .actions { display: none; }
+  main, .docs-layout { display: block; width: 100%; }
+  .panel, .docs-layout pre { background: transparent; border-color: #666; }
+  a { color: black; text-decoration: underline; }
+}

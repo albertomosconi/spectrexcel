@@ -1,0 +1,49 @@
+from html.parser import HTMLParser
+from pathlib import Path
+
+
+ROOT = Path(__file__).parents[1]
+SITE = ROOT / "site"
+PAGES = {
+    "en-home": SITE / "index.html",
+    "en-docs": SITE / "docs" / "index.html",
+    "it-home": SITE / "it" / "index.html",
+    "it-docs": SITE / "it" / "docs" / "index.html",
+}
+WINDOWS_ASSET = "spectrexcel-windows-x86_64.exe"
+LINUX_ASSET = "SpectrExcel-x86_64.AppImage.tar.gz"
+
+
+class DocumentParser(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.attributes = []
+        self.ids = set()
+
+    def handle_starttag(self, tag, attrs):
+        values = dict(attrs)
+        self.attributes.append((tag, values))
+        if "id" in values:
+            self.ids.add(values["id"])
+
+
+def parse(path):
+    parser = DocumentParser()
+    parser.feed(path.read_text(encoding="utf-8"))
+    return parser
+
+
+def test_shared_assets_exist_and_icon_matches_application():
+    assert (SITE / "assets" / "styles.css").is_file()
+    assert (SITE / "assets" / "site.js").is_file()
+    assert (SITE / "assets" / "icon.png").read_bytes() == (
+        ROOT / "spectrexcel" / "icon.png"
+    ).read_bytes()
+
+
+def test_download_script_contains_exact_latest_release_assets():
+    script = (SITE / "assets" / "site.js").read_text(encoding="utf-8")
+    assert WINDOWS_ASSET in script
+    assert LINUX_ASSET in script
+    assert "/releases/latest/download/" in script
+    assert "/releases/latest" in script
