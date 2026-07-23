@@ -5,14 +5,18 @@ const LINUX_ASSET = "SpectrExcel-x86_64.AppImage.tar.gz";
 
 // Release assets resolve under /releases/latest/download/.
 function platformName() {
-  const value = [
-    navigator.userAgentData?.platform,
-    navigator.platform,
-    navigator.userAgent,
-  ].filter(Boolean).join(" ").toLowerCase();
-  if (value.includes("win")) return "windows";
-  if (value.includes("linux") && !value.includes("android")) return "linux";
-  return null;
+  try {
+    const value = [
+      navigator.userAgentData?.platform,
+      navigator.platform,
+      navigator.userAgent,
+    ].filter(Boolean).join(" ").toLowerCase();
+    if (value.includes("win")) return "windows";
+    if (value.includes("linux") && !value.includes("android")) return "linux";
+    return null;
+  } catch (_) {
+    return null;
+  }
 }
 
 const platform = platformName();

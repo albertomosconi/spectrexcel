@@ -1,5 +1,10 @@
+import json
 from html.parser import HTMLParser
 from pathlib import Path
+import shutil
+import subprocess
+
+import pytest
 
 
 ROOT = Path(__file__).parents[1]
@@ -12,6 +17,9 @@ PAGES = {
 }
 WINDOWS_ASSET = "spectrexcel-windows-x86_64.exe"
 LINUX_ASSET = "SpectrExcel-x86_64.AppImage.tar.gz"
+GITHUB_URL = "https://github.com/albertomosconi/spectrexcel"
+RELEASES_URL = f"{GITHUB_URL}/releases/latest"
+LICENSE_URL = f"{GITHUB_URL}/blob/main/LICENSE"
 DOC_IDS = {
     "install",
     "first-export",
@@ -60,12 +68,90 @@ def test_download_script_contains_exact_latest_release_assets():
 
 def test_navigation_links_have_minimum_touch_targets():
     styles = (SITE / "assets" / "styles.css").read_text(encoding="utf-8")
-    for selector in (".site-header > a", ".nav-disclosure nav a", ".docs-nav a"):
+    for selector in (
+        ".site-header > a",
+        ".nav-disclosure nav a",
+        ".docs-nav a",
+        ".site-footer a",
+    ):
         block = styles.split(f"{selector} {{", 1)[1].split("}", 1)[0]
         assert "display: flex;" in block or "display: inline-flex;" in block
         assert "align-items: center;" in block
         assert "min-height: 44px;" in block
         assert "min-width: 44px;" in block
+
+
+def test_download_script_enhances_supported_desktops_and_keeps_fallbacks():
+    node = shutil.which("node")
+    if node is None:
+        pytest.skip("Node.js is unavailable")
+
+    harness = r"""
+const fs = require("fs");
+const vm = require("vm");
+const testCase = JSON.parse(process.argv[1]);
+const download = {
+  href: "https://github.com/albertomosconi/spectrexcel/releases/latest",
+  textContent: "View latest release",
+  dataset: {
+    windowsLabel: "Download for Windows",
+    linuxLabel: "Download for Linux",
+  },
+};
+const navigator = testCase.failure
+  ? Object.defineProperty({}, "userAgentData", { get() { throw new Error("blocked"); } })
+  : testCase.navigator;
+const context = {
+  navigator,
+  document: {
+    querySelector: () => download,
+    querySelectorAll: () => [],
+    documentElement: { lang: "en" },
+  },
+  location: { pathname: "/other/", replace() {} },
+  localStorage: { getItem() { return null; }, setItem() {} },
+};
+let error = null;
+try {
+  vm.runInNewContext(fs.readFileSync(process.argv[2], "utf8"), context);
+} catch (caught) {
+  error = caught.message;
+}
+process.stdout.write(JSON.stringify({ href: download.href, text: download.textContent, error }));
+"""
+    cases = [
+        (
+            {"navigator": {"platform": "Win32", "userAgent": "desktop"}},
+            f"{RELEASES_URL}/download/{WINDOWS_ASSET}",
+            "Download for Windows",
+        ),
+        (
+            {"navigator": {"platform": "Linux x86_64", "userAgent": "desktop"}},
+            f"{RELEASES_URL}/download/{LINUX_ASSET}",
+            "Download for Linux",
+        ),
+        (
+            {"navigator": {"platform": "Linux armv8l", "userAgent": "Android Mobile"}},
+            RELEASES_URL,
+            "View latest release",
+        ),
+        (
+            {"navigator": {"platform": "MacIntel", "userAgent": "desktop"}},
+            RELEASES_URL,
+            "View latest release",
+        ),
+        ({"failure": True}, RELEASES_URL, "View latest release"),
+    ]
+    script = SITE / "assets" / "site.js"
+    for test_case, expected_href, expected_text in cases:
+        result = subprocess.run(
+            [node, "-e", harness, json.dumps(test_case), str(script)],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        output = json.loads(result.stdout)
+        assert output == {"href": expected_href, "text": expected_text, "error": None}
 
 
 def test_landing_pages_are_localized_and_progressively_enhanced():
@@ -86,6 +172,53 @@ def test_landing_pages_are_localized_and_progressively_enhanced():
         assert downloads[0]["href"].endswith("/releases/latest")
         assert WINDOWS_ASSET in downloads[0]["data-windows-url"]
         assert LINUX_ASSET in downloads[0]["data-linux-url"]
+
+
+def test_landing_pages_have_equivalent_required_content():
+    cases = [
+        {
+            "path": PAGES["en-home"],
+            "github_label": "View SpectrExcel on GitHub",
+            "docs_href": "/docs/",
+            "docs_text": "Docs",
+            "downloads_text": "Other downloads",
+            "privacy": ("no account", "no upload", "open source"),
+            "footer_text": ("Documentation", "GitHub", "Latest release", "License"),
+        },
+        {
+            "path": PAGES["it-home"],
+            "github_label": "Visita SpectrExcel su GitHub",
+            "docs_href": "/it/docs/",
+            "docs_text": "Documentazione",
+            "downloads_text": "Altri download",
+            "privacy": ("nessun account", "nessun caricamento", "open source"),
+            "footer_text": ("Documentazione", "GitHub", "Ultima versione", "Licenza"),
+        },
+    ]
+    for case in cases:
+        path = case["path"]
+        text = path.read_text(encoding="utf-8")
+        parser = parse(path)
+        anchors = [attrs for tag, attrs in parser.attributes if tag == "a"]
+        assert any(
+            attrs.get("href") == GITHUB_URL
+            and attrs.get("aria-label") == case["github_label"]
+            for attrs in anchors
+        )
+        assert f'href="{case["docs_href"]}"' in text
+        assert f">{case['docs_text']}</a>" in text
+        assert f'href="#download-options">{case["downloads_text"]}</a>' in text
+        for phrase in case["privacy"]:
+            assert phrase in text.lower()
+        footer = text.split('<footer class="site-footer">', 1)[1].split("</footer>", 1)[0]
+        assert case["docs_href"] in footer
+        assert GITHUB_URL in footer
+        assert RELEASES_URL in footer
+        assert LICENSE_URL in footer
+        assert 'data-language="en"' in footer
+        assert 'data-language="it"' in footer
+        for label in case["footer_text"]:
+            assert label in footer
 
 
 def test_pages_use_local_icon_for_favicon_and_content():
@@ -154,6 +287,10 @@ def test_landing_pages_use_custom_domain_and_root_relative_routes():
 
 
 def test_docs_have_equivalent_sections_and_platform_requirements():
+    github_labels = {
+        "en-docs": "View SpectrExcel on GitHub",
+        "it-docs": "Visita SpectrExcel su GitHub",
+    }
     for key in ("en-docs", "it-docs"):
         path = PAGES[key]
         text = path.read_text(encoding="utf-8")
@@ -173,6 +310,25 @@ def test_docs_have_equivalent_sections_and_platform_requirements():
         assert any(
             image.get("src", "").endswith("/assets/icon.png") for image in images
         )
+        scripts = [a for tag, a in parser.attributes if tag == "script"]
+        assert {"src": "/assets/site.js", "defer": None} in scripts
+        assert any(
+            tag == "a"
+            and attrs.get("href") == GITHUB_URL
+            and attrs.get("aria-label") == github_labels[key]
+            for tag, attrs in parser.attributes
+        )
+
+
+def test_desktop_docs_navigation_is_always_visible_without_changing_mobile_disclosure():
+    styles = (SITE / "assets" / "styles.css").read_text(encoding="utf-8")
+    desktop = styles.split("@media (min-width: 48rem) {", 1)[1].split("\n}", 1)[0]
+    assert ".docs-nav > summary { display: none; }" in desktop
+    assert "details.docs-nav:not([open]) > nav { display: block; }" in desktop
+    for key in ("en-docs", "it-docs"):
+        text = PAGES[key].read_text(encoding="utf-8")
+        assert '<details class="docs-nav" open>' in text
+        assert "<summary>" in text
 
 
 def test_internal_links_and_fragments_resolve():
@@ -180,10 +336,10 @@ def test_internal_links_and_fragments_resolve():
         parser = parse(path)
         for _, attrs in parser.attributes:
             href = attrs.get("href", "")
-            if not href.startswith("/"):
+            if not (href.startswith("/") or href.startswith("#")):
                 continue
             route, _, fragment = href.partition("#")
-            target = SITE / route.lstrip("/")
+            target = path if not route else SITE / route.lstrip("/")
             target = target / "index.html" if target.is_dir() or route.endswith("/") else target
             assert target.is_file(), f"{path}: broken link {href}"
             if fragment:

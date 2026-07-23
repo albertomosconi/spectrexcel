@@ -120,6 +120,14 @@ p, li { max-width: 72ch; }
   color: var(--text-secondary);
   border-top: 1px solid var(--border);
 }
+.site-footer nav { display: flex; flex-wrap: wrap; gap: .25rem; }
+.site-footer a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  min-width: 44px;
+  padding-inline: .5rem;
+}
 
 @media (min-width: 48rem) {
   .hero { grid-template-columns: minmax(0, 1fr) minmax(12rem, 20rem); }
@@ -130,6 +138,8 @@ p, li { max-width: 72ch; }
   .nav-disclosure nav { position: static; display: flex; align-items: center; gap: .25rem; padding: 0; background: transparent; border: 0; }
   details.nav-disclosure:not([open]) > nav { display: flex; }
   .docs-nav { align-self: start; position: sticky; top: 1rem; }
+  .docs-nav > summary { display: none; }
+  details.docs-nav:not([open]) > nav { display: block; }
 }
 
 @media (prefers-reduced-motion: reduce) {
