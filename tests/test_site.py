@@ -174,6 +174,31 @@ def test_landing_pages_are_localized_and_progressively_enhanced():
         assert LINUX_ASSET in downloads[0]["data-linux-url"]
 
 
+def test_mobile_hero_places_icon_before_copy_and_desktop_restores_copy_left():
+    for key in ("en-home", "it-home"):
+        text = PAGES[key].read_text(encoding="utf-8")
+        hero = text.split('<section class="hero"', 1)[1].split("</section>", 1)[0]
+        assert hero.index('<img src="/assets/icon.png"') < hero.index(
+            '<div class="hero-copy">'
+        )
+
+    styles = (SITE / "assets" / "styles.css").read_text(encoding="utf-8")
+    desktop = styles.split("@media (min-width: 48rem) {", 1)[1].split("\n}", 1)[0]
+    assert ".hero-copy { grid-column: 1; grid-row: 1; }" in desktop
+    assert ".hero > img { grid-column: 2; grid-row: 1; }" in desktop
+
+
+def test_full_header_navigation_waits_for_wide_desktop():
+    styles = (SITE / "assets" / "styles.css").read_text(encoding="utf-8")
+    tablet = styles.split("@media (min-width: 48rem) {", 1)[1].split("\n}", 1)[0]
+    assert ".nav-disclosure summary" not in tablet
+    assert "details.nav-disclosure:not([open]) > nav" not in tablet
+
+    wide = styles.split("@media (min-width: 64rem) {", 1)[1].split("\n}", 1)[0]
+    assert ".nav-disclosure summary { display: none; }" in wide
+    assert "details.nav-disclosure:not([open]) > nav { display: flex; }" in wide
+
+
 def test_landing_pages_have_equivalent_required_content():
     cases = [
         {

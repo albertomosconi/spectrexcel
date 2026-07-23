@@ -131,15 +131,20 @@ p, li { max-width: 72ch; }
 
 @media (min-width: 48rem) {
   .hero { grid-template-columns: minmax(0, 1fr) minmax(12rem, 20rem); }
+  .hero-copy { grid-column: 1; grid-row: 1; }
+  .hero > img { grid-column: 2; grid-row: 1; }
   .workflow-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .docs-layout { grid-template-columns: minmax(12rem, 16rem) minmax(0, 1fr); }
   .actions { display: flex; flex-wrap: wrap; }
-  .nav-disclosure summary { display: none; }
-  .nav-disclosure nav { position: static; display: flex; align-items: center; gap: .25rem; padding: 0; background: transparent; border: 0; }
-  details.nav-disclosure:not([open]) > nav { display: flex; }
   .docs-nav { align-self: start; position: sticky; top: 1rem; }
   .docs-nav > summary { display: none; }
   details.docs-nav:not([open]) > nav { display: block; }
+}
+
+@media (min-width: 64rem) {
+  .nav-disclosure summary { display: none; }
+  .nav-disclosure nav { position: static; display: flex; align-items: center; gap: .25rem; padding: 0; background: transparent; border: 0; }
+  details.nav-disclosure:not([open]) > nav { display: flex; }
 }
 
 @media (prefers-reduced-motion: reduce) {
