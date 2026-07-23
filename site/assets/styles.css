@@ -67,7 +67,13 @@ p, li { max-width: 72ch; }
   background: var(--surface-strong);
   border: 1px solid var(--border);
 }
-.nav-disclosure nav a { display: block; padding: .5rem .75rem; }
+.nav-disclosure nav a {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  min-width: 44px;
+  padding: .5rem .75rem;
+}
 
 .hero { align-items: center; gap: 2rem; padding-block: clamp(3rem, 8vw, 7rem); }
 .hero img { width: min(100%, 18rem); justify-self: center; }
@@ -91,7 +97,14 @@ p, li { max-width: 72ch; }
 
 .docs-layout { gap: 2rem; padding-block: 2rem 4rem; }
 .docs-nav { padding: 1rem; background: var(--surface); border: 1px solid var(--border); }
-.docs-nav a { display: block; padding: .35rem 0; color: var(--text-secondary); }
+.docs-nav a {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  min-width: 44px;
+  padding: .35rem 0;
+  color: var(--text-secondary);
+}
 .docs-nav a:hover { color: var(--text); }
 .docs-layout article { min-width: 0; }
 .docs-layout pre { overflow-x: auto; padding: 1rem; background: var(--surface); border: 1px solid var(--border); }

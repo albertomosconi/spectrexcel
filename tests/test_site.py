@@ -47,3 +47,13 @@ def test_download_script_contains_exact_latest_release_assets():
     assert LINUX_ASSET in script
     assert "/releases/latest/download/" in script
     assert "/releases/latest" in script
+
+
+def test_navigation_links_have_minimum_touch_targets():
+    styles = (SITE / "assets" / "styles.css").read_text(encoding="utf-8")
+    for selector in (".nav-disclosure nav a", ".docs-nav a"):
+        block = styles.split(f"{selector} {{", 1)[1].split("}", 1)[0]
+        assert "display: flex;" in block
+        assert "align-items: center;" in block
+        assert "min-height: 44px;" in block
+        assert "min-width: 44px;" in block
