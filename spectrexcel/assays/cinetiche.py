@@ -9,7 +9,7 @@ from xlsxwriter import Workbook, worksheet
 from spectrexcel.i18n import _
 
 from .parsing import WAVELENGTH_MAX, WAVELENGTH_MIN, parse_kd_file
-from .view import AssayView
+from .view import AssayView, WorkflowControls
 
 
 def export_kinetics(
@@ -116,6 +116,13 @@ def export_kinetics(
 
 
 class Cinetiche(AssayView):
+    workflow_controls = WorkflowControls(
+        upload="kinetics.upload",
+        export="kinetics.export",
+        status="kinetics.files",
+        load_extras=("kinetics.reorder",),
+    )
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.datasets: list[tuple[str, pd.DataFrame]] = []
@@ -189,12 +196,6 @@ class Cinetiche(AssayView):
 
     def _load_inputs(self, paths: list[Path]) -> None:
         self.log(_("selected {count} files").format(count=len(paths)))
-        dpg.configure_item("kinetics.upload", enabled=False)
-        dpg.configure_item("kinetics.reorder", enabled=False)
-        dpg.configure_item("kinetics.export", enabled=False)
-        dpg.set_value(
-            "kinetics.files", _("Loading {count} files...").format(count=len(paths))
-        )
 
         def parse() -> list[tuple[str, pd.DataFrame]]:
             datasets = []
@@ -210,13 +211,16 @@ class Cinetiche(AssayView):
                 "kinetics.files",
                 _("{count} files ready").format(count=len(datasets)),
             )
-            dpg.configure_item("kinetics.upload", enabled=True)
             dpg.configure_item("kinetics.reorder", enabled=len(datasets) > 1)
-            dpg.configure_item("kinetics.export", enabled=True)
             for path in paths:
                 self.log(_("loaded {name}").format(name=path.name))
 
-        self.submit(parse, loaded, lambda error: self._load_failed(error))
+        self.submit_load(
+            parse,
+            loaded,
+            loading_text=_("Loading {count} files...").format(count=len(paths)),
+            failure_text=_("Failed to load files"),
+        )
 
     def _show_reorder(self) -> None:
         if len(self.datasets) < 2:
@@ -287,11 +291,6 @@ class Cinetiche(AssayView):
         for row, (filename, _dataframe) in enumerate(self.datasets):
             dpg.set_value(f"kinetics.reorder.filename.{row}", filename)
 
-    def _load_failed(self, error: Exception) -> None:
-        dpg.configure_item("kinetics.upload", enabled=True)
-        dpg.set_value("kinetics.files", _("Failed to load files"))
-        self.log(_("ERROR: {error}").format(error=error))
-
     def _choose_output(self) -> None:
         if not self.datasets:
             return
@@ -309,18 +308,6 @@ class Cinetiche(AssayView):
         self.settings.set("cinetiche/folder_output", str(output_path.parent))
         self.settings.set("cinetiche/wl_read", reading)
         self.settings.set("cinetiche/wl_corr", correction)
-        dpg.configure_item("kinetics.export", enabled=False)
-        self.log(_("generating excel file..."))
-        self.submit(
-            lambda: export_kinetics(datasets, output_path, reading, correction),
-            lambda _result: self._export_finished(),
-            self._export_failed,
+        self.submit_export(
+            lambda: export_kinetics(datasets, output_path, reading, correction)
         )
-
-    def _export_finished(self) -> None:
-        dpg.configure_item("kinetics.export", enabled=True)
-        self.log(_("excel file saved successfully"))
-
-    def _export_failed(self, error: Exception) -> None:
-        dpg.configure_item("kinetics.export", enabled=True)
-        self.log(_("ERROR: {error}").format(error=error))

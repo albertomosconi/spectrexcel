@@ -7,7 +7,7 @@ from xlsxwriter import Workbook, worksheet
 from spectrexcel.i18n import _
 
 from .parsing import parse_sd_file, parse_txt_file
-from .view import AssayView
+from .view import AssayView, WorkflowControls
 
 
 def clean_duplicate_spectra(df: pd.DataFrame) -> tuple[pd.DataFrame, bool]:
@@ -95,6 +95,13 @@ def export_binding(
 
 
 class BindingTitolazione(AssayView):
+    workflow_controls = WorkflowControls(
+        upload="binding.upload",
+        export="binding.export",
+        status="binding.file",
+        export_extras=("binding.upload",),
+    )
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.dataframe: pd.DataFrame | None = None
@@ -187,9 +194,6 @@ class BindingTitolazione(AssayView):
 
     def _load_input(self, path: Path) -> None:
         self.log(_("selected {path}").format(path=path))
-        dpg.configure_item("binding.upload", enabled=False)
-        dpg.configure_item("binding.export", enabled=False)
-        dpg.set_value("binding.file", _("Loading {name}...").format(name=path.name))
 
         def parse() -> tuple[pd.DataFrame, bool]:
             if path.suffix.upper() == ".SD":
@@ -210,8 +214,6 @@ class BindingTitolazione(AssayView):
                     name=path.name, count=len(self.dataframe)
                 ),
             )
-            dpg.configure_item("binding.upload", enabled=True)
-            dpg.configure_item("binding.export", enabled=True)
             if did_clean:
                 self.log(_("deleted duplicate spectra"))
             self.log(
@@ -220,14 +222,12 @@ class BindingTitolazione(AssayView):
                 )
             )
 
-        self.submit(parse, loaded, lambda error: self._load_failed(error, path))
-
-    def _load_failed(self, error: Exception, path: Path) -> None:
-        dpg.configure_item("binding.upload", enabled=True)
-        dpg.set_value(
-            "binding.file", _("Failed to load {name}").format(name=path.name)
+        self.submit_load(
+            parse,
+            loaded,
+            loading_text=_("Loading {name}...").format(name=path.name),
+            failure_text=_("Failed to load {name}").format(name=path.name),
         )
-        self.log(_("ERROR: {error}").format(error=error))
 
     def _choose_output(self) -> None:
         if self.input_path is None or self.dataframe is None:
@@ -255,22 +255,14 @@ class BindingTitolazione(AssayView):
         self.settings.set("titolazione/x_axis_max", x_max)
         self.settings.set("titolazione/y_axis_min", y_min)
         self.settings.set("titolazione/y_axis_max", y_max)
-        dpg.configure_item("binding.export", enabled=False)
-        dpg.configure_item("binding.upload", enabled=False)
-        self.log(_("generating excel file..."))
         dataframe = self.dataframe
-        self.submit(
-            lambda: export_binding(dataframe, output_path, x_min, x_max, y_min, y_max),
-            lambda _result: self._export_finished(),
-            self._export_failed,
+        self.submit_export(
+            lambda: export_binding(
+                dataframe,
+                output_path,
+                x_min,
+                x_max,
+                y_min,
+                y_max,
+            )
         )
-
-    def _export_finished(self) -> None:
-        dpg.configure_item("binding.export", enabled=True)
-        dpg.configure_item("binding.upload", enabled=True)
-        self.log(_("excel file saved successfully"))
-
-    def _export_failed(self, error: Exception) -> None:
-        dpg.configure_item("binding.export", enabled=True)
-        dpg.configure_item("binding.upload", enabled=True)
-        self.log(_("ERROR: {error}").format(error=error))

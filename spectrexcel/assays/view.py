@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
 
@@ -9,7 +10,18 @@ from spectrexcel.i18n import _
 from spectrexcel.settings import Settings
 
 
+@dataclass(frozen=True)
+class WorkflowControls:
+    upload: str
+    export: str
+    status: str
+    load_extras: tuple[str, ...] = ()
+    export_extras: tuple[str, ...] = ()
+
+
 class AssayView:
+    workflow_controls: WorkflowControls | None = None
+
     def __init__(
         self,
         log: Callable[[str | list[str]], None],
@@ -36,6 +48,57 @@ class AssayView:
             return lambda value: callback(value) if self.active else None
 
         self._submit(task, if_active(on_success), if_active(on_error))
+
+    def _workflow(self) -> WorkflowControls:
+        if self.workflow_controls is None:
+            raise RuntimeError("Assay workflow controls are not configured")
+        return self.workflow_controls
+
+    def submit_load(
+        self,
+        task: Callable[[], Any],
+        on_success: Callable[[Any], None],
+        *,
+        loading_text: str,
+        failure_text: str,
+    ) -> None:
+        controls = self._workflow()
+        for tag in (controls.upload, controls.export, *controls.load_extras):
+            dpg.configure_item(tag, enabled=False)
+        dpg.set_value(controls.status, loading_text)
+
+        def loaded(value: Any) -> None:
+            on_success(value)
+            dpg.configure_item(controls.upload, enabled=True)
+            dpg.configure_item(controls.export, enabled=True)
+
+        def failed(error: Exception) -> None:
+            dpg.configure_item(controls.upload, enabled=True)
+            dpg.set_value(controls.status, failure_text)
+            self.log(_("ERROR: {error}").format(error=error))
+
+        self.submit(task, loaded, failed)
+
+    def submit_export(self, task: Callable[[], Any]) -> None:
+        controls = self._workflow()
+        busy_controls = (controls.export, *controls.export_extras)
+        for tag in busy_controls:
+            dpg.configure_item(tag, enabled=False)
+        self.log(_("generating excel file..."))
+
+        def restore_controls() -> None:
+            for tag in busy_controls:
+                dpg.configure_item(tag, enabled=True)
+
+        def finished(_result: Any) -> None:
+            restore_controls()
+            self.log(_("excel file saved successfully"))
+
+        def failed(error: Exception) -> None:
+            restore_controls()
+            self.log(_("ERROR: {error}").format(error=error))
+
+        self.submit(task, finished, failed)
 
     def open_file_dialog(
         self,

@@ -8,7 +8,7 @@ from xlsxwriter import Workbook, worksheet
 from spectrexcel.i18n import _
 
 from .parsing import WAVELENGTH_MAX, WAVELENGTH_MIN, parse_kd_file
-from .view import AssayView
+from .view import AssayView, WorkflowControls
 
 
 def export_spectrum_family(
@@ -71,6 +71,12 @@ def export_spectrum_family(
 
 
 class FamigliaDiSpettri(AssayView):
+    workflow_controls = WorkflowControls(
+        upload="spectra.upload",
+        export="spectra.export",
+        status="spectra.file",
+    )
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.dataframe: pd.DataFrame | None = None
@@ -111,9 +117,6 @@ class FamigliaDiSpettri(AssayView):
 
     def _load_input(self, path: Path) -> None:
         self.log(_("selected {path}").format(path=path))
-        dpg.configure_item("spectra.upload", enabled=False)
-        dpg.configure_item("spectra.export", enabled=False)
-        dpg.set_value("spectra.file", _("Loading {name}...").format(name=path.name))
 
         def parsed(dataframe: pd.DataFrame) -> None:
             self.dataframe = dataframe
@@ -125,22 +128,14 @@ class FamigliaDiSpettri(AssayView):
                     name=path.name, count=len(dataframe.columns)
                 ),
             )
-            dpg.configure_item("spectra.upload", enabled=True)
-            dpg.configure_item("spectra.export", enabled=True)
             self.log(_("loaded {name}").format(name=path.name))
 
-        self.submit(
+        self.submit_load(
             lambda: parse_kd_file(path),
             parsed,
-            lambda error: self._load_failed(error, path),
+            loading_text=_("Loading {name}...").format(name=path.name),
+            failure_text=_("Failed to load {name}").format(name=path.name),
         )
-
-    def _load_failed(self, error: Exception, path: Path) -> None:
-        dpg.configure_item("spectra.upload", enabled=True)
-        dpg.set_value(
-            "spectra.file", _("Failed to load {name}").format(name=path.name)
-        )
-        self.log(_("ERROR: {error}").format(error=error))
 
     def _choose_output(self) -> None:
         if self.input_path is None or self.dataframe is None:
@@ -158,18 +153,6 @@ class FamigliaDiSpettri(AssayView):
         input_path = self.input_path
         dataframe = self.dataframe
         self.settings.set("famiglia_di_spettri/folder_output", str(output_path.parent))
-        dpg.configure_item("spectra.export", enabled=False)
-        self.log(_("generating excel file..."))
-        self.submit(
+        self.submit_export(
             lambda: export_spectrum_family(dataframe, input_path, output_path),
-            lambda _result: self._export_finished(),
-            self._export_failed,
         )
-
-    def _export_finished(self) -> None:
-        dpg.configure_item("spectra.export", enabled=True)
-        self.log(_("excel file saved successfully"))
-
-    def _export_failed(self, error: Exception) -> None:
-        dpg.configure_item("spectra.export", enabled=True)
-        self.log(_("ERROR: {error}").format(error=error))

@@ -1,11 +1,66 @@
+from pathlib import Path
 from xml.etree import ElementTree
 from zipfile import ZipFile
 
 import pandas as pd
 import dearpygui.dearpygui as dpg
+import pytest
 
 from spectrexcel.assays.cinetiche import Cinetiche, export_kinetics
 from spectrexcel.dpi import DisplayScale
+
+
+@pytest.mark.parametrize(
+    ("paths", "expected_names", "reorder_enabled"),
+    [
+        ([Path("sample-1.KD")], ["sample-1"], False),
+        (
+            [Path("sample-10.KD"), Path("sample-2.KD")],
+            ["sample-2", "sample-10"],
+            True,
+        ),
+    ],
+)
+def test_load_inputs_sets_reorder_state_for_dataset_count(
+    monkeypatch, paths, expected_names, reorder_enabled
+):
+    submitted = {}
+    configured = []
+    values = []
+    parsed = []
+
+    class Settings:
+        def set(self, _key, _value):
+            pass
+
+    def submit(task, on_success, on_error):
+        submitted.update(task=task, on_success=on_success, on_error=on_error)
+
+    def parse(path):
+        parsed.append(path)
+        return pd.DataFrame({0: [0.1]}, index=[300])
+
+    monkeypatch.setattr("spectrexcel.assays.cinetiche.parse_kd_file", parse)
+    monkeypatch.setattr(
+        dpg,
+        "configure_item",
+        lambda tag, **config: configured.append((tag, config)),
+    )
+    monkeypatch.setattr(
+        dpg, "set_value", lambda tag, value: values.append((tag, value))
+    )
+    assay = Cinetiche(lambda _message: None, submit, Settings(), DisplayScale())
+
+    assay._load_inputs(paths)
+    datasets = submitted["task"]()
+    submitted["on_success"](datasets)
+
+    assert parsed == paths
+    assert [name for name, _dataframe in assay.datasets] == expected_names
+    reorder_configurations = [
+        config for tag, config in configured if tag == "kinetics.reorder"
+    ]
+    assert reorder_configurations[-1] == {"enabled": reorder_enabled}
 
 
 def test_reorder_popup_builds():
