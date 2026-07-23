@@ -36,7 +36,7 @@ main, .site-header, .site-footer { width: min(100% - 2rem, 72rem); margin-inline
 main { min-height: calc(100vh - 13rem); }
 h1, h2, h3, p { margin-top: 0; }
 h1, h2, h3 { line-height: 1.2; }
-p, li { max-width: 72ch; }
+.docs-layout p, .docs-layout li { max-width: 72ch; }
 
 .site-header {
   display: flex;
@@ -96,6 +96,7 @@ p, li { max-width: 72ch; }
 .workflow-grid { gap: 1rem; margin-block: 2rem 4rem; }
 .panel { padding: clamp(1rem, 3vw, 1.5rem); background: var(--surface); border: 1px solid var(--border); }
 .panel:hover { border-color: var(--accent); }
+#download-options { padding-block: 4rem; }
 
 .docs-layout { gap: 2rem; padding-block: 2rem 4rem; }
 .docs-nav { padding: 1rem; background: var(--surface); border: 1px solid var(--border); }

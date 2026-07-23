@@ -199,6 +199,16 @@ def test_full_header_navigation_waits_for_wide_desktop():
     assert "details.nav-disclosure:not([open]) > nav { display: flex; }" in wide
 
 
+def test_landing_copy_uses_available_width_and_download_section_has_spacing():
+    styles = (SITE / "assets" / "styles.css").read_text(encoding="utf-8")
+
+    assert "p, li { max-width: 72ch; }" not in styles
+    assert ".docs-layout p, .docs-layout li { max-width: 72ch; }" in styles
+
+    download = styles.split("#download-options {", 1)[1].split("}", 1)[0]
+    assert "padding-block: 4rem;" in download
+
+
 def test_landing_pages_have_equivalent_required_content():
     cases = [
         {
