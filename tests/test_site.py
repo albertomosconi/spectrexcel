@@ -87,3 +87,49 @@ def test_pages_use_local_icon_for_favicon_and_content():
         images = [a for tag, a in parser.attributes if tag == "img"]
         assert icons and icons[0]["href"].endswith("/assets/icon.png")
         assert any(image.get("src", "").endswith("/assets/icon.png") for image in images)
+
+
+def test_landing_pages_use_custom_domain_and_root_relative_routes():
+    cases = [
+        (
+            PAGES["en-home"],
+            "https://spectrexcel.albertomosconi.it/",
+            "/",
+            "/docs/",
+        ),
+        (
+            PAGES["it-home"],
+            "https://spectrexcel.albertomosconi.it/it/",
+            "/it/",
+            "/it/docs/",
+        ),
+    ]
+    for path, canonical_url, home_path, docs_path in cases:
+        parser = parse(path)
+        links = [attrs for tag, attrs in parser.attributes if tag == "link"]
+        anchors = [attrs for tag, attrs in parser.attributes if tag == "a"]
+        scripts = [attrs for tag, attrs in parser.attributes if tag == "script"]
+        images = [attrs for tag, attrs in parser.attributes if tag == "img"]
+
+        canonical = [attrs for attrs in links if attrs.get("rel") == "canonical"]
+        assert canonical == [{"rel": "canonical", "href": canonical_url}]
+        assert any(
+            attrs.get("rel") == "icon" and attrs.get("href") == "/assets/icon.png"
+            for attrs in links
+        )
+        assert any(
+            attrs.get("rel") == "stylesheet"
+            and attrs.get("href") == "/assets/styles.css"
+            for attrs in links
+        )
+        assert any(attrs.get("src") == "/assets/site.js" for attrs in scripts)
+        assert images and all(attrs.get("src") == "/assets/icon.png" for attrs in images)
+
+        hrefs = {attrs.get("href") for attrs in anchors}
+        assert {home_path, docs_path, "/", "/it/"} <= hrefs
+        language_routes = {
+            attrs["data-language"]: attrs["href"]
+            for attrs in anchors
+            if "data-language" in attrs
+        }
+        assert language_routes == {"en": "/", "it": "/it/"}
