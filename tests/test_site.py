@@ -188,3 +188,18 @@ def test_internal_links_and_fragments_resolve():
             assert target.is_file(), f"{path}: broken link {href}"
             if fragment:
                 assert fragment in parse(target).ids, f"{path}: broken fragment {href}"
+
+
+def test_custom_domain_and_pages_workflow():
+    assert (SITE / "CNAME").read_text(encoding="utf-8") == (
+        "spectrexcel.albertomosconi.it\n"
+    )
+    workflow = (ROOT / ".github" / "workflows" / "pages.yml").read_text(
+        encoding="utf-8"
+    )
+    assert "site" in workflow
+    assert "pages: write" in workflow
+    assert "id-token: write" in workflow
+    assert "45bfe0192ca1faeb007ade9deae92b16b8254a0d" in workflow
+    assert "fc324d3547104276b827a68afc52ff2a11cc49c9" in workflow
+    assert "cd2ce8fcbc39b97be8ca5fce6e763baed58fa128" in workflow
