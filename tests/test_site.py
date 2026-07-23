@@ -159,7 +159,8 @@ def test_docs_have_equivalent_sections_and_platform_requirements():
         text = path.read_text(encoding="utf-8")
         parser = parse(path)
         assert DOC_IDS <= parser.ids
-        assert ".AppImage.tar.gz" in text
+        assert WINDOWS_ASSET in text
+        assert LINUX_ASSET in text
         assert "X11/GLX" in text
         assert ".KD" in text and ".SD" in text and ".txt" in text
         icons = [
