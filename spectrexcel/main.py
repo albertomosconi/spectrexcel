@@ -34,13 +34,46 @@ from spectrexcel.updater import (
 @dataclass(frozen=True)
 class Assay:
     name: str
+    description: str
     view: type[AssayView]
 
 
 ASSAYS = (
-    Assay("binding / titration", BindingTitolazione),
-    Assay("kinetics", Cinetiche),
-    Assay("spectrum family", FamigliaDiSpettri),
+    Assay(
+        "binding / titration",
+        "Use this assay to compare a series of absorbance spectra collected "
+        "during a binding or titration experiment. Select a TXT or SD file, "
+        "then choose wavelength and absorbance ranges for the chart axes. "
+        "SpectrExcel removes standard-deviation values and, when the input "
+        "contains an identical repeated set of spectra, keeps only one copy. "
+        "The generated Excel workbook contains wavelength and absorbance data "
+        "for each signal, together with an overlaid spectrum chart using the "
+        "selected axis ranges.",
+        BindingTitolazione,
+    ),
+    Assay(
+        "kinetics",
+        "Use this assay to follow absorbance changes over time across one or "
+        "more kinetic measurements. Select KD files, arrange them in the "
+        "desired order, then specify a reading wavelength and a correction "
+        "wavelength. For every file and time point, SpectrExcel subtracts the "
+        "absorbance at the correction wavelength from the absorbance at the "
+        "reading wavelength and shifts the time axis so the first measurement "
+        "starts at zero seconds. The generated Excel workbook contains the "
+        "corrected traces and a comparison chart in the chosen file order.",
+        Cinetiche,
+    ),
+    Assay(
+        "spectrum family",
+        "Use this assay to inspect how a complete absorbance spectrum changes "
+        "during one kinetic measurement. Select a KD file containing spectra "
+        "recorded at successive acquisition times. SpectrExcel exports the "
+        "acquisition times, wavelengths, and absorbance values for every "
+        "recorded spectrum. The generated Excel workbook also includes an "
+        "overlaid wavelength-versus-absorbance chart showing one spectrum out "
+        "of every two, making the progression easier to inspect.",
+        FamigliaDiSpettri,
+    ),
 )
 
 GEAR_ICON = (
@@ -127,6 +160,7 @@ class SpectrExcelApp:
         self.futures_lock = Lock()
         self.latest_release: UpdateRelease | None = None
         self.assay_view: AssayView | None = None
+        self.selected_assay_index = 0
         self.log_scroll_pending = 0
         set_language(self.settings.get("main/language", detect_language()))
         self.language = get_language()
@@ -245,6 +279,17 @@ class SpectrExcelApp:
                             callback=self._assay_changed,
                             width=px(250),
                         )
+                        dpg.add_button(
+                            label="?",
+                            tag="main.assay_info",
+                            callback=self._show_assay_info,
+                            width=px(30),
+                        )
+                        with dpg.tooltip("main.assay_info"):
+                            dpg.add_text(
+                                _("About assay"),
+                                tag="main.assay_info.tooltip.text",
+                            )
                     version_text = dpg.add_text(f"v{self.version}")
                     dpg.bind_item_theme(version_text, "theme.muted")
                     with dpg.group(horizontal=True, horizontal_spacing=0):
@@ -367,6 +412,42 @@ class SpectrExcelApp:
                 width=px(90),
             )
 
+    def _show_assay_info(self) -> None:
+        px = self.display_scale.pixels
+        width, height = px(560), px(300)
+        tag = "assay.info.modal"
+        if dpg.does_item_exist(tag):
+            dpg.delete_item(tag)
+        position = (
+            max(0, (dpg.get_viewport_client_width() - width) // 2),
+            max(0, (dpg.get_viewport_client_height() - height) // 2),
+        )
+        assay = ASSAYS[self.selected_assay_index]
+        with dpg.window(
+            label=_(assay.name),
+            tag=tag,
+            modal=True,
+            no_move=True,
+            no_resize=True,
+            no_collapse=True,
+            no_close=True,
+            width=width,
+            height=height,
+            pos=position,
+        ):
+            dpg.add_text(
+                _(assay.description),
+                tag="assay.info.description",
+                wrap=px(520),
+            )
+            dpg.add_spacer(height=px(10))
+            dpg.add_button(
+                label=_("Close"),
+                tag="assay.info.close",
+                callback=lambda: dpg.delete_item(tag),
+                width=px(90),
+            )
+
     def _theme_changed(self, _sender: Any, preference: str) -> None:
         preference = next(
             (option for option in THEME_OPTIONS if _(option) == preference),
@@ -460,10 +541,11 @@ class SpectrExcelApp:
         self._load_assay(index)
 
     def _load_assay(self, index: int) -> None:
+        assay = ASSAYS[index]
+        self.selected_assay_index = index
         if self.assay_view is not None:
             self.assay_view.dispose()
         dpg.delete_item("assay.content", children_only=True)
-        assay = ASSAYS[index]
         self.assay_view = assay.view(
             self.log, self.submit, self.settings, self.display_scale
         )
