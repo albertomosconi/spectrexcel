@@ -50,6 +50,8 @@ p, li { max-width: 72ch; }
 .site-header > a {
   display: inline-flex;
   align-items: center;
+  min-height: 44px;
+  min-width: 44px;
   gap: .75rem;
   font-weight: 700;
   text-decoration: none;
