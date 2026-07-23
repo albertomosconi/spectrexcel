@@ -22,6 +22,7 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-22.04
     permissions:
+      contents: read
       pages: write
       id-token: write
     steps:

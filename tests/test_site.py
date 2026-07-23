@@ -198,8 +198,13 @@ def test_custom_domain_and_pages_workflow():
         encoding="utf-8"
     )
     assert "site" in workflow
-    assert "pages: write" in workflow
-    assert "id-token: write" in workflow
+    deploy = workflow.split("jobs:\n  deploy:\n", 1)[1]
+    permissions = deploy.split("    permissions:\n", 1)[1].split("    steps:\n", 1)[0]
+    assert set(permissions.splitlines()) == {
+        "      contents: read",
+        "      pages: write",
+        "      id-token: write",
+    }
     assert "45bfe0192ca1faeb007ade9deae92b16b8254a0d" in workflow
     assert "fc324d3547104276b827a68afc52ff2a11cc49c9" in workflow
     assert "cd2ce8fcbc39b97be8ca5fce6e763baed58fa128" in workflow
