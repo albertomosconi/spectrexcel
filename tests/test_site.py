@@ -108,11 +108,20 @@ def test_landing_pages_use_custom_domain_and_root_relative_routes():
         parser = parse(path)
         links = [attrs for tag, attrs in parser.attributes if tag == "link"]
         anchors = [attrs for tag, attrs in parser.attributes if tag == "a"]
+        metadata = {
+            attrs["property"]: attrs["content"]
+            for tag, attrs in parser.attributes
+            if tag == "meta" and "property" in attrs
+        }
         scripts = [attrs for tag, attrs in parser.attributes if tag == "script"]
         images = [attrs for tag, attrs in parser.attributes if tag == "img"]
 
         canonical = [attrs for attrs in links if attrs.get("rel") == "canonical"]
         assert canonical == [{"rel": "canonical", "href": canonical_url}]
+        assert metadata["og:url"] == canonical_url
+        assert metadata["og:image"] == (
+            "https://spectrexcel.albertomosconi.it/assets/icon.png"
+        )
         assert any(
             attrs.get("rel") == "icon" and attrs.get("href") == "/assets/icon.png"
             for attrs in links
