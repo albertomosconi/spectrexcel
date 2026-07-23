@@ -141,6 +141,23 @@ THEME_COLORS = {
     },
 }
 
+DISABLED_BUTTON_COLORS = {
+    "Dark": {
+        "Text": (150, 150, 150),
+        "TextDisabled": (150, 150, 150),
+        "Button": (50, 55, 63),
+        "ButtonHovered": (50, 55, 63),
+        "ButtonActive": (50, 55, 63),
+    },
+    "Light": {
+        "Text": (95, 100, 108),
+        "TextDisabled": (95, 100, 108),
+        "Button": (210, 214, 220),
+        "ButtonHovered": (210, 214, 220),
+        "ButtonActive": (210, 214, 220),
+    },
+}
+
 SEMANTIC_TEXT_COLORS = {
     "Dark": {"accent": (104, 190, 255), "muted": (150, 150, 150)},
     "Light": {"accent": (24, 91, 138), "muted": (95, 100, 108)},
@@ -193,6 +210,9 @@ class SpectrExcelApp:
                         dpg.mvThemeCol_TextDisabled,
                         (205, 215, 222) if name == "Light" else (135, 135, 135),
                     )
+                with dpg.theme_component(dpg.mvButton, enabled_state=False):
+                    for color, value in DISABLED_BUTTON_COLORS[name].items():
+                        dpg.add_theme_color(getattr(dpg, f"mvThemeCol_{color}"), value)
                 for control in (
                     dpg.mvCombo,
                     dpg.mvInputText,
