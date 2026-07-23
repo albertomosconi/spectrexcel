@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SpectrExcel User Guide</title>
+  <meta name="description" content="Install SpectrExcel and export spectrophotometer data to Excel with the kinetics, binding, and spectrum family workflows.">
+  <link rel="canonical" href="https://spectrexcel.albertomosconi.it/docs/">
+  <link rel="icon" href="/assets/icon.png" type="image/png">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="SpectrExcel User Guide">
+  <meta property="og:description" content="Installation, export workflows, supported formats, and troubleshooting for SpectrExcel.">
+  <meta property="og:url" content="https://spectrexcel.albertomosconi.it/docs/">
+  <meta property="og:image" content="https://spectrexcel.albertomosconi.it/assets/icon.png">
+</head>
+<body>
+  <header class="site-header">
+    <a href="/" aria-label="SpectrExcel home">
+      <img src="/assets/icon.png" alt="" width="40" height="40">
+      <span>SpectrExcel</span>
+    </a>
+    <details class="nav-disclosure">
+      <summary>Menu</summary>
+      <nav aria-label="Main navigation">
+        <a href="/">Home</a>
+        <a href="/docs/" aria-current="page">Docs</a>
+        <a href="/docs/" lang="en" hreflang="en" data-language="en" aria-current="page">EN</a>
+        <a href="/it/docs/" lang="it" hreflang="it" data-language="it">IT</a>
+      </nav>
+    </details>
+  </header>
+
+  <main>
+    <div class="docs-layout">
+      <details class="docs-nav" open>
+        <summary>On this page</summary>
+        <nav aria-label="User guide sections">
+          <a href="/docs/#install">Install</a>
+          <a href="/docs/#first-export">First export</a>
+          <a href="/docs/#kinetics">Kinetics</a>
+          <a href="/docs/#binding">Binding / titration</a>
+          <a href="/docs/#spectra-family">Spectrum family</a>
+          <a href="/docs/#file-formats">File formats</a>
+          <a href="/docs/#troubleshooting">Troubleshooting</a>
+        </nav>
+      </details>
+
+      <article>
+        <header>
+          <img src="/assets/icon.png" alt="SpectrExcel application icon" width="96" height="96">
+          <h1>SpectrExcel user guide</h1>
+          <p>Install the desktop application, select an assay, and turn supported spectrophotometer files into an Excel workbook.</p>
+        </header>
+
+        <section id="install">
+          <h2>Install</h2>
+          <h3>Windows</h3>
+          <ol>
+            <li>Open <a href="https://github.com/albertomosconi/spectrexcel/releases/latest">GitHub Releases</a> and download the Windows <code>.exe</code>.</li>
+            <li>Verify the download source and its checksum against <code>SHA256SUMS</code> on the release before launching it.</li>
+            <li>Launch the downloaded file. Acknowledge an operating-system warning only after completing those checks.</li>
+          </ol>
+          <h3>Linux</h3>
+          <ol>
+            <li>Open <a href="https://github.com/albertomosconi/spectrexcel/releases/latest">GitHub Releases</a> and download the <code>.AppImage.tar.gz</code> package.</li>
+            <li>Extract the archive, then launch the AppImage. The archive preserves its execute permission.</li>
+            <li>Ensure the system provides a working X11/GLX OpenGL implementation and host graphics drivers.</li>
+          </ol>
+          <p>If you instead obtain the raw AppImage, enable its execute permission before launching it:</p>
+          <pre><code>chmod +x SpectrExcel-x86_64.AppImage
+./SpectrExcel-x86_64.AppImage</code></pre>
+        </section>
+
+        <section id="first-export">
+          <h2>Create your first export</h2>
+          <ol>
+            <li>Launch SpectrExcel.</li>
+            <li>Select the assay that matches your measurement.</li>
+            <li>Choose the input file or files.</li>
+            <li>Configure the options shown for that assay.</li>
+            <li>Select <strong>Generate Excel</strong>, choose the output <code>.xlsx</code> file, and confirm the export.</li>
+          </ol>
+          <p>The activity area reports file loading, validation errors, and successful exports.</p>
+        </section>
+
+        <section id="kinetics">
+          <h2>Kinetics</h2>
+          <p>Use <strong>kinetics</strong> to follow absorbance changes over time across one or more <code>.KD</code> measurements.</p>
+          <ol>
+            <li>Select one or more <code>.KD</code> files. SpectrExcel initially sorts them naturally by filename.</li>
+            <li>Use <strong>Reorder files</strong> when needed. Workbook columns and chart traces follow this order.</li>
+            <li>Set the reading wavelength and correction wavelength.</li>
+            <li>Generate the Excel workbook.</li>
+          </ol>
+          <p>At every time point, SpectrExcel subtracts absorbance at the correction wavelength from absorbance at the reading wavelength. Time starts at zero seconds, and the workbook contains corrected traces plus a comparison chart.</p>
+        </section>
+
+        <section id="binding">
+          <h2>Binding / titration</h2>
+          <p>Use <strong>binding / titration</strong> to compare a series of absorbance spectra from a <code>.SD</code> or <code>.txt</code> file.</p>
+          <ol>
+            <li>Select one spectra file.</li>
+            <li>Set minimum and maximum wavelength values for the chart X axis.</li>
+            <li>Set minimum and maximum absorbance values for the chart Y axis.</li>
+            <li>Generate the Excel workbook.</li>
+          </ol>
+          <p>SpectrExcel removes standard-deviation values. If the input contains two identical halves of repeated spectra, it keeps one copy. The workbook includes wavelength and absorbance data for every signal and an overlaid spectrum chart using the selected ranges.</p>
+        </section>
+
+        <section id="spectra-family">
+          <h2>Spectrum family</h2>
+          <p>Use <strong>spectrum family</strong> to inspect how a complete absorbance spectrum changes during one kinetic measurement.</p>
+          <ol>
+            <li>Select one <code>.KD</code> file containing complete spectra recorded at successive acquisition times.</li>
+            <li>Generate the Excel workbook.</li>
+          </ol>
+          <p>The workbook contains acquisition times, wavelengths, and absorbance values for every spectrum. Its overlaid wavelength-versus-absorbance chart shows one spectrum out of every two to make progression easier to inspect.</p>
+        </section>
+
+        <section id="file-formats">
+          <h2>File formats</h2>
+          <ul>
+            <li><code>.KD</code>: kinetic measurements used by kinetics and spectrum family.</li>
+            <li><code>.SD</code>: binary absorbance spectra used by binding / titration.</li>
+            <li><code>.txt</code>: text absorbance spectra used by binding / titration.</li>
+          </ul>
+          <p>Binary files with old and new headers are supported. Spectra span 190-1100 nm. Files still need the expected instrument structure and complete measurement data.</p>
+        </section>
+
+        <section id="troubleshooting">
+          <h2>Troubleshooting</h2>
+          <h3>Unsupported or corrupt input</h3>
+          <p>Confirm that the selected assay supports the extension and that the instrument export is complete. An unreadable header, missing spectra, or unavailable selected wavelength causes parsing or export to stop.</p>
+          <h3>Linux does not launch the AppImage</h3>
+          <p>For a raw AppImage, run <code>chmod +x SpectrExcel-x86_64.AppImage</code>. If launch still fails, verify X11/GLX, OpenGL, and host graphics drivers.</p>
+          <h3>Linux file picker is unavailable</h3>
+          <p>Install Zenity or KDialog. SpectrExcel tries Zenity first and KDialog second; without either tool, the system file picker cannot open.</p>
+          <h3>Download or update verification</h3>
+          <p>Use only <a href="https://github.com/albertomosconi/spectrexcel/releases/latest">GitHub Releases</a>. Compare the downloaded file with the published <code>SHA256SUMS</code> checksums before accepting an OS warning or replacing an existing installation.</p>
+        </section>
+      </article>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <span>SpectrExcel</span>
+    <a href="https://github.com/albertomosconi/spectrexcel">Source code on GitHub</a>
+  </footer>
+</body>
+</html>

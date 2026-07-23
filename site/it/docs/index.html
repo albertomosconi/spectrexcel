@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Guida utente di SpectrExcel</title>
+  <meta name="description" content="Installa SpectrExcel ed esporta i dati spettrofotometrici in Excel con i flussi di lavoro cinetiche, binding e famiglia di spettri.">
+  <link rel="canonical" href="https://spectrexcel.albertomosconi.it/it/docs/">
+  <link rel="icon" href="/assets/icon.png" type="image/png">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Guida utente di SpectrExcel">
+  <meta property="og:description" content="Installazione, flussi di esportazione, formati supportati e risoluzione dei problemi per SpectrExcel.">
+  <meta property="og:url" content="https://spectrexcel.albertomosconi.it/it/docs/">
+  <meta property="og:image" content="https://spectrexcel.albertomosconi.it/assets/icon.png">
+</head>
+<body>
+  <header class="site-header">
+    <a href="/it/" aria-label="Pagina iniziale di SpectrExcel">
+      <img src="/assets/icon.png" alt="" width="40" height="40">
+      <span>SpectrExcel</span>
+    </a>
+    <details class="nav-disclosure">
+      <summary>Menu</summary>
+      <nav aria-label="Navigazione principale">
+        <a href="/it/">Pagina iniziale</a>
+        <a href="/it/docs/" aria-current="page">Documentazione</a>
+        <a href="/docs/" lang="en" hreflang="en" data-language="en">EN</a>
+        <a href="/it/docs/" lang="it" hreflang="it" data-language="it" aria-current="page">IT</a>
+      </nav>
+    </details>
+  </header>
+
+  <main>
+    <div class="docs-layout">
+      <details class="docs-nav" open>
+        <summary>In questa pagina</summary>
+        <nav aria-label="Sezioni della guida utente">
+          <a href="/it/docs/#install">Installazione</a>
+          <a href="/it/docs/#first-export">Prima esportazione</a>
+          <a href="/it/docs/#kinetics">Cinetiche</a>
+          <a href="/it/docs/#binding">Binding / titolazione</a>
+          <a href="/it/docs/#spectra-family">Famiglia di spettri</a>
+          <a href="/it/docs/#file-formats">Formati dei file</a>
+          <a href="/it/docs/#troubleshooting">Risoluzione dei problemi</a>
+        </nav>
+      </details>
+
+      <article>
+        <header>
+          <img src="/assets/icon.png" alt="Icona dell'applicazione SpectrExcel" width="96" height="96">
+          <h1>Guida utente di SpectrExcel</h1>
+          <p>Installa l'applicazione desktop, seleziona un assay e trasforma i file spettrofotometrici supportati in una cartella di lavoro Excel.</p>
+        </header>
+
+        <section id="install">
+          <h2>Installazione</h2>
+          <h3>Windows</h3>
+          <ol>
+            <li>Apri <a href="https://github.com/albertomosconi/spectrexcel/releases/latest">GitHub Releases</a> e scarica il file <code>.exe</code> per Windows.</li>
+            <li>Prima di avviarlo, verifica la provenienza del download e confronta il checksum con <code>SHA256SUMS</code> nella release.</li>
+            <li>Avvia il file scaricato. Conferma un eventuale avviso del sistema operativo solo dopo avere completato queste verifiche.</li>
+          </ol>
+          <h3>Linux</h3>
+          <ol>
+            <li>Apri <a href="https://github.com/albertomosconi/spectrexcel/releases/latest">GitHub Releases</a> e scarica il pacchetto <code>.AppImage.tar.gz</code>.</li>
+            <li>Estrai l'archivio, quindi avvia l'AppImage. L'archivio conserva il permesso di esecuzione.</li>
+            <li>Assicurati che il sistema fornisca un'implementazione OpenGL X11/GLX funzionante e i driver grafici dell'host.</li>
+          </ol>
+          <p>Se invece ottieni l'AppImage non archiviata, abilita il permesso di esecuzione prima di avviarla:</p>
+          <pre><code>chmod +x SpectrExcel-x86_64.AppImage
+./SpectrExcel-x86_64.AppImage</code></pre>
+        </section>
+
+        <section id="first-export">
+          <h2>Crea la prima esportazione</h2>
+          <ol>
+            <li>Avvia SpectrExcel.</li>
+            <li>Seleziona l'assay adatto alla misura.</li>
+            <li>Scegli il file o i file di input.</li>
+            <li>Configura le opzioni mostrate per l'assay.</li>
+            <li>Seleziona <strong>Genera Excel</strong>, scegli il file <code>.xlsx</code> di output e conferma l'esportazione.</li>
+          </ol>
+          <p>L'area attività segnala il caricamento dei file, gli errori di validazione e le esportazioni completate.</p>
+        </section>
+
+        <section id="kinetics">
+          <h2>Cinetiche</h2>
+          <p>Usa <strong>cinetiche</strong> per seguire le variazioni di assorbanza nel tempo in una o più misure <code>.KD</code>.</p>
+          <ol>
+            <li>Seleziona uno o più file <code>.KD</code>. SpectrExcel li ordina inizialmente per nome con ordinamento naturale.</li>
+            <li>Se necessario, usa <strong>Riordina file</strong>. Le colonne della cartella di lavoro e le tracce del grafico seguono questo ordine.</li>
+            <li>Imposta la lunghezza d'onda di lettura e quella di correzione.</li>
+            <li>Genera la cartella di lavoro Excel.</li>
+          </ol>
+          <p>Per ogni istante, SpectrExcel sottrae l'assorbanza alla lunghezza d'onda di correzione da quella alla lunghezza d'onda di lettura. Il tempo parte da zero secondi e la cartella di lavoro contiene le tracce corrette e un grafico di confronto.</p>
+        </section>
+
+        <section id="binding">
+          <h2>Binding / titolazione</h2>
+          <p>Usa <strong>binding / titolazione</strong> per confrontare una serie di spettri di assorbanza contenuti in un file <code>.SD</code> o <code>.txt</code>.</p>
+          <ol>
+            <li>Seleziona un file di spettri.</li>
+            <li>Imposta i valori minimo e massimo della lunghezza d'onda per l'asse X del grafico.</li>
+            <li>Imposta i valori minimo e massimo dell'assorbanza per l'asse Y del grafico.</li>
+            <li>Genera la cartella di lavoro Excel.</li>
+          </ol>
+          <p>SpectrExcel rimuove i valori di deviazione standard. Se l'input contiene due metà identiche di spettri ripetuti, ne conserva una sola copia. La cartella di lavoro include i dati di lunghezza d'onda e assorbanza per ogni segnale e un grafico sovrapposto degli spettri con gli intervalli selezionati.</p>
+        </section>
+
+        <section id="spectra-family">
+          <h2>Famiglia di spettri</h2>
+          <p>Usa <strong>famiglia di spettri</strong> per osservare come cambia uno spettro completo di assorbanza durante una misura cinetica.</p>
+          <ol>
+            <li>Seleziona un file <code>.KD</code> contenente spettri completi registrati a tempi di acquisizione successivi.</li>
+            <li>Genera la cartella di lavoro Excel.</li>
+          </ol>
+          <p>La cartella di lavoro contiene i tempi di acquisizione, le lunghezze d'onda e i valori di assorbanza di ogni spettro. Il grafico sovrapposto lunghezza d'onda-assorbanza mostra uno spettro ogni due per facilitare l'osservazione dell'andamento.</p>
+        </section>
+
+        <section id="file-formats">
+          <h2>Formati dei file</h2>
+          <ul>
+            <li><code>.KD</code>: misure cinetiche usate da cinetiche e famiglia di spettri.</li>
+            <li><code>.SD</code>: spettri di assorbanza binari usati da binding / titolazione.</li>
+            <li><code>.txt</code>: spettri di assorbanza testuali usati da binding / titolazione.</li>
+          </ul>
+          <p>Sono supportati i file binari con intestazioni vecchie e nuove. Gli spettri coprono 190-1100 nm. I file devono comunque avere la struttura prevista per lo strumento e contenere dati di misura completi.</p>
+        </section>
+
+        <section id="troubleshooting">
+          <h2>Risoluzione dei problemi</h2>
+          <h3>Input non supportato o danneggiato</h3>
+          <p>Verifica che l'assay selezionato supporti l'estensione e che l'esportazione dello strumento sia completa. Un'intestazione illeggibile, spettri mancanti o una lunghezza d'onda selezionata non disponibile interrompono l'analisi o l'esportazione.</p>
+          <h3>L'AppImage non si avvia su Linux</h3>
+          <p>Per un'AppImage non archiviata, esegui <code>chmod +x SpectrExcel-x86_64.AppImage</code>. Se ancora non si avvia, verifica X11/GLX, OpenGL e i driver grafici dell'host.</p>
+          <h3>Il selettore file non è disponibile su Linux</h3>
+          <p>Installa Zenity o KDialog. SpectrExcel prova prima Zenity e poi KDialog; senza entrambi gli strumenti non può aprire il selettore file di sistema.</p>
+          <h3>Verifica del download o dell'aggiornamento</h3>
+          <p>Usa solo <a href="https://github.com/albertomosconi/spectrexcel/releases/latest">GitHub Releases</a>. Confronta il file scaricato con i checksum pubblicati in <code>SHA256SUMS</code> prima di confermare un avviso del sistema operativo o sostituire un'installazione esistente.</p>
+        </section>
+      </article>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <span>SpectrExcel</span>
+    <a href="https://github.com/albertomosconi/spectrexcel">Codice sorgente su GitHub</a>
+  </footer>
+</body>
+</html>

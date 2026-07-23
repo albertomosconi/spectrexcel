@@ -12,6 +12,15 @@ PAGES = {
 }
 WINDOWS_ASSET = "spectrexcel-windows-x86_64.exe"
 LINUX_ASSET = "SpectrExcel-x86_64.AppImage.tar.gz"
+DOC_IDS = {
+    "install",
+    "first-export",
+    "kinetics",
+    "binding",
+    "spectra-family",
+    "file-formats",
+    "troubleshooting",
+}
 
 
 class DocumentParser(HTMLParser):
@@ -142,3 +151,39 @@ def test_landing_pages_use_custom_domain_and_root_relative_routes():
             if "data-language" in attrs
         }
         assert language_routes == {"en": "/", "it": "/it/"}
+
+
+def test_docs_have_equivalent_sections_and_platform_requirements():
+    for key in ("en-docs", "it-docs"):
+        path = PAGES[key]
+        text = path.read_text(encoding="utf-8")
+        parser = parse(path)
+        assert DOC_IDS <= parser.ids
+        assert ".AppImage.tar.gz" in text
+        assert "X11/GLX" in text
+        assert ".KD" in text and ".SD" in text and ".txt" in text
+        icons = [
+            a
+            for tag, a in parser.attributes
+            if tag == "link" and a.get("rel") == "icon"
+        ]
+        images = [a for tag, a in parser.attributes if tag == "img"]
+        assert icons and icons[0]["href"].endswith("/assets/icon.png")
+        assert any(
+            image.get("src", "").endswith("/assets/icon.png") for image in images
+        )
+
+
+def test_internal_links_and_fragments_resolve():
+    for path in PAGES.values():
+        parser = parse(path)
+        for _, attrs in parser.attributes:
+            href = attrs.get("href", "")
+            if not href.startswith("/"):
+                continue
+            route, _, fragment = href.partition("#")
+            target = SITE / route.lstrip("/")
+            target = target / "index.html" if target.is_dir() or route.endswith("/") else target
+            assert target.is_file(), f"{path}: broken link {href}"
+            if fragment:
+                assert fragment in parse(target).ids, f"{path}: broken fragment {href}"
