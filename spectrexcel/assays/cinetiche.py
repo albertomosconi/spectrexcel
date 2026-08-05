@@ -9,7 +9,7 @@ from xlsxwriter import Workbook, worksheet
 from spectrexcel.i18n import _
 
 from .parsing import WAVELENGTH_MAX, WAVELENGTH_MIN, parse_kd_file
-from .view import AssayView, WorkflowControls
+from .view import AssayView, ChartSeries, ChartSpec, WorkflowControls
 
 
 def export_kinetics(
@@ -120,6 +120,7 @@ class Cinetiche(AssayView):
         upload="kinetics.upload",
         export="kinetics.export",
         status="kinetics.files",
+        preview="kinetics.preview",
         load_extras=("kinetics.reorder",),
     )
 
@@ -176,14 +177,21 @@ class Cinetiche(AssayView):
         dpg.add_spacer(height=px(6), parent=parent)
         title = dpg.add_text(_("3. Create Excel file"), parent=parent)
         dpg.bind_item_theme(title, "theme.accent")
-        dpg.add_button(
-            label=_("Generate Excel"),
-            tag="kinetics.export",
-            callback=self._choose_output,
-            enabled=False,
-            width=px(260),
-            parent=parent,
-        )
+        with dpg.group(horizontal=True, parent=parent):
+            dpg.add_button(
+                label=_("Generate Excel"),
+                tag="kinetics.export",
+                callback=self._choose_output,
+                enabled=False,
+                width=px(260),
+            )
+            dpg.add_button(
+                label=_("Preview chart"),
+                tag="kinetics.preview",
+                callback=self._show_preview,
+                enabled=False,
+                width=px(260),
+            )
 
     def _choose_inputs(self) -> None:
         self.open_file_dialog(
@@ -290,6 +298,53 @@ class Cinetiche(AssayView):
         )
         for row, (filename, _dataframe) in enumerate(self.datasets):
             dpg.set_value(f"kinetics.reorder.filename.{row}", filename)
+
+    def _show_preview(self) -> None:
+        if not self.datasets:
+            return
+        reading = dpg.get_value("kinetics.reading")
+        correction = dpg.get_value("kinetics.correction")
+        try:
+            times = self.datasets[0][1].columns.values.astype(float)
+            times = times - times[0]
+            absorbance_max = 0.0
+            series = []
+            for filename, spectra in self.datasets:
+                if reading not in spectra.index:
+                    raise ValueError(
+                        _("reading wavelength {wl}nm is unavailable").format(
+                            wl=reading
+                        )
+                    )
+                if correction not in spectra.index:
+                    raise ValueError(
+                        _("correction wavelength {wl}nm is unavailable").format(
+                            wl=correction
+                        )
+                    )
+                final = spectra.loc[reading] - spectra.loc[correction]
+                absorbance_max = max(absorbance_max, float(final.max()))
+                series.append(
+                    ChartSeries(
+                        name=filename,
+                        x=[float(value) for value in times],
+                        y=[float(value) for value in final.values],
+                    )
+                )
+        except ValueError as error:
+            self.log(_("ERROR: {error}").format(error=error))
+            return
+        self.show_chart_preview(
+            ChartSpec(
+                x_label="Time (s)",
+                y_label=f"Abs{reading} (AU)",
+                x_limits=(0.0, float(times[-1])),
+                y_limits=(0.0, absorbance_max),
+                series=tuple(series),
+                title="trends",
+                legend=True,
+            )
+        )
 
     def _choose_output(self) -> None:
         if not self.datasets:

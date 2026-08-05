@@ -8,7 +8,7 @@ from xlsxwriter import Workbook, worksheet
 from spectrexcel.i18n import _
 
 from .parsing import WAVELENGTH_MAX, WAVELENGTH_MIN, parse_kd_file
-from .view import AssayView, WorkflowControls
+from .view import AssayView, ChartSeries, ChartSpec, WorkflowControls
 
 
 def export_spectrum_family(
@@ -75,6 +75,7 @@ class FamigliaDiSpettri(AssayView):
         upload="spectra.upload",
         export="spectra.export",
         status="spectra.file",
+        preview="spectra.preview",
     )
 
     def __init__(self, *args, **kwargs):
@@ -98,14 +99,21 @@ class FamigliaDiSpettri(AssayView):
         dpg.add_spacer(height=px(12), parent=parent)
         title = dpg.add_text(_("2. Create Excel file"), parent=parent)
         dpg.bind_item_theme(title, "theme.accent")
-        dpg.add_button(
-            label=_("Generate Excel"),
-            tag="spectra.export",
-            callback=self._choose_output,
-            enabled=False,
-            width=px(260),
-            parent=parent,
-        )
+        with dpg.group(horizontal=True, parent=parent):
+            dpg.add_button(
+                label=_("Generate Excel"),
+                tag="spectra.export",
+                callback=self._choose_output,
+                enabled=False,
+                width=px(260),
+            )
+            dpg.add_button(
+                label=_("Preview chart"),
+                tag="spectra.preview",
+                callback=self._show_preview,
+                enabled=False,
+                width=px(260),
+            )
 
     def _choose_input(self) -> None:
         self.open_file_dialog(
@@ -135,6 +143,31 @@ class FamigliaDiSpettri(AssayView):
             parsed,
             loading_text=_("Loading {name}...").format(name=path.name),
             failure_text=_("Failed to load {name}").format(name=path.name),
+        )
+
+    def _show_preview(self) -> None:
+        if self.input_path is None or self.dataframe is None:
+            return
+        wavelengths = [float(value) for value in self.dataframe.index.values]
+        self.show_chart_preview(
+            ChartSpec(
+                x_label="λ (nm)",
+                y_label="Abs (AU)",
+                x_limits=(float(WAVELENGTH_MIN), float(WAVELENGTH_MAX)),
+                y_limits=(0.0, float(self.dataframe.max().max())),
+                series=tuple(
+                    ChartSeries(
+                        name=str(self.dataframe.columns[column]),
+                        x=wavelengths,
+                        y=[
+                            float(value)
+                            for value in self.dataframe.iloc[:, column].values
+                        ],
+                    )
+                    for column in range(0, len(self.dataframe.columns), 2)
+                ),
+                title=self.input_path.stem,
+            )
         )
 
     def _choose_output(self) -> None:

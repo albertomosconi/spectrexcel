@@ -3,7 +3,7 @@ from pathlib import Path
 from spectrexcel.assays.cinetiche import Cinetiche
 from spectrexcel.assays.famiglia_di_spettri import FamigliaDiSpettri
 from spectrexcel.assays.titolazione import BindingTitolazione
-from spectrexcel.assays.view import AssayView, WorkflowControls
+from spectrexcel.assays.view import AssayView, WorkflowControls, green_shades
 from spectrexcel.dpi import DisplayScale
 
 
@@ -41,18 +41,34 @@ def test_assays_declare_workflow_controls():
         upload="kinetics.upload",
         export="kinetics.export",
         status="kinetics.files",
+        preview="kinetics.preview",
         load_extras=("kinetics.reorder",),
     )
     assert BindingTitolazione.workflow_controls == WorkflowControls(
         upload="binding.upload",
         export="binding.export",
         status="binding.file",
+        preview="binding.preview",
         export_extras=("binding.upload",),
     )
     assert FamigliaDiSpettri.workflow_controls == WorkflowControls(
         upload="spectra.upload",
         export="spectra.export",
         status="spectra.file",
+        preview="spectra.preview",
+    )
+
+
+def test_green_shades_spans_light_to_dark():
+    assert green_shades(0) == [(112, 173, 71, 255)]
+    assert green_shades(1) == [(112, 173, 71, 255)]
+    shades = green_shades(4)
+    assert shades[0] == (197, 224, 180, 255)
+    assert shades[-1] == (56, 87, 35, 255)
+    assert all(
+        earlier[channel] >= later[channel]
+        for earlier, later in zip(shades, shades[1:])
+        for channel in range(3)
     )
 
 

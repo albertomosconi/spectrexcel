@@ -136,6 +136,8 @@ TRANSLATIONS_IT: dict[str, str] = {
     "Save Excel file": "Salva file Excel",
     "generating excel file...": "generazione del file excel in corso...",
     "excel file saved successfully": "file excel salvato con successo",
+    "Preview chart": "Anteprima grafico",
+    "Chart preview": "Anteprima grafico",
     # cinetiche
     "1. Upload KD files": "1. Carica file KD",
     "Select input files (.KD)": "Seleziona file di input (.KD)",

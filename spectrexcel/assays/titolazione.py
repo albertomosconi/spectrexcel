@@ -7,7 +7,7 @@ from xlsxwriter import Workbook, worksheet
 from spectrexcel.i18n import _
 
 from .parsing import parse_sd_file, parse_txt_file
-from .view import AssayView, WorkflowControls
+from .view import AssayView, ChartSeries, ChartSpec, WorkflowControls
 
 
 def clean_duplicate_spectra(df: pd.DataFrame) -> tuple[pd.DataFrame, bool]:
@@ -99,6 +99,7 @@ class BindingTitolazione(AssayView):
         upload="binding.upload",
         export="binding.export",
         status="binding.file",
+        preview="binding.preview",
         export_extras=("binding.upload",),
     )
 
@@ -175,14 +176,21 @@ class BindingTitolazione(AssayView):
         dpg.add_spacer(height=px(6), parent=parent)
         title = dpg.add_text(_("3. Create Excel file"), parent=parent)
         dpg.bind_item_theme(title, "theme.accent")
-        dpg.add_button(
-            label=_("Generate Excel"),
-            tag="binding.export",
-            callback=self._choose_output,
-            enabled=False,
-            width=px(260),
-            parent=parent,
-        )
+        with dpg.group(horizontal=True, parent=parent):
+            dpg.add_button(
+                label=_("Generate Excel"),
+                tag="binding.export",
+                callback=self._choose_output,
+                enabled=False,
+                width=px(260),
+            )
+            dpg.add_button(
+                label=_("Preview chart"),
+                tag="binding.preview",
+                callback=self._show_preview,
+                enabled=False,
+                width=px(260),
+            )
 
     def _choose_input(self) -> None:
         self.open_file_dialog(
@@ -227,6 +235,37 @@ class BindingTitolazione(AssayView):
             loaded,
             loading_text=_("Loading {name}...").format(name=path.name),
             failure_text=_("Failed to load {name}").format(name=path.name),
+        )
+
+    def _show_preview(self) -> None:
+        if self.dataframe is None:
+            return
+        x_min = dpg.get_value("binding.x_min")
+        x_max = dpg.get_value("binding.x_max")
+        y_min = dpg.get_value("binding.y_min")
+        y_max = dpg.get_value("binding.y_max")
+        if x_min >= x_max or y_min >= y_max:
+            self.log(_("ERROR: axis minimum must be lower than its maximum"))
+            return
+        dataframe = self.dataframe
+        if "Std.Dev." in dataframe.columns:
+            dataframe = dataframe.drop("Std.Dev.", axis=1)
+        wavelengths = [float(value) for value in dataframe.columns[1:].values]
+        self.show_chart_preview(
+            ChartSpec(
+                x_label="λ (nm)",
+                y_label="Abs (AU)",
+                x_limits=(float(x_min), float(x_max)),
+                y_limits=(float(y_min), float(y_max)),
+                series=tuple(
+                    ChartSeries(
+                        name=str(row[0]),
+                        x=wavelengths,
+                        y=[float(value) for value in row[1:]],
+                    )
+                    for row in dataframe.itertuples(index=False)
+                ),
+            )
         )
 
     def _choose_output(self) -> None:

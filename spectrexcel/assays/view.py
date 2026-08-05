@@ -15,8 +15,45 @@ class WorkflowControls:
     upload: str
     export: str
     status: str
+    preview: str | None = None
     load_extras: tuple[str, ...] = ()
     export_extras: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class ChartSeries:
+    name: str
+    x: list[float]
+    y: list[float]
+
+
+@dataclass(frozen=True)
+class ChartSpec:
+    x_label: str
+    y_label: str
+    x_limits: tuple[float, float]
+    y_limits: tuple[float, float]
+    series: tuple[ChartSeries, ...]
+    title: str | None = None
+    legend: bool = False
+
+
+def green_shades(count: int) -> list[tuple[int, int, int, int]]:
+    """Monochromatic green scale matching Excel chart style 5."""
+    light = (197, 224, 180)
+    dark = (56, 87, 35)
+    if count <= 1:
+        return [(112, 173, 71, 255)]
+    return [
+        (
+            *(
+                round(light[channel] + (dark[channel] - light[channel]) * step)
+                for channel in range(3)
+            ),
+            255,
+        )
+        for step in (index / (count - 1) for index in range(count))
+    ]
 
 
 class AssayView:
@@ -63,7 +100,10 @@ class AssayView:
         failure_text: str,
     ) -> None:
         controls = self._workflow()
-        for tag in (controls.upload, controls.export, *controls.load_extras):
+        busy_controls = [controls.upload, controls.export, *controls.load_extras]
+        if controls.preview is not None:
+            busy_controls.append(controls.preview)
+        for tag in busy_controls:
             dpg.configure_item(tag, enabled=False)
         dpg.set_value(controls.status, loading_text)
 
@@ -71,6 +111,8 @@ class AssayView:
             on_success(value)
             dpg.configure_item(controls.upload, enabled=True)
             dpg.configure_item(controls.export, enabled=True)
+            if controls.preview is not None:
+                dpg.configure_item(controls.preview, enabled=True)
 
         def failed(error: Exception) -> None:
             dpg.configure_item(controls.upload, enabled=True)
@@ -81,7 +123,9 @@ class AssayView:
 
     def submit_export(self, task: Callable[[], Any]) -> None:
         controls = self._workflow()
-        busy_controls = (controls.export, *controls.export_extras)
+        busy_controls = [controls.export, *controls.export_extras]
+        if controls.preview is not None:
+            busy_controls.append(controls.preview)
         for tag in busy_controls:
             dpg.configure_item(tag, enabled=False)
         self.log(_("generating excel file..."))
@@ -188,3 +232,63 @@ class AssayView:
                     width=px(100),
                     callback=lambda: dpg.delete_item(tag),
                 )
+
+    def show_chart_preview(self, spec: ChartSpec) -> None:
+        px = self.display_scale.pixels
+        tag = "chart.preview.modal"
+        if dpg.does_item_exist(tag):
+            dpg.delete_item(tag)
+        width, height = px(760), px(600)
+        position = (
+            max(0, (dpg.get_viewport_client_width() - width) // 2),
+            max(0, (dpg.get_viewport_client_height() - height) // 2),
+        )
+        with dpg.window(
+            label=_("Chart preview"),
+            tag=tag,
+            modal=True,
+            no_move=True,
+            no_resize=True,
+            no_collapse=True,
+            no_close=True,
+            width=width,
+            height=height,
+            pos=position,
+        ):
+            with dpg.plot(
+                label=spec.title or "",
+                no_title=spec.title is None,
+                width=-1,
+                height=height - px(115),
+            ):
+                if spec.legend:
+                    dpg.add_plot_legend(
+                        location=dpg.mvPlot_Location_South,
+                        horizontal=True,
+                        outside=True,
+                    )
+                x_axis = dpg.add_plot_axis(dpg.mvXAxis, label=spec.x_label)
+                y_axis = dpg.add_plot_axis(dpg.mvYAxis, label=spec.y_label)
+                shades = green_shades(len(spec.series))
+                for index, series in enumerate(spec.series):
+                    item = dpg.add_line_series(
+                        series.x,
+                        series.y,
+                        label=series.name if spec.legend else f"##series{index}",
+                        parent=y_axis,
+                    )
+                    with dpg.theme() as series_theme:
+                        with dpg.theme_component(dpg.mvLineSeries):
+                            dpg.add_theme_color(
+                                dpg.mvPlotCol_Line,
+                                shades[index],
+                                category=dpg.mvThemeCat_Plots,
+                            )
+                    dpg.bind_item_theme(item, series_theme)
+                dpg.set_axis_limits(x_axis, *spec.x_limits)
+                dpg.set_axis_limits(y_axis, *spec.y_limits)
+            dpg.add_button(
+                label=_("Close"),
+                width=px(90),
+                callback=lambda: dpg.delete_item(tag),
+            )
