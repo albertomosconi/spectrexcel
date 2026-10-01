@@ -13,30 +13,75 @@ from .parsing import WAVELENGTH_MAX, WAVELENGTH_MIN, parse_kd_file
 from .view import AssayView, ChartSeries, ChartSpec, WorkflowControls
 
 
+def kinetics_chart_spec(
+    datasets: list[tuple[str, pd.DataFrame]],
+    reading_wavelength: int,
+    correction_wavelength: int,
+) -> ChartSpec:
+    if not datasets:
+        raise ValueError(_("no kinetic data loaded"))
+    series = []
+    absorbance_min, absorbance_max = 0.0, 0.0
+    for filename, spectra in datasets:
+        if spectra.empty:
+            raise ValueError(_("no kinetic data loaded"))
+        if reading_wavelength not in spectra.index:
+            raise ValueError(
+                _("reading wavelength {wl}nm is unavailable").format(wl=reading_wavelength)
+            )
+        if correction_wavelength not in spectra.index:
+            raise ValueError(
+                _("correction wavelength {wl}nm is unavailable").format(
+                    wl=correction_wavelength
+                )
+            )
+        relative_times = spectra.columns.values.astype(float)
+        relative_times = relative_times - relative_times[0]
+        final = spectra.loc[reading_wavelength] - spectra.loc[correction_wavelength]
+        absorbance_min = min(absorbance_min, float(final.min()))
+        absorbance_max = max(absorbance_max, float(final.max()))
+        series.append(
+            ChartSeries(
+                name=filename,
+                x=[float(value) for value in relative_times],
+                y=[float(value) for value in final.values],
+            )
+        )
+    if absorbance_min == absorbance_max:
+        absorbance_max = absorbance_min + 1.0
+    return ChartSpec(
+        x_label="Time (s)",
+        y_label=f"Abs{reading_wavelength} (AU)",
+        x_limits=(0.0, max(max(trace.x) for trace in series)),
+        y_limits=(absorbance_min, absorbance_max),
+        series=tuple(series),
+        title="trends",
+        legend=True,
+    )
+
+
 def export_kinetics(
     datasets: list[tuple[str, pd.DataFrame]],
     output_path: Path,
     reading_wavelength: int,
     correction_wavelength: int,
 ) -> None:
-    if not datasets:
-        raise ValueError(_("no kinetic data loaded"))
+    spec = kinetics_chart_spec(datasets, reading_wavelength, correction_wavelength)
+    # Share time cells only for identical grids. Each other trace keeps its
+    # exact timestamps, including acquisition jitter and different lengths.
+    shared_times = all(trace.x == spec.series[0].x for trace in spec.series)
+    data_columns = len(spec.series) + 1 if shared_times else 2 * len(spec.series)
+    chart_column = data_columns + 3
 
     with pd.ExcelWriter(output_path, engine="xlsxwriter") as writer:
         workbook: Workbook = writer.book
         sheet: worksheet.Worksheet = workbook.add_worksheet("data")
         sheet.write(0, 0, "tracce")
-        sheet.write(1, 0, "Time (s)")
         sheet.write(
             0,
-            4 + len(datasets),
+            chart_column,
             f"correction wavelength: {correction_wavelength}nm",
         )
-        times = datasets[0][1].columns.values.astype(float)
-        times = times - times[0]
-        for row, value in enumerate(times, start=2):
-            sheet.write(row, 0, float(value))
-
         chart = workbook.add_chart({"type": "scatter", "subtype": "smooth"})
         chart.set_title(
             {
@@ -45,37 +90,27 @@ def export_kinetics(
             }
         )
 
-        absorbance_max = 0.0
-        for index, (filename, spectra) in enumerate(datasets):
-            if reading_wavelength not in spectra.index:
-                raise ValueError(
-                    _("reading wavelength {wl}nm is unavailable").format(
-                        wl=reading_wavelength
-                    )
-                )
-            if correction_wavelength not in spectra.index:
-                raise ValueError(
-                    _("correction wavelength {wl}nm is unavailable").format(
-                        wl=correction_wavelength
-                    )
-                )
-            final = spectra.loc[reading_wavelength] - spectra.loc[correction_wavelength]
-            absorbance_max = max(absorbance_max, float(final.max()))
-            final.to_excel(
+        for index, series in enumerate(spec.series):
+            time_column = 0 if shared_times else 2 * index
+            value_column = 1 + index if shared_times else time_column + 1
+            if not shared_times or index == 0:
+                sheet.write(1, time_column, "Time (s)")
+                sheet.write_column(2, time_column, series.x)
+            pd.Series(series.y).to_excel(
                 writer,
                 sheet_name="data",
                 index=False,
                 header=False,
                 startrow=2,
-                startcol=1 + index,
+                startcol=value_column,
             )
-            sheet.write(1, 1 + index, filename)
+            sheet.write(1, value_column, series.name)
             chart.add_series(
                 {
-                    "categories": ["data", 2, 0, len(final) + 1, 0],
-                    "values": ["data", 2, 1 + index, len(final) + 1, 1 + index],
+                    "categories": ["data", 2, time_column, len(series.x) + 1, time_column],
+                    "values": ["data", 2, value_column, len(series.y) + 1, value_column],
                     "line": {"width": 1.25},
-                    "name": ["data", 1, 1 + index],
+                    "name": ["data", 1, value_column],
                 }
             )
 
@@ -88,7 +123,7 @@ def export_kinetics(
                 "line": {"color": "gray"},
                 "interval_unit": 50,
                 "min": 0,
-                "max": float(times[-1]),
+                "max": spec.x_limits[1],
                 "major_tick_mark": "none",
                 "minor_tick_mark": "none",
             }
@@ -102,8 +137,8 @@ def export_kinetics(
                 "line": {"color": "gray"},
                 "major_gridlines": {"visible": False},
                 "interval_unit": 0.05,
-                "min": 0,
-                "max": absorbance_max,
+                "min": spec.y_limits[0],
+                "max": spec.y_limits[1],
                 "major_tick_mark": "none",
                 "minor_tick_mark": "none",
             }
@@ -113,7 +148,7 @@ def export_kinetics(
             {"position": "bottom", "font": {"color": "gray", "size": 9}}
         )
         chart.set_style(5)
-        sheet.insert_chart(4, 4 + len(datasets), chart=chart)
+        sheet.insert_chart(4, chart_column, chart=chart)
 
 
 class Cinetiche(AssayView):
@@ -293,46 +328,11 @@ class Cinetiche(AssayView):
         reading = dpg.get_value("kinetics.reading")
         correction = dpg.get_value("kinetics.correction")
         try:
-            times = self.datasets[0][1].columns.values.astype(float)
-            times = times - times[0]
-            absorbance_max = 0.0
-            series = []
-            for filename, spectra in self.datasets:
-                if reading not in spectra.index:
-                    raise ValueError(
-                        _("reading wavelength {wl}nm is unavailable").format(
-                            wl=reading
-                        )
-                    )
-                if correction not in spectra.index:
-                    raise ValueError(
-                        _("correction wavelength {wl}nm is unavailable").format(
-                            wl=correction
-                        )
-                    )
-                final = spectra.loc[reading] - spectra.loc[correction]
-                absorbance_max = max(absorbance_max, float(final.max()))
-                series.append(
-                    ChartSeries(
-                        name=filename,
-                        x=[float(value) for value in times],
-                        y=[float(value) for value in final.values],
-                    )
-                )
+            spec = kinetics_chart_spec(self.datasets, reading, correction)
         except ValueError as error:
             self.log(_("ERROR: {error}").format(error=error))
             return
-        self.show_chart_preview(
-            ChartSpec(
-                x_label="Time (s)",
-                y_label=f"Abs{reading} (AU)",
-                x_limits=(0.0, float(times[-1])),
-                y_limits=(0.0, absorbance_max),
-                series=tuple(series),
-                title="trends",
-                legend=True,
-            )
-        )
+        self.show_chart_preview(spec)
 
     def _choose_output(self) -> None:
         if not self.datasets:
