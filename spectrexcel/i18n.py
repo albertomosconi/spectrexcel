@@ -146,6 +146,7 @@ TRANSLATIONS_IT: dict[str, str] = {
     "2. Configure parameters": "2. Configura i parametri",
     "Reading wavelength (nm)": "Lunghezza d'onda di lettura (nm)",
     "Correction wavelength (nm)": "Lunghezza d'onda di correzione (nm)",
+    "Enable wavelength correction": "Abilita la correzione alla lunghezza d'onda",
     "3. Create Excel file": "3. Crea file Excel",
     "Generate Excel": "Genera Excel",
     "Select kinetic data files": "Seleziona file di dati cinetici",

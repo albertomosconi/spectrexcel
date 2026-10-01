@@ -6,7 +6,7 @@ from xlsxwriter import Workbook, worksheet
 
 from spectrexcel.i18n import _
 
-from .parsing import parse_sd_file, parse_txt_file
+from .parsing import WAVELENGTH_MAX, WAVELENGTH_MIN, parse_sd_file, parse_txt_file
 from .view import AssayView, ChartSeries, ChartSpec, WorkflowControls
 
 
@@ -27,6 +27,28 @@ def clean_duplicate_spectra(df: pd.DataFrame) -> tuple[pd.DataFrame, bool]:
     return df, False
 
 
+def prepare_binding_spectra(
+    dataframe: pd.DataFrame, correction_wavelength: int | None = None
+) -> pd.DataFrame:
+    dataframe = dataframe.drop(columns=["Std.Dev."], errors="ignore")
+    if correction_wavelength is None:
+        return dataframe
+    wavelengths = dataframe.columns[1:]
+    column = next(
+        (value for value in wavelengths if float(value) == correction_wavelength),
+        None,
+    )
+    if column is None:
+        raise ValueError(
+            _("correction wavelength {wl}nm is unavailable").format(
+                wl=correction_wavelength
+            )
+        )
+    corrected = dataframe.copy()
+    corrected[wavelengths] = dataframe[wavelengths].sub(dataframe[column], axis=0)
+    return corrected
+
+
 def export_binding(
     dataframe: pd.DataFrame,
     output_path: Path,
@@ -34,14 +56,14 @@ def export_binding(
     x_axis_max: int,
     y_axis_min: float,
     y_axis_max: float,
+    correction_wavelength: int | None = None,
 ) -> None:
     if x_axis_min >= x_axis_max:
         raise ValueError(_("X-axis minimum must be lower than its maximum"))
     if y_axis_min >= y_axis_max:
         raise ValueError(_("Y-axis minimum must be lower than its maximum"))
 
-    if "Std.Dev." in dataframe.columns:
-        dataframe = dataframe.drop("Std.Dev.", axis=1)
+    dataframe = prepare_binding_spectra(dataframe, correction_wavelength)
 
     with pd.ExcelWriter(output_path, engine="xlsxwriter") as writer:
         dataframe.to_excel(writer, sheet_name="data", index=False, header=False, startrow=1)
@@ -174,6 +196,28 @@ class BindingTitolazione(AssayView):
                     width=px(180),
                 )
         dpg.add_spacer(height=px(6), parent=parent)
+        correction_enabled = self.settings.get("titolazione/correction_enabled", False)
+        with dpg.group(horizontal=True, parent=parent):
+            dpg.add_checkbox(
+                label=_("Enable wavelength correction"),
+                tag="binding.correction_enabled",
+                default_value=correction_enabled,
+                callback=lambda sender, enabled: dpg.configure_item(
+                    "binding.correction", show=enabled
+                ),
+            )
+            dpg.add_input_int(
+                label=_("Correction wavelength (nm)"),
+                tag="binding.correction",
+                default_value=self.settings.get("titolazione/wl_corr", 800),
+                min_value=WAVELENGTH_MIN,
+                max_value=WAVELENGTH_MAX,
+                min_clamped=True,
+                max_clamped=True,
+                width=px(210),
+                show=correction_enabled,
+            )
+        dpg.add_spacer(height=px(6), parent=parent)
         title = dpg.add_text(_("3. Create Excel file"), parent=parent)
         dpg.bind_item_theme(title, "theme.accent")
         with dpg.group(horizontal=True, parent=parent):
@@ -247,9 +291,15 @@ class BindingTitolazione(AssayView):
         if x_min >= x_max or y_min >= y_max:
             self.log(_("ERROR: axis minimum must be lower than its maximum"))
             return
-        dataframe = self.dataframe
-        if "Std.Dev." in dataframe.columns:
-            dataframe = dataframe.drop("Std.Dev.", axis=1)
+        correction = (
+            dpg.get_value("binding.correction")
+            if dpg.get_value("binding.correction_enabled") else None
+        )
+        try:
+            dataframe = prepare_binding_spectra(self.dataframe, correction)
+        except ValueError as error:
+            self.log(_("ERROR: {error}").format(error=error))
+            return
         wavelengths = [float(value) for value in dataframe.columns[1:].values]
         self.show_chart_preview(
             ChartSpec(
@@ -294,6 +344,10 @@ class BindingTitolazione(AssayView):
         self.settings.set("titolazione/x_axis_max", x_max)
         self.settings.set("titolazione/y_axis_min", y_min)
         self.settings.set("titolazione/y_axis_max", y_max)
+        correction_enabled = dpg.get_value("binding.correction_enabled")
+        correction = dpg.get_value("binding.correction")
+        self.settings.set("titolazione/correction_enabled", correction_enabled)
+        self.settings.set("titolazione/wl_corr", correction)
         dataframe = self.dataframe
         self.submit_export(
             lambda: export_binding(
@@ -303,5 +357,6 @@ class BindingTitolazione(AssayView):
                 x_max,
                 y_min,
                 y_max,
+                correction if correction_enabled else None,
             )
         )

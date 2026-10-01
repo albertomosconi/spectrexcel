@@ -11,9 +11,36 @@ from .parsing import WAVELENGTH_MAX, WAVELENGTH_MIN, parse_kd_file
 from .view import AssayView, ChartSeries, ChartSpec, WorkflowControls
 
 
+def prepare_spectrum_family(
+    dataframe: pd.DataFrame, correction_wavelength: int | None = None
+) -> pd.DataFrame:
+    if correction_wavelength is None:
+        return dataframe
+    if correction_wavelength not in dataframe.index:
+        raise ValueError(
+            _("correction wavelength {wl}nm is unavailable").format(
+                wl=correction_wavelength
+            )
+        )
+    return dataframe.sub(dataframe.loc[correction_wavelength], axis=1)
+
+
+def spectrum_family_y_limits(
+    dataframe: pd.DataFrame, corrected: bool
+) -> tuple[float, float]:
+    minimum = min(0.0, float(dataframe.min().min())) if corrected else 0.0
+    maximum = float(dataframe.max().max())
+    if corrected and minimum == maximum:
+        maximum = minimum + 1.0
+    return minimum, maximum
+
+
 def export_spectrum_family(
-    dataframe: pd.DataFrame, input_path: Path, output_path: Path
+    dataframe: pd.DataFrame, input_path: Path, output_path: Path,
+    correction_wavelength: int | None = None,
 ) -> None:
+    dataframe = prepare_spectrum_family(dataframe, correction_wavelength)
+    y_min, y_max = spectrum_family_y_limits(dataframe, correction_wavelength is not None)
     with pd.ExcelWriter(output_path, engine="xlsxwriter") as writer:
         workbook: Workbook = writer.book
         sheet: worksheet.Worksheet = workbook.add_worksheet("data")
@@ -52,8 +79,8 @@ def export_spectrum_family(
                 "line": {"color": "gray"},
                 "major_gridlines": {"visible": False},
                 "interval_unit": 0.05,
-                "min": 0,
-                "max": float(dataframe.max().max()),
+                "min": y_min,
+                "max": y_max,
                 "major_tick_mark": "none",
                 "minor_tick_mark": "none",
             }
@@ -97,7 +124,33 @@ class FamigliaDiSpettri(AssayView):
         dpg.add_text(_("No file selected"), tag="spectra.file", parent=parent)
         dpg.bind_item_theme("spectra.file", "theme.muted")
         dpg.add_spacer(height=px(12), parent=parent)
-        title = dpg.add_text(_("2. Create Excel file"), parent=parent)
+        title = dpg.add_text(_("2. Configure parameters"), parent=parent)
+        dpg.bind_item_theme(title, "theme.accent")
+        correction_enabled = self.settings.get(
+            "famiglia_di_spettri/correction_enabled", False
+        )
+        with dpg.group(horizontal=True, parent=parent):
+            dpg.add_checkbox(
+                label=_("Enable wavelength correction"),
+                tag="spectra.correction_enabled",
+                default_value=correction_enabled,
+                callback=lambda sender, enabled: dpg.configure_item(
+                    "spectra.correction", show=enabled
+                ),
+            )
+            dpg.add_input_int(
+                label=_("Correction wavelength (nm)"),
+                tag="spectra.correction",
+                default_value=self.settings.get("famiglia_di_spettri/wl_corr", 800),
+                min_value=WAVELENGTH_MIN,
+                max_value=WAVELENGTH_MAX,
+                min_clamped=True,
+                max_clamped=True,
+                width=px(210),
+                show=correction_enabled,
+            )
+        dpg.add_spacer(height=px(6), parent=parent)
+        title = dpg.add_text(_("3. Create Excel file"), parent=parent)
         dpg.bind_item_theme(title, "theme.accent")
         with dpg.group(horizontal=True, parent=parent):
             dpg.add_button(
@@ -148,23 +201,32 @@ class FamigliaDiSpettri(AssayView):
     def _show_preview(self) -> None:
         if self.input_path is None or self.dataframe is None:
             return
-        wavelengths = [float(value) for value in self.dataframe.index.values]
+        correction = (
+            dpg.get_value("spectra.correction")
+            if dpg.get_value("spectra.correction_enabled") else None
+        )
+        try:
+            dataframe = prepare_spectrum_family(self.dataframe, correction)
+        except ValueError as error:
+            self.log(_("ERROR: {error}").format(error=error))
+            return
+        wavelengths = [float(value) for value in dataframe.index.values]
         self.show_chart_preview(
             ChartSpec(
                 x_label="λ (nm)",
                 y_label="Abs (AU)",
                 x_limits=(float(WAVELENGTH_MIN), float(WAVELENGTH_MAX)),
-                y_limits=(0.0, float(self.dataframe.max().max())),
+                y_limits=spectrum_family_y_limits(dataframe, correction is not None),
                 series=tuple(
                     ChartSeries(
-                        name=str(self.dataframe.columns[column]),
+                        name=str(dataframe.columns[column]),
                         x=wavelengths,
                         y=[
                             float(value)
-                            for value in self.dataframe.iloc[:, column].values
+                            for value in dataframe.iloc[:, column].values
                         ],
                     )
-                    for column in range(0, len(self.dataframe.columns), 2)
+                    for column in range(0, len(dataframe.columns), 2)
                 ),
                 title=self.input_path.stem,
             )
@@ -186,6 +248,13 @@ class FamigliaDiSpettri(AssayView):
         input_path = self.input_path
         dataframe = self.dataframe
         self.settings.set("famiglia_di_spettri/folder_output", str(output_path.parent))
+        correction_enabled = dpg.get_value("spectra.correction_enabled")
+        correction = dpg.get_value("spectra.correction")
+        self.settings.set("famiglia_di_spettri/correction_enabled", correction_enabled)
+        self.settings.set("famiglia_di_spettri/wl_corr", correction)
         self.submit_export(
-            lambda: export_spectrum_family(dataframe, input_path, output_path),
+            lambda: export_spectrum_family(
+                dataframe, input_path, output_path,
+                correction if correction_enabled else None,
+            ),
         )
