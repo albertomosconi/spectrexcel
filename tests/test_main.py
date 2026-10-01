@@ -76,6 +76,31 @@ def test_build_registers_one_disabled_button_component_per_theme(
         app.executor.shutdown(wait=True)
 
 
+@pytest.mark.parametrize(
+    "name, expected", [("Light", (30, 34, 40)), ("Dark", (235, 235, 235))]
+)
+def test_checkbox_labels_use_readable_theme_text(
+    dpg_context, monkeypatch, tmp_path, name, expected
+):
+    monkeypatch.setattr("spectrexcel.settings.user_config_path", lambda *_args: tmp_path)
+    monkeypatch.setattr(SpectrExcelApp, "submit", lambda *_args: None)
+    app = SpectrExcelApp("test", DisplayScale())
+    try:
+        app.build()
+
+        components = dpg.get_item_children(f"theme.{name.lower()}", 1)
+        checkbox_colors = [
+            dpg.get_value(color)[:3]
+            for component in components
+            if dpg.get_item_configuration(component)["item_type"] == dpg.mvCheckbox
+            for color in dpg.get_item_children(component, 1)
+            if dpg.get_item_configuration(color)["target"] == dpg.mvThemeCol_Text
+        ]
+        assert checkbox_colors == [list(expected)]
+    finally:
+        app.executor.shutdown(wait=True)
+
+
 def test_assay_info_modal_uses_selected_assay_and_is_locked(
     dpg_context, monkeypatch
 ):

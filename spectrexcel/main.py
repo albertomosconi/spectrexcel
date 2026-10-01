@@ -231,11 +231,12 @@ class SpectrExcelApp:
                             dpg.add_theme_color(
                                 dpg.mvThemeCol_PopupBg, (36, 91, 130)
                             )
-                with dpg.theme_component(dpg.mvText):
-                    dpg.add_theme_color(
-                        dpg.mvThemeCol_Text,
-                        (30, 34, 40) if name == "Light" else (235, 235, 235),
-                    )
+                for control in (dpg.mvText, dpg.mvCheckbox):
+                    with dpg.theme_component(control):
+                        dpg.add_theme_color(
+                            dpg.mvThemeCol_Text,
+                            (30, 34, 40) if name == "Light" else (235, 235, 235),
+                        )
 
         with dpg.theme(tag="theme.accent"):
             with dpg.theme_component(dpg.mvText):
