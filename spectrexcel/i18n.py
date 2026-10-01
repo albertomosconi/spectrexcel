@@ -132,6 +132,20 @@ TRANSLATIONS_IT: dict[str, str] = {
         "Impossibile leggere il contenuto del file: nessuna intestazione trovata.",
     "Unable to read file contents: no spectra found.":
         "Impossibile leggere il contenuto del file: nessuno spettro trovato.",
+    "Unable to read file contents: {error}":
+        "Impossibile leggere il contenuto del file: {error}",
+    "Unable to read file contents: invalid text table.":
+        "Impossibile leggere il contenuto del file: tabella di testo non valida.",
+    "Unable to read file contents: unterminated sample name.":
+        "Impossibile leggere il contenuto del file: nome del campione non terminato.",
+    "Unable to read file contents: truncated spectrum.":
+        "Impossibile leggere il contenuto del file: spettro incompleto.",
+    "Unable to read file contents: truncated acquisition time.":
+        "Impossibile leggere il contenuto del file: tempo di acquisizione incompleto.",
+    "Unable to read file contents: sample and spectrum counts differ.":
+        "Impossibile leggere il contenuto del file: il numero di campioni e spettri non coincide.",
+    "Unable to read file contents: time and spectrum counts differ.":
+        "Impossibile leggere il contenuto del file: il numero di tempi e spettri non coincide.",
     "ERROR: {error}": "ERRORE: {error}",
     "Save Excel file": "Salva file Excel",
     "generating excel file...": "generazione del file excel in corso...",
