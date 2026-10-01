@@ -8,6 +8,7 @@
   <link rel="canonical" href="https://spectrexcel.albertomosconi.it/">
   <link rel="icon" href="/assets/icon.png" type="image/png">
   <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="preload" href="/assets/research-sans.woff2" as="font" type="font/woff2" crossorigin>
   <meta property="og:type" content="website">
   <meta property="og:title" content="SpectrExcel | Spectrophotometer data to Excel">
   <meta property="og:description" content="Turn spectrophotometer files into structured, analysis-ready Excel workbooks.">
@@ -37,9 +38,8 @@
 
   <main>
     <section class="hero" aria-labelledby="hero-title">
-      <img src="/assets/icon.png" alt="SpectrExcel application icon" width="288" height="288">
       <div class="hero-copy">
-        <h1 id="hero-title">Turn spectrophotometer files into structured Excel workbooks.</h1>
+        <h1 id="hero-title">Spectrophotometer data, ready for Excel.</h1>
         <p>SpectrExcel turns raw instrument output into analysis-ready reports in a few clicks.</p>
         <div class="actions">
           <a class="button button-primary" data-download
@@ -49,27 +49,43 @@
              data-linux-url="https://github.com/albertomosconi/spectrexcel/releases/latest/download/SpectrExcel-x86_64.AppImage.tar.gz"
              href="https://github.com/albertomosconi/spectrexcel/releases/latest">View latest release</a>
           <a class="button secondary" href="/docs/">Docs</a>
-          <a class="button secondary" href="#download-options">Other downloads</a>
         </div>
+        <a class="download-alternative" href="#download-options">Other downloads</a>
       </div>
+      <figure class="product-image">
+        <picture>
+          <source srcset="/assets/app-en-dark.webp" media="(prefers-color-scheme: dark)">
+          <img src="/assets/app-en-light.webp" alt="SpectrExcel binding / titration interface with input selection and wavelength and absorbance controls" width="1000" height="650" fetchpriority="high">
+        </picture>
+        <figcaption>Binding / titration workflow. No measurement data shown.</figcaption>
+      </figure>
     </section>
 
     <section id="features" aria-labelledby="features-title">
       <h2 id="features-title">From measurements to workbooks</h2>
       <p>Choose a workflow, add instrument files, and export a workbook ready for analysis.</p>
+      <div class="features-layout">
       <div class="workflow-grid">
-        <article class="panel">
+        <article>
           <h3>Kinetics</h3>
+          <code>.KD</code>
           <p>Organize time-series measurements and export calculated kinetic results.</p>
         </article>
-        <article class="panel">
+        <article>
           <h3>Binding</h3>
+          <code>.SD / .txt</code>
           <p>Structure titration measurements for binding analysis and comparison.</p>
         </article>
-        <article class="panel">
+        <article>
           <h3>Spectra Family</h3>
+          <code>.KD</code>
           <p>Collect related spectra in clear tables and charts inside one workbook.</p>
         </article>
+      </div>
+      <dl class="format-summary">
+        <div><dt>Instrument files</dt><dd><code>.KD</code> <code>.SD</code> <code>.txt</code></dd></div>
+        <div><dt>Excel workbooks</dt><dd><code>.xlsx</code><span>Measurement tables and comparison charts.</span></dd></div>
+      </dl>
       </div>
     </section>
 

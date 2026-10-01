@@ -156,8 +156,8 @@ process.stdout.write(JSON.stringify({ href: download.href, text: download.textCo
 
 def test_landing_pages_are_localized_and_progressively_enhanced():
     cases = [
-        (PAGES["en-home"], "en", "Turn spectrophotometer files"),
-        (PAGES["it-home"], "it", "Trasforma i file dello spettrofotometro"),
+        (PAGES["en-home"], "en", "Spectrophotometer data, ready for Excel."),
+        (PAGES["it-home"], "it", "Dati spettrofotometrici, pronti per Excel."),
     ]
     for path, language, heading in cases:
         text = path.read_text(encoding="utf-8")
@@ -174,18 +174,18 @@ def test_landing_pages_are_localized_and_progressively_enhanced():
         assert LINUX_ASSET in downloads[0]["data-linux-url"]
 
 
-def test_mobile_hero_places_icon_before_copy_and_desktop_restores_copy_left():
+def test_mobile_hero_places_copy_before_screenshot_and_desktop_keeps_copy_left():
     for key in ("en-home", "it-home"):
         text = PAGES[key].read_text(encoding="utf-8")
         hero = text.split('<section class="hero"', 1)[1].split("</section>", 1)[0]
-        assert hero.index('<img src="/assets/icon.png"') < hero.index(
-            '<div class="hero-copy">'
+        assert hero.index('<div class="hero-copy">') < hero.index(
+            '<figure class="product-image">'
         )
 
     styles = (SITE / "assets" / "styles.css").read_text(encoding="utf-8")
     desktop = styles.split("@media (min-width: 48rem) {", 1)[1].split("\n}", 1)[0]
     assert ".hero-copy { grid-column: 1; grid-row: 1; }" in desktop
-    assert ".hero > img { grid-column: 2; grid-row: 1; }" in desktop
+    assert ".product-image { grid-column: 2; grid-row: 1; }" in desktop
 
 
 def test_full_header_navigation_waits_for_wide_desktop():
@@ -309,7 +309,13 @@ def test_landing_pages_use_custom_domain_and_root_relative_routes():
             for attrs in links
         )
         assert any(attrs.get("src") == "/assets/site.js" for attrs in scripts)
-        assert images and all(attrs.get("src") == "/assets/icon.png" for attrs in images)
+        assert images
+        for attrs in images:
+            assert attrs["src"].startswith("/assets/")
+            assert (SITE / attrs["src"].lstrip("/")).is_file()
+        for tag, attrs in parser.attributes:
+            if tag == "source":
+                assert (SITE / attrs["srcset"].lstrip("/")).is_file()
 
         hrefs = {attrs.get("href") for attrs in anchors}
         assert {home_path, docs_path, "/", "/it/"} <= hrefs
