@@ -68,10 +68,11 @@ jobs:
           curl --fail --location --retry 3 \
             --header "Accept: application/octet-stream" \
             --header "Authorization: Bearer $GH_TOKEN" \
-            https://api.github.com/repos/AppImage/type2-runtime/releases/assets/456065460 \
+            https://api.github.com/repos/AppImage/type2-runtime/releases/assets/326011592 \
             --output runtime-x86_64
           echo "a6d71e2b6cd66f8e8d16c37ad164658985e0cf5fcaa950c90a482890cb9d13e0  appimagetool" | sha256sum --check -
-          echo "1cc49bcf1e2ccd593c379adb17c9f85a36d619088296504de95b1d06215aebbf  runtime-x86_64" | sha256sum --check -
+          # type2-runtime 20251108: dated release, not the mutable continuous build.
+          echo "2fca8b443c92510f1483a883f60061ad09b46b978b2631c807cd873a47ec260d  runtime-x86_64" | sha256sum --check -
           chmod +x appimagetool
       - name: Build AppImage
         if: runner.os == 'Linux'
