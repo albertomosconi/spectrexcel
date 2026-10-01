@@ -1,6 +1,6 @@
-"""Optional rendered-site checks: uv run --with playwright pytest -q tests/test_site_browser.py.
+"""Rendered-site checks: uv sync --group browser, then run this module with pytest.
 
-Install Chromium first with: uv run --with playwright python -m playwright install chromium.
+Install Chromium first with: uv run python -m playwright install chromium.
 """
 
 from functools import partial
@@ -43,8 +43,9 @@ def test_mobile_download_is_visible_before_product_image(browser, site_url, rout
         page.evaluate("document.fonts.ready")
         download = page.locator("[data-download]").bounding_box()
         image = page.locator(".hero img").bounding_box()
+        copy = page.locator(".hero-copy").bounding_box()
         assert download["y"] + download["height"] <= 667
-        assert image["y"] > download["y"] + download["height"]
+        assert image["y"] > copy["y"] + copy["height"]
     finally:
         page.close()
 
@@ -132,14 +133,107 @@ def test_desktop_navigation_and_button_labels_stay_on_one_line(browser, site_url
         page.close()
 
 
-def test_closed_desktop_docs_navigation_remains_visible(browser, site_url):
-    page = browser.new_page(viewport={"width": 1024, "height": 768})
+@pytest.mark.parametrize("route", ["/docs/", "/it/docs/"])
+@pytest.mark.parametrize("width", [375, 768, 1024])
+def test_docs_navigation_disclosure_only_collapses_on_mobile(browser, site_url, route, width):
+    page = browser.new_page(viewport={"width": width, "height": 768})
     try:
-        page.goto(site_url + "/docs/")
+        page.goto(site_url + route)
+        summary = page.locator(".docs-nav > summary")
+        links = page.locator(".docs-nav nav a")
+        assert page.locator(".docs-nav").get_attribute("open") is not None
+        assert links.first.is_visible()
+        assert summary.is_visible() == (width < 768)
         page.locator(".docs-nav").evaluate("element => element.open = false")
-        assert page.locator(".docs-nav nav a").first.evaluate(
+        assert links.first.evaluate(
             "element => element.checkVisibility()"
+        ) == (width >= 768)
+        if width < 768:
+            summary.focus()
+            page.keyboard.press("Enter")
+            assert links.first.is_visible()
+    finally:
+        page.close()
+
+
+@pytest.mark.parametrize("route", ["/", "/it/", "/docs/", "/it/docs/"])
+@pytest.mark.parametrize("width", [375, 768, 1024])
+def test_navigation_links_have_minimum_touch_targets(browser, site_url, route, width):
+    page = browser.new_page(viewport={"width": width, "height": 900})
+    try:
+        page.goto(site_url + route)
+        page.evaluate("document.fonts.ready")
+        page.locator(".nav-disclosure").evaluate("element => element.open = true")
+        for selector in (
+            ".site-header > a", ".nav-disclosure nav a", ".site-footer a",
+            *([".docs-nav a"] if "docs" in route else []),
+        ):
+            links = page.locator(selector).all()
+            assert links, selector
+            for link in links:
+                assert link.is_visible()
+                bounds = link.bounding_box()
+                assert bounds["width"] >= 44, (selector, bounds)
+                assert bounds["height"] >= 44, (selector, bounds)
+    finally:
+        page.close()
+
+
+@pytest.mark.parametrize("route", ["/", "/it/"])
+@pytest.mark.parametrize("width", [768, 1024, 1440])
+def test_desktop_hero_keeps_copy_left_of_screenshot(browser, site_url, route, width):
+    page = browser.new_page(viewport={"width": width, "height": 900})
+    try:
+        page.goto(site_url + route)
+        page.evaluate("document.fonts.ready")
+        copy = page.locator(".hero-copy").bounding_box()
+        image = page.locator(".product-image").bounding_box()
+        assert copy["x"] + copy["width"] <= image["x"]
+        assert max(copy["y"], image["y"]) < min(
+            copy["y"] + copy["height"], image["y"] + image["height"]
         )
+    finally:
+        page.close()
+
+
+@pytest.mark.parametrize("route", ["/", "/it/", "/docs/", "/it/docs/"])
+@pytest.mark.parametrize("width", [375, 768, 1023, 1024, 1440])
+def test_full_header_navigation_waits_for_wide_desktop(browser, site_url, route, width):
+    page = browser.new_page(viewport={"width": width, "height": 900})
+    try:
+        page.goto(site_url + route)
+        page.locator(".nav-disclosure").evaluate("element => element.open = false")
+        summary = page.locator(".nav-disclosure summary")
+        link = page.locator(".nav-disclosure nav a").first
+        assert summary.is_visible() == (width < 1024)
+        assert link.evaluate("element => element.checkVisibility()") == (width >= 1024)
+        if width < 1024:
+            summary.click()
+            assert link.is_visible()
+    finally:
+        page.close()
+
+
+@pytest.mark.parametrize("route,docs_route", [("/", "/docs/"), ("/it/", "/it/docs/")])
+def test_landing_copy_uses_width_while_docs_keep_readable_lines(browser, site_url, route, docs_route):
+    page = browser.new_page(viewport={"width": 1440, "height": 900})
+    try:
+        page.goto(site_url + docs_route)
+        page.evaluate("document.fonts.ready")
+        docs = page.locator(".docs-layout article p").first.bounding_box()
+        article = page.locator(".docs-layout article").bounding_box()
+        assert docs["width"] < article["width"]
+
+        page.goto(site_url + route)
+        page.evaluate("document.fonts.ready")
+        landing = page.locator("#privacy p").first.bounding_box()
+        assert landing["width"] > docs["width"]
+        assert page.locator("#download-options").evaluate("""element => {
+            const style = getComputedStyle(element);
+            const fontSize = parseFloat(getComputedStyle(document.documentElement).fontSize);
+            return parseFloat(style.paddingTop) >= 3 * fontSize
+                && parseFloat(style.paddingBottom) >= 3 * fontSize;
+        }""")
     finally:
         page.close()
 

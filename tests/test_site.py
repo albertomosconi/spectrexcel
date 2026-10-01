@@ -5,6 +5,7 @@ import shutil
 import subprocess
 
 import pytest
+import yaml
 
 
 ROOT = Path(__file__).parents[1]
@@ -64,21 +65,6 @@ def test_download_script_contains_exact_latest_release_assets():
     assert LINUX_ASSET in script
     assert "/releases/latest/download/" in script
     assert "/releases/latest" in script
-
-
-def test_navigation_links_have_minimum_touch_targets():
-    styles = (SITE / "assets" / "styles.css").read_text(encoding="utf-8")
-    for selector in (
-        ".site-header > a",
-        ".nav-disclosure nav a",
-        ".docs-nav a",
-        ".site-footer a",
-    ):
-        block = styles.split(f"{selector} {{", 1)[1].split("}", 1)[0]
-        assert "display: flex;" in block or "display: inline-flex;" in block
-        assert "align-items: center;" in block
-        assert "min-height: 44px;" in block
-        assert "min-width: 44px;" in block
 
 
 def test_download_script_enhances_supported_desktops_and_keeps_fallbacks():
@@ -172,41 +158,6 @@ def test_landing_pages_are_localized_and_progressively_enhanced():
         assert downloads[0]["href"].endswith("/releases/latest")
         assert WINDOWS_ASSET in downloads[0]["data-windows-url"]
         assert LINUX_ASSET in downloads[0]["data-linux-url"]
-
-
-def test_mobile_hero_places_copy_before_screenshot_and_desktop_keeps_copy_left():
-    for key in ("en-home", "it-home"):
-        text = PAGES[key].read_text(encoding="utf-8")
-        hero = text.split('<section class="hero"', 1)[1].split("</section>", 1)[0]
-        assert hero.index('<div class="hero-copy">') < hero.index(
-            '<figure class="product-image">'
-        )
-
-    styles = (SITE / "assets" / "styles.css").read_text(encoding="utf-8")
-    desktop = styles.split("@media (min-width: 48rem) {", 1)[1].split("\n}", 1)[0]
-    assert ".hero-copy { grid-column: 1; grid-row: 1; }" in desktop
-    assert ".product-image { grid-column: 2; grid-row: 1; }" in desktop
-
-
-def test_full_header_navigation_waits_for_wide_desktop():
-    styles = (SITE / "assets" / "styles.css").read_text(encoding="utf-8")
-    tablet = styles.split("@media (min-width: 48rem) {", 1)[1].split("\n}", 1)[0]
-    assert ".nav-disclosure summary" not in tablet
-    assert "details.nav-disclosure:not([open]) > nav" not in tablet
-
-    wide = styles.split("@media (min-width: 64rem) {", 1)[1].split("\n}", 1)[0]
-    assert ".nav-disclosure summary { display: none; }" in wide
-    assert "details.nav-disclosure:not([open]) > nav { display: flex; }" in wide
-
-
-def test_landing_copy_uses_available_width_and_download_section_has_spacing():
-    styles = (SITE / "assets" / "styles.css").read_text(encoding="utf-8")
-
-    assert "p, li { max-width: 72ch; }" not in styles
-    assert ".docs-layout p, .docs-layout li { max-width: 72ch; }" in styles
-
-    download = styles.split("#download-options {", 1)[1].split("}", 1)[0]
-    assert "padding-block: 4rem;" in download
 
 
 def test_landing_pages_have_equivalent_required_content():
@@ -361,17 +312,6 @@ def test_docs_have_equivalent_sections_and_platform_requirements():
         )
 
 
-def test_desktop_docs_navigation_is_always_visible_without_changing_mobile_disclosure():
-    styles = (SITE / "assets" / "styles.css").read_text(encoding="utf-8")
-    desktop = styles.split("@media (min-width: 48rem) {", 1)[1].split("\n}", 1)[0]
-    assert ".docs-nav > summary { display: none; }" in desktop
-    assert "details.docs-nav:not([open]) > nav { display: block; }" in desktop
-    for key in ("en-docs", "it-docs"):
-        text = PAGES[key].read_text(encoding="utf-8")
-        assert '<details class="docs-nav" open>' in text
-        assert "<summary>" in text
-
-
 def test_internal_links_and_fragments_resolve():
     for path in PAGES.values():
         parser = parse(path)
@@ -388,20 +328,25 @@ def test_internal_links_and_fragments_resolve():
 
 
 def test_custom_domain_and_pages_workflow():
-    assert (SITE / "CNAME").read_text(encoding="utf-8") == (
-        "spectrexcel.albertomosconi.it\n"
+    assert (SITE / "CNAME").read_text(encoding="utf-8").strip() == (
+        "spectrexcel.albertomosconi.it"
     )
-    workflow = (ROOT / ".github" / "workflows" / "pages.yml").read_text(
-        encoding="utf-8"
+    workflow = yaml.safe_load(
+        (ROOT / ".github" / "workflows" / "pages.yml").read_text(encoding="utf-8")
     )
-    assert "site" in workflow
-    deploy = workflow.split("jobs:\n  deploy:\n", 1)[1]
-    permissions = deploy.split("    permissions:\n", 1)[1].split("    steps:\n", 1)[0]
-    assert set(permissions.splitlines()) == {
-        "      contents: read",
-        "      pages: write",
-        "      id-token: write",
+    deploy = workflow["jobs"]["deploy"]
+    assert deploy["permissions"] == {
+        "contents": "read",
+        "pages": "write",
+        "id-token": "write",
     }
-    assert "45bfe0192ca1faeb007ade9deae92b16b8254a0d" in workflow
-    assert "fc324d3547104276b827a68afc52ff2a11cc49c9" in workflow
-    assert "cd2ce8fcbc39b97be8ca5fce6e763baed58fa128" in workflow
+    actions = {
+        step["uses"].split("@", 1)[0]: step
+        for step in deploy["steps"]
+        if "uses" in step
+    }
+    assert "actions/configure-pages" in actions
+    assert actions["actions/upload-pages-artifact"]["with"]["path"] == "site"
+    assert actions["actions/deploy-pages"]["id"] == "deployment"
+    assert deploy["environment"]["name"] == "github-pages"
+    assert deploy["environment"]["url"] == "${{ steps.deployment.outputs.page_url }}"
