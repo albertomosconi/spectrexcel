@@ -15,6 +15,7 @@ from spectrexcel.assays import BindingTitolazione, Cinetiche, FamigliaDiSpettri
 from spectrexcel.assays.view import AssayView
 from spectrexcel.appearance import THEME_OPTIONS, resolve_theme
 from spectrexcel.dpi import DisplayScale, configure_display_scale
+from spectrexcel.dialogs import DialogAction, dialog_window, maintain_dialogs
 from spectrexcel.i18n import (
     LANGUAGES,
     _,
@@ -373,21 +374,13 @@ class SpectrExcelApp:
         width, height = px(430), px(250)
         if dpg.does_item_exist("settings.modal"):
             dpg.delete_item("settings.modal")
-        position = (
-            max(0, (dpg.get_viewport_client_width() - width) // 2),
-            max(0, (dpg.get_viewport_client_height() - height) // 2),
-        )
-        with dpg.window(
+        with dialog_window(
             label=_("App settings"),
             tag="settings.modal",
-            modal=True,
-            no_move=True,
-            no_resize=True,
-            no_collapse=True,
-            no_close=True,
             width=width,
             height=height,
-            pos=position,
+            scale=self.display_scale,
+            actions=(DialogAction(_("Close"), lambda: dpg.delete_item("settings.modal")),),
         ):
             with dpg.table(header_row=False, no_pad_outerX=True):
                 dpg.add_table_column(width_fixed=True, init_width_or_weight=px(90))
@@ -425,12 +418,6 @@ class SpectrExcelApp:
                 show=False,
                 wrap=px(390),
             )
-            dpg.add_spacer(height=px(10))
-            dpg.add_button(
-                label=_("Close"),
-                callback=lambda: dpg.delete_item("settings.modal"),
-                width=px(90),
-            )
 
     def _show_assay_info(self) -> None:
         px = self.display_scale.pixels
@@ -438,34 +425,21 @@ class SpectrExcelApp:
         tag = "assay.info.modal"
         if dpg.does_item_exist(tag):
             dpg.delete_item(tag)
-        position = (
-            max(0, (dpg.get_viewport_client_width() - width) // 2),
-            max(0, (dpg.get_viewport_client_height() - height) // 2),
-        )
         assay = ASSAYS[self.selected_assay_index]
-        with dpg.window(
+        with dialog_window(
             label=_(assay.name),
             tag=tag,
-            modal=True,
-            no_move=True,
-            no_resize=True,
-            no_collapse=True,
-            no_close=True,
             width=width,
             height=height,
-            pos=position,
+            scale=self.display_scale,
+            actions=(DialogAction(
+                _("Close"), lambda: dpg.delete_item(tag), tag="assay.info.close",
+            ),),
         ):
             dpg.add_text(
                 _(assay.description),
                 tag="assay.info.description",
                 wrap=px(520),
-            )
-            dpg.add_spacer(height=px(10))
-            dpg.add_button(
-                label=_("Close"),
-                tag="assay.info.close",
-                callback=lambda: dpg.delete_item(tag),
-                width=px(90),
             )
 
     def _theme_changed(self, _sender: Any, preference: str) -> None:
@@ -621,14 +595,16 @@ class SpectrExcelApp:
             dpg.delete_item("settings.modal")
         if dpg.does_item_exist("update.modal"):
             dpg.delete_item("update.modal")
-        with dpg.window(
+        with dialog_window(
             label=_("Update available"),
             tag="update.modal",
-            modal=True,
-            no_close=True,
             width=px(470),
             height=px(height),
-            pos=self.display_scale.position((165, 155)),
+            scale=self.display_scale,
+            actions=(
+                DialogAction(_("Download and close"), lambda: self._open_update_download(release), 180),
+                DialogAction(_("Not now"), lambda: dpg.delete_item("update.modal"), 100),
+            ),
         ):
             dpg.add_text(
                 _(
@@ -641,7 +617,7 @@ class SpectrExcelApp:
             if notes:
                 dpg.add_spacer(height=px(12))
                 dpg.add_text(_("What's new in {tag}:").format(tag=release.tag))
-                with dpg.child_window(width=px(430), height=px(150), border=True):
+                with dpg.child_window(width=-1, height=px(150), border=True):
                     dpg.add_text(notes, wrap=px(410))
             if has_hidden:
                 dpg.add_spacer(height=px(12))
@@ -651,18 +627,6 @@ class SpectrExcelApp:
                         f"{REPOSITORY_URL}/releases/tag/{release.tag}"
                     ),
                     width=px(240),
-                )
-            dpg.add_spacer(height=px(12))
-            with dpg.group(horizontal=True):
-                dpg.add_button(
-                    label=_("Download and close"),
-                    callback=lambda: self._open_update_download(release),
-                    width=px(180),
-                )
-                dpg.add_button(
-                    label=_("Not now"),
-                    callback=lambda: dpg.delete_item("update.modal"),
-                    width=px(100),
                 )
 
     def _open_update_download(self, release: UpdateRelease) -> None:
@@ -746,6 +710,7 @@ def main() -> None:
         while dpg.is_dearpygui_running():
             dpg.run_callbacks(dpg.get_callback_queue())
             app.process_results()
+            maintain_dialogs()
             dpg.render_dearpygui_frame()
             app.maintain_log_scroll()
         app.save_viewport()

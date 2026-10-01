@@ -6,6 +6,7 @@ import pandas as pd
 from natsort import natsorted
 from xlsxwriter import Workbook, worksheet
 
+from spectrexcel.dialogs import DialogAction, dialog_window
 from spectrexcel.i18n import _
 
 from .parsing import WAVELENGTH_MAX, WAVELENGTH_MIN, parse_kd_file
@@ -242,24 +243,16 @@ class Cinetiche(AssayView):
         width = px(560)
         list_height = px(min(350, 34 * len(self.datasets)))
         height = list_height + px(130)
-        position = (
-            max(0, (dpg.get_viewport_client_width() - width) // 2),
-            max(0, (dpg.get_viewport_client_height() - height) // 2),
-        )
-        with dpg.window(
+        with dialog_window(
             label=_("Reorder kinetic files"),
             tag=tag,
-            modal=True,
-            no_move=True,
-            no_resize=True,
-            no_collapse=True,
-            no_close=True,
             width=width,
             height=height,
-            pos=position,
+            scale=self.display_scale,
+            actions=(DialogAction(_("Close"), lambda: dpg.delete_item(tag)),),
         ):
             dpg.add_text(_("Files and chart traces will use this order."))
-            with dpg.child_window(height=list_height, border=True):
+            with dpg.child_window(height=-1, width=-1, border=True):
                 for index, (filename, _dataframe) in enumerate(self.datasets):
                     with dpg.group(horizontal=True):
                         dpg.add_button(
@@ -281,11 +274,6 @@ class Cinetiche(AssayView):
                             tag=f"kinetics.reorder.filename.{index}",
                             wrap=px(360),
                         )
-            dpg.add_button(
-                label=_("Close"),
-                callback=lambda: dpg.delete_item(tag),
-                width=px(90),
-            )
 
     def _move_dataset(self, _sender, _app_data, move: tuple[int, int]) -> None:
         index, offset = move

@@ -5,6 +5,7 @@ from typing import Any, Callable
 import dearpygui.dearpygui as dpg
 
 from spectrexcel.dpi import DisplayScale
+from spectrexcel.dialogs import DialogAction, dialog_window
 from spectrexcel import native_dialogs
 from spectrexcel.i18n import _
 from spectrexcel.settings import Settings
@@ -208,30 +209,21 @@ class AssayView:
         tag = "save.overwrite"
         if dpg.does_item_exist(tag):
             dpg.delete_item(tag)
-        with dpg.window(
+        with dialog_window(
             label=_("Replace existing file?"),
             tag=tag,
-            modal=True,
-            no_close=True,
             width=px(430),
             height=px(145),
-            pos=self.display_scale.position((185, 175)),
+            scale=self.display_scale,
+            actions=(
+                DialogAction(_("Replace"), lambda: (dpg.delete_item(tag), callback(path)), 100),
+                DialogAction(_("Cancel"), lambda: dpg.delete_item(tag), 100),
+            ),
         ):
             dpg.add_text(
                 _("{name} already exists. Replace it?").format(name=path.name),
                 wrap=px(390),
             )
-            with dpg.group(horizontal=True):
-                dpg.add_button(
-                    label=_("Replace"),
-                    width=px(100),
-                    callback=lambda: (dpg.delete_item(tag), callback(path)),
-                )
-                dpg.add_button(
-                    label=_("Cancel"),
-                    width=px(100),
-                    callback=lambda: dpg.delete_item(tag),
-                )
 
     def show_chart_preview(self, spec: ChartSpec) -> None:
         px = self.display_scale.pixels
@@ -239,27 +231,19 @@ class AssayView:
         if dpg.does_item_exist(tag):
             dpg.delete_item(tag)
         width, height = px(760), px(600)
-        position = (
-            max(0, (dpg.get_viewport_client_width() - width) // 2),
-            max(0, (dpg.get_viewport_client_height() - height) // 2),
-        )
-        with dpg.window(
+        with dialog_window(
             label=_("Chart preview"),
             tag=tag,
-            modal=True,
-            no_move=True,
-            no_resize=True,
-            no_collapse=True,
-            no_close=True,
             width=width,
             height=height,
-            pos=position,
+            scale=self.display_scale,
+            actions=(DialogAction(_("Close"), lambda: dpg.delete_item(tag)),),
         ):
             with dpg.plot(
                 label=spec.title or "",
                 no_title=spec.title is None,
                 width=-1,
-                height=height - px(115),
+                height=-1,
             ):
                 if spec.legend:
                     dpg.add_plot_legend(
@@ -287,8 +271,3 @@ class AssayView:
                     dpg.bind_item_theme(item, series_theme)
                 dpg.set_axis_limits(x_axis, *spec.x_limits)
                 dpg.set_axis_limits(y_axis, *spec.y_limits)
-            dpg.add_button(
-                label=_("Close"),
-                width=px(90),
-                callback=lambda: dpg.delete_item(tag),
-            )
