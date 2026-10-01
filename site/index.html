@@ -76,11 +76,13 @@
     <section id="privacy" class="panel" aria-labelledby="privacy-title">
       <h2 id="privacy-title">Process measurements locally. Keep data private.</h2>
       <p>SpectrExcel runs on your computer: no account and no upload required. Measurement files stay under your control, and the project is open source.</p>
+      <p>The app automatically contacts GitHub at startup to check for updates, and again when you select Check updates. GitHub receives normal connection information, including your public IP address and request headers; measurement files are not sent. There is currently no setting to disable the startup check. Requested downloads and project links open in your browser. See the <a href="https://github.com/albertomosconi/spectrexcel/blob/main/CODE_SIGNING.md#privacy-and-network-access">privacy and network disclosure</a> and <a href="https://docs.github.com/en/site-policy/privacy-policies/github-privacy-statement">GitHub Privacy Statement</a>.</p>
     </section>
 
     <section id="download-options" aria-labelledby="download-title">
       <h2 id="download-title">Download SpectrExcel</h2>
       <p>Choose a package directly or review the latest release notes.</p>
+      <p>Windows releases are currently unsigned. See the <a href="https://github.com/albertomosconi/spectrexcel/blob/main/CODE_SIGNING.md">Code signing policy</a> for the proposed signing process. SignPath enrollment is not yet complete.</p>
       <div class="actions">
         <a class="button" href="https://github.com/albertomosconi/spectrexcel/releases/latest/download/spectrexcel-windows-x86_64.exe">Download for Windows</a>
         <a class="button" href="https://github.com/albertomosconi/spectrexcel/releases/latest/download/SpectrExcel-x86_64.AppImage.tar.gz">Download for Linux</a>

@@ -55,3 +55,24 @@ git push origin main v1.1.0
 
 GitHub Actions validates the version, runs the tests, builds both supported
 platform artifacts, creates `SHA256SUMS`, and publishes the GitHub Release.
+
+## Code signing policy
+
+Windows releases are currently unsigned. See the [Code signing policy](CODE_SIGNING.md)
+for the proposed SignPath signing process, team responsibilities, and privacy
+disclosure. SignPath enrollment and release signing are not yet complete.
+
+Windows builds include product and file metadata derived from the package
+version in `pyproject.toml`; this metadata is not a digital signature.
+
+## Privacy
+
+Measurement files and Excel exports are processed locally and are not uploaded.
+SpectrExcel automatically contacts GitHub at startup to check for updates and
+also contacts it when **Check updates** is selected. GitHub receives normal
+connection information, including the public IP address and request headers;
+the installed application version is compared locally, not sent. There is
+currently no setting to disable the automatic check. Requested downloads and
+project links open in your browser. See the
+[privacy and network disclosure](CODE_SIGNING.md#privacy-and-network-access)
+for details and GitHub's privacy policy.
