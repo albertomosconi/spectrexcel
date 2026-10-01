@@ -1,5 +1,6 @@
 import dearpygui.dearpygui as dpg
 import pytest
+from threading import Event, get_ident
 
 import spectrexcel.main as main_module
 from spectrexcel.dpi import DisplayScale
@@ -122,3 +123,93 @@ def test_assay_info_modal_uses_selected_assay_and_is_locked(
     assert config["no_resize"]
     assert config["no_collapse"]
     assert config["no_close"]
+
+
+@pytest.fixture
+def worker_app(monkeypatch, tmp_path):
+    previous_language = get_language()
+    monkeypatch.setattr("spectrexcel.settings.user_config_path", lambda *_args: tmp_path)
+    app = SpectrExcelApp("test", DisplayScale())
+    set_language("en")
+    try:
+        yield app
+    finally:
+        app.shutdown()
+        set_language(previous_language)
+
+
+def test_worker_success_waits_for_result_processing_on_calling_thread(worker_app):
+    app = worker_app
+    started, release = Event(), Event()
+    task_threads, callbacks, errors = [], [], []
+    processing_thread = get_ident()
+
+    def task():
+        task_threads.append(get_ident())
+        started.set()
+        if not release.wait(timeout=5):
+            raise TimeoutError("test did not release worker")
+        return "parsed data"
+
+    try:
+        app.submit(task, lambda value: callbacks.append((value, get_ident())), errors.append)
+        assert started.wait(timeout=5)
+        assert app.has_running_tasks()
+        app.process_results()
+        assert callbacks == []
+    finally:
+        release.set()
+        app.executor.shutdown(wait=True)
+
+    assert not app.has_running_tasks()
+    assert callbacks == []
+    assert task_threads[0] != processing_thread
+    app.process_results()
+    assert callbacks == [("parsed data", processing_thread)]
+    assert errors == []
+    app.process_results()
+    assert len(callbacks) == 1
+
+
+def test_worker_failure_dispatches_original_error_only_when_processed(worker_app):
+    app = worker_app
+    failure = ValueError("invalid spectrum")
+    successes, errors = [], []
+    processing_thread = get_ident()
+
+    def task():
+        raise failure
+
+    app.submit(task, successes.append, lambda error: errors.append((error, get_ident())))
+    app.executor.shutdown(wait=True)
+
+    assert not app.has_running_tasks()
+    assert successes == [] and errors == []
+    app.process_results()
+    assert successes == []
+    assert errors == [(failure, processing_thread)]
+
+
+@pytest.mark.parametrize("task_fails", [False, True])
+def test_result_processing_logs_callback_failure_and_continues(worker_app, monkeypatch, task_fails):
+    app = worker_app
+    messages, received = [], []
+    monkeypatch.setattr(app, "log", messages.append)
+
+    def task():
+        if task_fails:
+            raise ValueError("worker failure")
+        return "first"
+
+    def broken_callback(value):
+        raise RuntimeError("callback failure")
+
+    app.submit(task, broken_callback, broken_callback)
+    app.executor.shutdown(wait=True)
+    # Queue the next result after the broken callback, without sleeps.
+    app.results.put((received.append, "next result", None))
+
+    app.process_results()
+
+    assert received == ["next result"]
+    assert len(messages) == 1 and "callback failure" in messages[0]
