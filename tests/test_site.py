@@ -1,4 +1,5 @@
 import json
+import os
 from html.parser import HTMLParser
 from pathlib import Path
 import shutil
@@ -352,3 +353,82 @@ def test_custom_domain_and_pages_workflow():
     assert actions["actions/deploy-pages"]["id"] == "deployment"
     assert deploy["environment"]["name"] == "github-pages"
     assert deploy["environment"]["url"] == "${{ steps.deployment.outputs.page_url }}"
+
+
+def test_pages_deploys_only_after_successful_release_or_manual_dispatch():
+    workflow = yaml.safe_load(
+        (ROOT / ".github" / "workflows" / "pages.yml").read_text(encoding="utf-8")
+    )
+    # PyYAML's YAML 1.1 loader reads the unquoted GitHub Actions `on` key as True.
+    triggers = workflow[True]
+    assert set(triggers) == {"workflow_run", "workflow_dispatch"}
+    assert triggers["workflow_run"] == {
+        "workflows": ["Release"],
+        "types": ["completed"],
+    }
+    assert workflow["jobs"]["deploy"]["if"] == (
+        "github.event_name == 'workflow_dispatch' || "
+        "github.event.workflow_run.conclusion == 'success'"
+    )
+    # Skipped jobs must not cancel an eligible deployment at workflow level.
+    assert "concurrency" not in workflow
+    assert workflow["jobs"]["deploy"]["concurrency"] == {
+        "group": "pages",
+        "cancel-in-progress": True,
+    }
+
+
+@pytest.mark.parametrize(
+    ("tag", "api_status", "expected_success"),
+    [("v1.7.0", 0, True), ("", 0, False), ("", 1, False)],
+)
+def test_pages_checkout_uses_published_release_or_fails_closed(
+    tmp_path, tag, api_status, expected_success
+):
+    workflow = yaml.safe_load(
+        (ROOT / ".github" / "workflows" / "pages.yml").read_text(encoding="utf-8")
+    )
+    steps = workflow["jobs"]["deploy"]["steps"]
+    checkout_index = next(
+        i for i, step in enumerate(steps)
+        if step.get("uses", "").startswith("actions/checkout@")
+    )
+    checkout = steps[checkout_index]
+    assert checkout.get("with", {}).get("ref") == "${{ steps.release.outputs.tag }}"
+    resolve_index = next(i for i, step in enumerate(steps) if step.get("id") == "release")
+    assert resolve_index < checkout_index
+    resolve = steps[resolve_index]
+    assert resolve["env"]["GH_TOKEN"] == "${{ github.token }}"
+
+    # Replace only the external GitHub API; execute the workflow's real shell step.
+    gh = tmp_path / "gh"
+    gh.write_text(
+        "#!/bin/sh\n"
+        'test "$1" = api || exit 2\n'
+        'test "$2" = repos/albertomosconi/spectrexcel/releases/latest || exit 2\n'
+        'test "$3" = --jq || exit 2\n'
+        'test "$4" = .tag_name || exit 2\n'
+        'printf "%s\\n" "$TEST_RELEASE_TAG"\n'
+        'exit "$TEST_API_STATUS"\n',
+        encoding="utf-8",
+    )
+    gh.chmod(0o755)
+    output = tmp_path / "output"
+    result = subprocess.run(
+        ["bash", "--noprofile", "--norc", "-eo", "pipefail", "-c", resolve["run"]],
+        env={
+            **os.environ,
+            "PATH": f"{tmp_path}{os.pathsep}{os.environ['PATH']}",
+            "GITHUB_REPOSITORY": "albertomosconi/spectrexcel",
+            "GITHUB_OUTPUT": str(output),
+            "TEST_RELEASE_TAG": tag,
+            "TEST_API_STATUS": str(api_status),
+        },
+        capture_output=True,
+        text=True,
+    )
+    assert (result.returncode == 0) is expected_success, result.stderr
+    if expected_success:
+        assert output.read_text(encoding="utf-8") == "tag=v1.7.0\n"
+    else:
+        assert not output.exists() or not output.read_text(encoding="utf-8")
