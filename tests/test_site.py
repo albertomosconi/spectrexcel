@@ -27,6 +27,7 @@ LICENSE_URL = f"{GITHUB_URL}/blob/main/LICENSE"
 DOC_IDS = {
     "install",
     "first-export",
+    "layouts",
     "export-details",
     "citation",
     "privacy",
@@ -55,6 +56,22 @@ def parse(path):
     parser = DocumentParser()
     parser.feed(path.read_text(encoding="utf-8"))
     return parser
+
+
+@pytest.mark.parametrize("language,prefix,labels", [
+    ("en", "/docs/", ("parameters only", "parameters + preview")),
+    ("it", "/it/docs/", ("solo parametri", "parametri + anteprima")),
+])
+def test_site_links_to_layout_guide(language, prefix, labels):
+    home = PAGES[f"{language}-home"].read_text(encoding="utf-8")
+    guide_path = PAGES[f"{language}-docs"]
+    guide = guide_path.read_text(encoding="utf-8")
+    assert f'href="{prefix}#layouts"' in home
+    assert "layouts" in parse(guide_path).ids
+    assert f'href="{prefix}#layouts"' in guide
+    section = guide.split('<section id="layouts">', 1)[1].split("</section>", 1)[0]
+    for label in labels:
+        assert label in section
 
 
 def test_sitemap_lists_all_public_pages_once_with_resolving_urls():

@@ -40,6 +40,7 @@
         <nav aria-label="User guide sections">
           <a href="/docs/#install">Install</a>
           <a href="/docs/#first-export">First export</a>
+          <a href="/docs/#layouts">Layouts and previews</a>
           <a href="/docs/#export-details">Export details</a>
           <a href="/docs/#citation">Citation</a>
           <a href="/docs/#privacy">Privacy</a>
@@ -90,9 +91,20 @@
           <p>The activity area reports file loading, validation errors, and successful exports.</p>
         </section>
 
+        <section id="layouts">
+          <h2>Layouts and chart previews</h2>
+          <p>Open <strong>App settings</strong> using the gear button and choose <strong>Layout</strong>. Both layouts are available for every assay:</p>
+          <ul>
+            <li><strong>parameters only</strong> is the default layout. Select <strong>Preview chart</strong> after loading your files to open a separate chart dialog.</li>
+            <li><strong>parameters + preview</strong> places inputs, parameters, and export controls on the left and a live chart on the right. The chart appears as soon as input files finish loading and updates automatically when you change chart parameters, including axis ranges, reading wavelengths, wavelength correction, or kinetics file order. The <strong>Preview chart</strong> button is hidden in this layout.</li>
+          </ul>
+          <p>Layout changes apply immediately and are remembered across restarts. Switching layouts preserves loaded files, current parameter values, and kinetics file order; you do not need to reload your files. The header and activity log remain available in both layouts. Scroll the left panel when its controls do not fit.</p>
+          <p>The preview panel shows an instruction before files are selected, a loading message while data is being prepared, or an error when files or parameters cannot be used. Fix invalid parameters to restore the chart. Choosing a layout does not change the contents of your exported Excel file.</p>
+        </section>
+
         <section id="export-details">
           <h2>Optional export details</h2>
-          <p>Every assay has an <strong>Include info sheet</strong> checkbox below the <strong>Generate Excel</strong> and <strong>Preview chart</strong> buttons. It starts unchecked and remembers your last choice across assays and application restarts. Enable it before generating an Excel file to append an <code>info</code> worksheet.</p>
+          <p>Every assay has an <strong>Include info sheet</strong> checkbox below the export controls in both layouts. It starts unchecked and remembers your last choice across assays and application restarts. Enable it before generating an Excel file to append an <code>info</code> worksheet.</p>
           <p>The worksheet records:</p>
           <ul>
             <li>The SpectrExcel version and export date and time, including the timezone.</li>

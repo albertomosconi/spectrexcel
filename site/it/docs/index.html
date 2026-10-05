@@ -40,6 +40,7 @@
         <nav aria-label="Sezioni della guida utente">
           <a href="/it/docs/#install">Installazione</a>
           <a href="/it/docs/#first-export">Prima esportazione</a>
+          <a href="/it/docs/#layouts">Layout e anteprime</a>
           <a href="/it/docs/#export-details">Dettagli di esportazione</a>
           <a href="/it/docs/#citation">Citazione</a>
           <a href="/it/docs/#privacy">Privacy</a>
@@ -90,9 +91,20 @@
           <p>L'area attività segnala il caricamento dei file, gli errori di validazione e le esportazioni completate.</p>
         </section>
 
+        <section id="layouts">
+          <h2>Layout e anteprime dei grafici</h2>
+          <p>Apri le <strong>Impostazioni</strong> con il pulsante a ingranaggio e scegli <strong>Layout</strong>. Entrambi i layout sono disponibili per ogni assay:</p>
+          <ul>
+            <li><strong>solo parametri</strong> è il layout predefinito. Seleziona <strong>Anteprima grafico</strong> dopo aver caricato i file per aprire il grafico in una finestra separata.</li>
+            <li><strong>parametri + anteprima</strong> mostra input, parametri e controlli di esportazione a sinistra e un grafico a destra. Il grafico appare appena termina il caricamento dei file di input e si aggiorna automaticamente quando modifichi i parametri del grafico, inclusi gli intervalli degli assi, le lunghezze d'onda di lettura, la correzione alla lunghezza d'onda o l'ordine dei file cinetici. Il pulsante <strong>Anteprima grafico</strong> è nascosto in questo layout.</li>
+          </ul>
+          <p>Il cambio di layout si applica immediatamente e viene ricordato dopo il riavvio. Il passaggio tra layout conserva i file caricati, i valori attuali dei parametri e l'ordine dei file cinetici; non è necessario ricaricare i file. L'intestazione e il registro delle attività restano disponibili in entrambi i layout. Scorri il pannello sinistro quando i controlli non entrano nello spazio disponibile.</p>
+          <p>Il pannello di anteprima mostra un'istruzione prima della selezione dei file, un messaggio di caricamento durante la preparazione dei dati o un errore quando i file o i parametri non possono essere utilizzati. Correggi i parametri non validi per ripristinare il grafico. La scelta del layout non modifica il contenuto del file Excel esportato.</p>
+        </section>
+
         <section id="export-details">
           <h2>Dettagli di esportazione facoltativi</h2>
-          <p>Ogni assay ha la casella <strong>Includi foglio info</strong> sotto i pulsanti <strong>Genera Excel</strong> e <strong>Anteprima grafico</strong>. Inizialmente non è selezionata e ricorda l'ultima scelta tra gli assay e i riavvii dell'applicazione. Abilitala prima di generare il file Excel per aggiungere un foglio <code>info</code>.</p>
+          <p>Ogni assay ha la casella <strong>Includi foglio info</strong> sotto i controlli di esportazione in entrambi i layout. Inizialmente non è selezionata e ricorda l'ultima scelta tra gli assay e i riavvii dell'applicazione. Abilitala prima di generare il file Excel per aggiungere un foglio <code>info</code>.</p>
           <p>Il foglio registra:</p>
           <ul>
             <li>La versione di SpectrExcel e la data e l'ora di esportazione, incluso il fuso orario.</li>
