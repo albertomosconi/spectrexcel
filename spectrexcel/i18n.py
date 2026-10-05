@@ -32,6 +32,10 @@ TRANSLATIONS_IT: dict[str, str] = {
     "axis minimum must be lower than its maximum":
         "il minimo dell'asse deve essere inferiore al massimo",
     "Include info sheet": "Includi foglio info",
+    "Add an 'info' worksheet with source file hashes, "
+    "settings, and processing steps":
+        "Aggiungi un foglio 'info' con hash dei file sorgente, "
+        "impostazioni e passaggi di elaborazione",
     # optional info worksheet
     "SpectrExcel version": "Versione di SpectrExcel",
     "Export timestamp": "Data e ora di esportazione",

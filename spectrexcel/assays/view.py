@@ -219,13 +219,19 @@ class AssayView:
         return self.workflow_controls
 
     def add_info_checkbox(self, parent: str | int) -> None:
+        tag = self._workflow().export.replace(".export", ".info")
         dpg.add_checkbox(
             label=_("Include info sheet"),
-            tag=self._workflow().export.replace(".export", ".info"),
+            tag=tag,
             default_value=self.settings.get("main/include_info_sheet", False),
             callback=lambda sender, enabled: self.settings.set("main/include_info_sheet", enabled),
             parent=parent,
         )
+        with dpg.tooltip(tag):
+            dpg.add_text(
+                _("Add an 'info' worksheet with source file hashes, "
+                  "settings, and processing steps"),
+            )
 
     def submit_load(
         self,
