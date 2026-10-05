@@ -1,0 +1,20 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it using the metadata in this file."
+type: software
+title: "SpectrExcel"
+authors:
+  - given-names: "Alberto"
+    family-names: "Mosconi"
+    email: "albertomaria.mosconi@gmail.com"
+abstract: >-
+  SpectrExcel is a desktop application that converts spectrophotometer output
+  files into formatted Excel workbooks for kinetics, binding titrations, and
+  spectra families.
+repository-code: "https://github.com/albertomosconi/spectrexcel"
+license: GPL-3.0-only
+keywords:
+  - spectroscopy
+  - spectrophotometry
+  - Excel
+  - kinetics
+  - titration

@@ -1,6 +1,7 @@
 <div align="center">
 <img src="spectrexcel/icon.ico" width="100" alt="spectrexcel logo" />
 <h1>SpectrExcel</h1>
+<a href="https://zenodo.org/badge/latestdoi/1299302270"><img src="https://zenodo.org/badge/1299302270.svg" alt="DOI" /></a>
 </div>
 
 ## Export details
