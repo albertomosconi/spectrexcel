@@ -56,11 +56,11 @@ git push origin main v1.1.0
 GitHub Actions validates the version, runs the tests, builds both supported
 platform artifacts, creates `SHA256SUMS`, and publishes the GitHub Release.
 
-## Code signing policy
+## Windows executable signing
 
-Windows releases are currently unsigned. See the [Code signing policy](CODE_SIGNING.md)
-for the proposed SignPath signing process, team responsibilities, and privacy
-disclosure. SignPath enrollment and release signing are not yet complete.
+Windows releases are unsigned, and executable signing is not currently planned.
+Windows or antivirus software may warn about or block unsigned executables. See
+the [Windows executable signing notes](CODE_SIGNING.md) for release details.
 
 Windows builds include product and file metadata derived from the package
 version in `pyproject.toml`; this metadata is not a digital signature.
