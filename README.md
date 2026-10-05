@@ -4,20 +4,10 @@
 <a href="https://zenodo.org/badge/latestdoi/1299302270"><img src="https://zenodo.org/badge/1299302270.svg" alt="DOI" /></a>
 </div>
 
-## Export details
+## Documentation
 
-Each assay has an **Include info sheet** checkbox below the Generate Excel and
-Preview chart buttons. It starts unchecked and remembers your last choice across
-assays and application restarts. Enable it to append an
-**info** worksheet containing the SpectrExcel version, export timestamp with
-timezone, source filenames and SHA-256 hashes, analysis settings, and processing
-steps. Data sheets, charts, and previews are unchanged.
-The info worksheet uses the app's language; source filenames and hashes are
-preserved exactly.
-
-Hashes identify the files as loaded, even if those files change before export.
-Full source paths are not included. Keep the original input files alongside the
-workbook: the info sheet provides traceability, not a copy of the measurements.
+See the [documentation website](https://spectrexcel.albertomosconi.it/docs/) for
+usage instructions and export details.
 
 ## Citation
 
