@@ -400,6 +400,9 @@ def test_pages_checkout_uses_published_release_or_fails_closed(
     resolve = steps[resolve_index]
     assert resolve["env"]["GH_TOKEN"] == "${{ github.token }}"
 
+    if os.name != "posix":
+        pytest.skip("Pages shell step runs on Linux, not Windows/WSL")
+
     # Replace only the external GitHub API; execute the workflow's real shell step.
     gh = tmp_path / "gh"
     gh.write_text(
