@@ -63,8 +63,8 @@ def test_info_is_opt_in_and_preserves_data_and_chart(tmp_path, assay, cls):
 
     plain_names, plain_rows, plain_data, plain_chart = read_workbook(plain)
     names, rows, data, chart = read_workbook(detailed)
-    assert plain_names == ["data"] and not plain_rows
-    assert names == ["data", "info"]
+    assert plain_names == ["data", "raw"] and not plain_rows
+    assert names == ["data", "raw", "info"]
     assert data == plain_data and chart == plain_chart
     entries = {row[0]: row[1] for row in rows if len(row) == 2}
     assert entries["SpectrExcel version"] == version("spectrexcel")
@@ -72,7 +72,7 @@ def test_info_is_opt_in_and_preserves_data_and_chart(tmp_path, assay, cls):
     assert entries["Correction wavelength (nm)"] == "800"
     assert ["Source file", source.filename, source.sha256] in rows
     with ZipFile(detailed) as archive:
-        info = ET.fromstring(archive.read("xl/worksheets/sheet2.xml"))
+        info = ET.fromstring(archive.read("xl/worksheets/sheet3.xml"))
         assert not info.findall(".//s:f", NS)
         assert info.find("s:hyperlinks", NS) is None
     assert any("subtract" in " ".join(row).lower() for row in rows)
@@ -145,7 +145,7 @@ def test_info_tables_have_bold_headers_and_blank_row_separators(tmp_path, assay,
     export(assay, output, info_sources=(SourceInfo("input.KD", "abc"),))
     with ZipFile(output) as archive:
         strings = ["".join(item.itertext()) for item in ET.fromstring(archive.read("xl/sharedStrings.xml"))]
-        sheet = ET.fromstring(archive.read("xl/worksheets/sheet2.xml"))
+        sheet = ET.fromstring(archive.read("xl/worksheets/sheet3.xml"))
         styles = ET.fromstring(archive.read("xl/styles.xml"))
     fonts = styles.find("s:fonts", NS)
     cell_formats = styles.find("s:cellXfs", NS)
@@ -302,7 +302,7 @@ def test_info_contents_follow_app_language_without_translating_sources(tmp_path,
         source = SourceInfo("Settings", "abc123")
         export(assay, output, info_sources=(source,))
         names, rows, data, chart = read_workbook(output)
-        assert names == ["data", "info"]
+        assert names == ["data", "raw", "info"]
         assert ["Fonti", "Nome file", "SHA-256"] in rows
         assert ["Impostazioni", "Valore"] in rows
         assert ["Elaborazione", "Passaggio"] in rows

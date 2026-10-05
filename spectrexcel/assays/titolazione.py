@@ -68,12 +68,13 @@ def export_binding(
         raise ValueError(_("Y-axis minimum must be lower than its maximum"))
 
     removed_std_dev = "Std.Dev." in dataframe.columns
+    raw_dataframe = prepare_binding_spectra(dataframe)
     dataframe = prepare_binding_spectra(dataframe, correction_wavelength)
 
-    with pd.ExcelWriter(output_path, engine="xlsxwriter") as writer:
-        dataframe.to_excel(writer, sheet_name="data", index=False, header=False, startrow=1)
+    def write_sheet(writer, sheet_name, dataframe, y_min, y_max):
+        dataframe.to_excel(writer, sheet_name=sheet_name, index=False, header=False, startrow=1)
         workbook: Workbook = writer.book
-        sheet: worksheet.Worksheet = writer.sheets["data"]
+        sheet: worksheet.Worksheet = writer.sheets[sheet_name]
         sheet.write(0, 0, dataframe.columns[0])
         for column, value in enumerate(dataframe.columns[1:].values, start=1):
             sheet.write(0, column, int(value))
@@ -82,8 +83,8 @@ def export_binding(
         for row in range(len(dataframe)):
             chart.add_series(
                 {
-                    "categories": ["data", 0, 1, 0, len(dataframe.columns)],
-                    "values": ["data", row + 1, 1, row + 1, len(dataframe.columns)],
+                    "categories": [sheet_name, 0, 1, 0, len(dataframe.columns)],
+                    "values": [sheet_name, row + 1, 1, row + 1, len(dataframe.columns)],
                     "line": {"width": 1.25},
                 }
             )
@@ -109,8 +110,8 @@ def export_binding(
                 "num_format": "#,##0.00",
                 "line": {"color": "gray"},
                 "major_gridlines": {"visible": False},
-                "min": y_axis_min,
-                "max": y_axis_max,
+                "min": y_min,
+                "max": y_max,
                 "major_tick_mark": "none",
                 "minor_tick_mark": "none",
             }
@@ -119,6 +120,13 @@ def export_binding(
         chart.set_legend({"position": "none"})
         chart.set_style(5)
         sheet.insert_chart(len(dataframe) + 2, 1, chart=chart)
+
+    with pd.ExcelWriter(output_path, engine="xlsxwriter") as writer:
+        workbook: Workbook = writer.book
+        write_sheet(writer, "data", dataframe, y_axis_min, y_axis_max)
+        if correction_wavelength is not None:
+            # Let Excel scale the raw chart independently of corrected-data limits.
+            write_sheet(writer, "raw", raw_dataframe, None, None)
         if info_sources is not None:
             steps = []
             if duplicates_removed:

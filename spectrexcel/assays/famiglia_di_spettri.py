@@ -42,21 +42,23 @@ def export_spectrum_family(
     *,
     info_sources: tuple[SourceInfo, ...] | None = None,
 ) -> None:
+    raw_dataframe = dataframe
     dataframe = prepare_spectrum_family(dataframe, correction_wavelength)
     y_min, y_max = spectrum_family_y_limits(dataframe, correction_wavelength is not None)
-    with pd.ExcelWriter(output_path, engine="xlsxwriter") as writer:
+
+    def write_sheet(writer, sheet_name, dataframe, y_min, y_max):
         workbook: Workbook = writer.book
-        sheet: worksheet.Worksheet = workbook.add_worksheet("data")
+        sheet: worksheet.Worksheet = workbook.add_worksheet(sheet_name)
         chart = workbook.add_chart({"type": "scatter", "subtype": "smooth"})
-        dataframe.to_excel(writer, sheet_name="data", index=True, header=True)
+        dataframe.to_excel(writer, sheet_name=sheet_name, index=True, header=True)
 
         for column in range(0, len(dataframe.columns), 2):
             chart.add_series(
                 {
-                    "categories": ["data", 1, 0, len(dataframe), 0],
-                    "values": ["data", 1, 1 + column, len(dataframe), 1 + column],
+                    "categories": [sheet_name, 1, 0, len(dataframe), 0],
+                    "values": [sheet_name, 1, 1 + column, len(dataframe), 1 + column],
                     "line": {"width": 1},
-                    "name": ["data", 0, 1 + column],
+                    "name": [sheet_name, 0, 1 + column],
                 }
             )
         chart.set_x_axis(
@@ -98,6 +100,13 @@ def export_spectrum_family(
         chart.set_legend({"none": True})
         chart.set_style(5)
         sheet.insert_chart(4, 4, chart=chart)
+
+    with pd.ExcelWriter(output_path, engine="xlsxwriter") as writer:
+        workbook: Workbook = writer.book
+        write_sheet(writer, "data", dataframe, y_min, y_max)
+        if correction_wavelength is not None:
+            raw_y_min, raw_y_max = spectrum_family_y_limits(raw_dataframe, True)
+            write_sheet(writer, "raw", raw_dataframe, raw_y_min, raw_y_max)
         if info_sources is not None:
             write_info_sheet(
                 workbook, "spectrum family", info_sources,

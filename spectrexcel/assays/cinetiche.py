@@ -17,7 +17,7 @@ from .view import AssayView, ChartSeries, ChartSpec, WorkflowControls
 def kinetics_chart_spec(
     datasets: list[tuple[str, pd.DataFrame]],
     reading_wavelength: int,
-    correction_wavelength: int,
+    correction_wavelength: int | None,
 ) -> ChartSpec:
     if not datasets:
         raise ValueError(_("no kinetic data loaded"))
@@ -30,7 +30,7 @@ def kinetics_chart_spec(
             raise ValueError(
                 _("reading wavelength {wl}nm is unavailable").format(wl=reading_wavelength)
             )
-        if correction_wavelength not in spectra.index:
+        if correction_wavelength is not None and correction_wavelength not in spectra.index:
             raise ValueError(
                 _("correction wavelength {wl}nm is unavailable").format(
                     wl=correction_wavelength
@@ -38,7 +38,9 @@ def kinetics_chart_spec(
             )
         relative_times = spectra.columns.values.astype(float)
         relative_times = relative_times - relative_times[0]
-        final = spectra.loc[reading_wavelength] - spectra.loc[correction_wavelength]
+        final = spectra.loc[reading_wavelength]
+        if correction_wavelength is not None:
+            final = final - spectra.loc[correction_wavelength]
         absorbance_min = min(absorbance_min, float(final.min()))
         absorbance_max = max(absorbance_max, float(final.max()))
         series.append(
@@ -70,21 +72,23 @@ def export_kinetics(
     info_sources: tuple[SourceInfo, ...] | None = None,
 ) -> None:
     spec = kinetics_chart_spec(datasets, reading_wavelength, correction_wavelength)
-    # Share time cells only for identical grids. Each other trace keeps its
-    # exact timestamps, including acquisition jitter and different lengths.
-    shared_times = all(trace.x == spec.series[0].x for trace in spec.series)
-    data_columns = len(spec.series) + 1 if shared_times else 2 * len(spec.series)
-    chart_column = data_columns + 3
+    raw_spec = kinetics_chart_spec(datasets, reading_wavelength, None)
 
-    with pd.ExcelWriter(output_path, engine="xlsxwriter") as writer:
+    def write_sheet(writer, sheet_name, spec):
+        # Share time cells only for identical grids. Each other trace keeps its
+        # exact timestamps, including acquisition jitter and different lengths.
+        shared_times = all(trace.x == spec.series[0].x for trace in spec.series)
+        data_columns = len(spec.series) + 1 if shared_times else 2 * len(spec.series)
+        chart_column = data_columns + 3
         workbook: Workbook = writer.book
-        sheet: worksheet.Worksheet = workbook.add_worksheet("data")
+        sheet: worksheet.Worksheet = workbook.add_worksheet(sheet_name)
         sheet.write(0, 0, "tracce")
-        sheet.write(
-            0,
-            chart_column,
-            f"correction wavelength: {correction_wavelength}nm",
-        )
+        if sheet_name == "data":
+            sheet.write(
+                0,
+                chart_column,
+                f"correction wavelength: {correction_wavelength}nm",
+            )
         chart = workbook.add_chart({"type": "scatter", "subtype": "smooth"})
         chart.set_title(
             {
@@ -101,7 +105,7 @@ def export_kinetics(
                 sheet.write_column(2, time_column, series.x)
             pd.Series(series.y).to_excel(
                 writer,
-                sheet_name="data",
+                sheet_name=sheet_name,
                 index=False,
                 header=False,
                 startrow=2,
@@ -110,10 +114,10 @@ def export_kinetics(
             sheet.write(1, value_column, series.name)
             chart.add_series(
                 {
-                    "categories": ["data", 2, time_column, len(series.x) + 1, time_column],
-                    "values": ["data", 2, value_column, len(series.y) + 1, value_column],
+                    "categories": [sheet_name, 2, time_column, len(series.x) + 1, time_column],
+                    "values": [sheet_name, 2, value_column, len(series.y) + 1, value_column],
                     "line": {"width": 1.25},
-                    "name": ["data", 1, value_column],
+                    "name": [sheet_name, 1, value_column],
                 }
             )
 
@@ -152,6 +156,11 @@ def export_kinetics(
         )
         chart.set_style(5)
         sheet.insert_chart(4, chart_column, chart=chart)
+
+    with pd.ExcelWriter(output_path, engine="xlsxwriter") as writer:
+        workbook: Workbook = writer.book
+        write_sheet(writer, "data", spec)
+        write_sheet(writer, "raw", raw_spec)
         if info_sources is not None:
             write_info_sheet(
                 workbook, "kinetics", info_sources,
