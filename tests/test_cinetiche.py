@@ -22,8 +22,11 @@ from spectrexcel.dpi import DisplayScale
     ],
 )
 def test_load_inputs_sets_reorder_state_for_dataset_count(
-    monkeypatch, paths, expected_names, reorder_enabled
+    monkeypatch, tmp_path, paths, expected_names, reorder_enabled
 ):
+    paths = [tmp_path / path for path in paths]
+    for path in paths:
+        path.write_bytes(b"kinetic input")
     submitted = {}
     configured = []
     values = []
@@ -36,7 +39,7 @@ def test_load_inputs_sets_reorder_state_for_dataset_count(
     def submit(task, on_success, on_error):
         submitted.update(task=task, on_success=on_success, on_error=on_error)
 
-    def parse(path):
+    def parse(path, *, contents):
         parsed.append(path)
         return pd.DataFrame({0: [0.1]}, index=[300])
 

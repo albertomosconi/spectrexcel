@@ -24,6 +24,7 @@ LICENSE_URL = f"{GITHUB_URL}/blob/main/LICENSE"
 DOC_IDS = {
     "install",
     "first-export",
+    "export-details",
     "kinetics",
     "binding",
     "spectra-family",

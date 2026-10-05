@@ -40,6 +40,7 @@
         <nav aria-label="Sezioni della guida utente">
           <a href="/it/docs/#install">Installazione</a>
           <a href="/it/docs/#first-export">Prima esportazione</a>
+          <a href="/it/docs/#export-details">Dettagli di esportazione</a>
           <a href="/it/docs/#kinetics">Cinetiche</a>
           <a href="/it/docs/#binding">Binding / titolazione</a>
           <a href="/it/docs/#spectra-family">Famiglia di spettri</a>
@@ -81,9 +82,23 @@
             <li>Seleziona l'assay adatto alla misura.</li>
             <li>Scegli il file o i file di input.</li>
             <li>Configura le opzioni mostrate per l'assay.</li>
+            <li>Se lo desideri, abilita <strong>Includi foglio info</strong> per registrare i <a href="/it/docs/#export-details">dettagli di esportazione</a>.</li>
             <li>Seleziona <strong>Genera Excel</strong>, scegli il file <code>.xlsx</code> di output e conferma l'esportazione.</li>
           </ol>
           <p>L'area attività segnala il caricamento dei file, gli errori di validazione e le esportazioni completate.</p>
+        </section>
+
+        <section id="export-details">
+          <h2>Dettagli di esportazione facoltativi</h2>
+          <p>Ogni assay ha la casella <strong>Includi foglio info</strong> sotto i pulsanti <strong>Genera Excel</strong> e <strong>Anteprima grafico</strong>. Inizialmente non è selezionata e ricorda l'ultima scelta tra gli assay e i riavvii dell'applicazione. Abilitala prima di generare la cartella di lavoro per aggiungere un foglio <code>info</code>.</p>
+          <p>Il foglio registra:</p>
+          <ul>
+            <li>La versione di SpectrExcel e la data e l'ora di esportazione, incluso il fuso orario.</li>
+            <li>I nomi dei file sorgente e gli hash SHA-256 che identificano gli esatti byte di input caricati. I percorsi completi dei file non sono inclusi.</li>
+            <li>L'assay, le impostazioni che influenzano l'esportazione e i passaggi di elaborazione applicati, come la correzione alla lunghezza d'onda o la rimozione dei duplicati.</li>
+          </ul>
+          <p>I contenuti seguono la lingua dell'applicazione; nomi dei file e hash restano invariati. Le intestazioni delle tabelle sono in grassetto, con una riga vuota tra le sezioni. Tabelle delle misure, grafici e anteprime non cambiano.</p>
+          <p>Conserva i file di input originali insieme alla cartella di lavoro. Il foglio <code>info</code> rende i risultati tracciabili, ma non incorpora i file sorgente. Gli hash descrivono gli input al momento del caricamento, anche se i file cambiano prima dell'esportazione.</p>
         </section>
 
         <section id="kinetics">

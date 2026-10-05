@@ -73,6 +73,7 @@ def test_export_rejects_missing_correction_wavelength(tmp_path, assay):
 @pytest.mark.parametrize("enabled", [False, True])
 def test_preview_and_ui_export_apply_selected_correction(monkeypatch, tmp_path, assay, enabled):
     values = {
+        f"{assay}.info": False,
         f"{assay}.correction_enabled": enabled,
         f"{assay}.correction": 800,
         "binding.x_min": 200, "binding.x_max": 900,

@@ -6,6 +6,7 @@ from xlsxwriter import Workbook, worksheet
 
 from spectrexcel.i18n import _
 
+from .export_info import SourceInfo, parse_with_source, write_info_sheet
 from .parsing import WAVELENGTH_MAX, WAVELENGTH_MIN, parse_sd_file, parse_txt_file
 from .view import AssayView, ChartSeries, ChartSpec, WorkflowControls
 
@@ -57,12 +58,16 @@ def export_binding(
     y_axis_min: float,
     y_axis_max: float,
     correction_wavelength: int | None = None,
+    *,
+    info_sources: tuple[SourceInfo, ...] | None = None,
+    duplicates_removed: bool = False,
 ) -> None:
     if x_axis_min >= x_axis_max:
         raise ValueError(_("X-axis minimum must be lower than its maximum"))
     if y_axis_min >= y_axis_max:
         raise ValueError(_("Y-axis minimum must be lower than its maximum"))
 
+    removed_std_dev = "Std.Dev." in dataframe.columns
     dataframe = prepare_binding_spectra(dataframe, correction_wavelength)
 
     with pd.ExcelWriter(output_path, engine="xlsxwriter") as writer:
@@ -114,6 +119,27 @@ def export_binding(
         chart.set_legend({"position": "none"})
         chart.set_style(5)
         sheet.insert_chart(len(dataframe) + 2, 1, chart=chart)
+        if info_sources is not None:
+            steps = []
+            if duplicates_removed:
+                steps.append("Remove identical repeated half of spectra.")
+            if removed_std_dev:
+                steps.append("Remove standard-deviation column.")
+            if correction_wavelength is not None:
+                steps.append("Subtract each spectrum's absorbance at the correction wavelength.")
+            steps.append("Plot all exported spectra.")
+            write_info_sheet(
+                workbook, "binding / titration", info_sources,
+                {
+                    "X-axis minimum (nm)": x_axis_min,
+                    "X-axis maximum (nm)": x_axis_max,
+                    "Y-axis minimum (AU)": y_axis_min,
+                    "Y-axis maximum (AU)": y_axis_max,
+                    "Correction wavelength (nm)": correction_wavelength if correction_wavelength is not None else "Disabled",
+                    "Duplicate spectra removed": duplicates_removed,
+                },
+                steps,
+            )
 
 
 class BindingTitolazione(AssayView):
@@ -129,6 +155,7 @@ class BindingTitolazione(AssayView):
         super().__init__(*args, **kwargs)
         self.dataframe: pd.DataFrame | None = None
         self.input_path: Path | None = None
+        self.duplicates_removed = False
 
     def build(self, parent: str) -> None:
         px = self.display_scale.pixels
@@ -235,6 +262,7 @@ class BindingTitolazione(AssayView):
                 enabled=False,
                 width=px(260),
             )
+        self.add_info_checkbox(parent)
 
     def _choose_input(self) -> None:
         self.open_file_dialog(
@@ -249,15 +277,16 @@ class BindingTitolazione(AssayView):
 
         def parse() -> tuple[pd.DataFrame, bool]:
             if path.suffix.upper() == ".SD":
-                dataframe = parse_sd_file(path)
+                dataframe = parse_with_source(path, parse_sd_file)
             elif path.suffix.upper() == ".TXT":
-                dataframe = parse_txt_file(path)
+                dataframe = parse_with_source(path, parse_txt_file)
             else:
                 raise ValueError(_("unknown input format"))
             return clean_duplicate_spectra(dataframe)
 
         def loaded(result: tuple[pd.DataFrame, bool]) -> None:
             self.dataframe, did_clean = result
+            self.duplicates_removed = did_clean
             self.input_path = path
             self.settings.set("main/folder_input", str(path.parent))
             dpg.set_value(
@@ -349,6 +378,8 @@ class BindingTitolazione(AssayView):
         self.settings.set("titolazione/correction_enabled", correction_enabled)
         self.settings.set("titolazione/wl_corr", correction)
         dataframe = self.dataframe
+        info_sources = (dataframe.attrs["source_info"],) if dpg.get_value("binding.info") else None
+        duplicates_removed = self.duplicates_removed
         self.submit_export(
             lambda: export_binding(
                 dataframe,
@@ -358,5 +389,7 @@ class BindingTitolazione(AssayView):
                 y_min,
                 y_max,
                 correction if correction_enabled else None,
+                info_sources=info_sources,
+                duplicates_removed=duplicates_removed,
             )
         )

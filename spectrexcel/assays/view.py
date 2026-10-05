@@ -92,6 +92,15 @@ class AssayView:
             raise RuntimeError("Assay workflow controls are not configured")
         return self.workflow_controls
 
+    def add_info_checkbox(self, parent: str) -> None:
+        dpg.add_checkbox(
+            label=_("Include info sheet"),
+            tag=self._workflow().export.replace(".export", ".info"),
+            default_value=self.settings.get("main/include_info_sheet", False),
+            callback=lambda sender, enabled: self.settings.set("main/include_info_sheet", enabled),
+            parent=parent,
+        )
+
     def submit_load(
         self,
         task: Callable[[], Any],

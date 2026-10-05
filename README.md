@@ -3,6 +3,21 @@
 <h1>SpectrExcel</h1>
 </div>
 
+## Export details
+
+Each assay has an **Include info sheet** checkbox below the Generate Excel and
+Preview chart buttons. It starts unchecked and remembers your last choice across
+assays and application restarts. Enable it to append an
+**info** worksheet containing the SpectrExcel version, export timestamp with
+timezone, source filenames and SHA-256 hashes, analysis settings, and processing
+steps. Data sheets, charts, and previews are unchanged.
+The info worksheet uses the app's language; source filenames and hashes are
+preserved exactly.
+
+Hashes identify the files as loaded, even if those files change before export.
+Full source paths are not included. Keep the original input files alongside the
+workbook: the info sheet provides traceability, not a copy of the measurements.
+
 ## Development
 
 Install dependencies and run the application with [uv](https://docs.astral.sh/uv/):

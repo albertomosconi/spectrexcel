@@ -40,6 +40,7 @@
         <nav aria-label="User guide sections">
           <a href="/docs/#install">Install</a>
           <a href="/docs/#first-export">First export</a>
+          <a href="/docs/#export-details">Export details</a>
           <a href="/docs/#kinetics">Kinetics</a>
           <a href="/docs/#binding">Binding / titration</a>
           <a href="/docs/#spectra-family">Spectrum family</a>
@@ -81,9 +82,23 @@
             <li>Select the assay that matches your measurement.</li>
             <li>Choose the input file or files.</li>
             <li>Configure the options shown for that assay.</li>
+            <li>Optionally enable <strong>Include info sheet</strong> to record <a href="/docs/#export-details">export details</a>.</li>
             <li>Select <strong>Generate Excel</strong>, choose the output <code>.xlsx</code> file, and confirm the export.</li>
           </ol>
           <p>The activity area reports file loading, validation errors, and successful exports.</p>
+        </section>
+
+        <section id="export-details">
+          <h2>Optional export details</h2>
+          <p>Every assay has an <strong>Include info sheet</strong> checkbox below the <strong>Generate Excel</strong> and <strong>Preview chart</strong> buttons. It starts unchecked and remembers your last choice across assays and application restarts. Enable it before generating a workbook to append an <code>info</code> worksheet.</p>
+          <p>The worksheet records:</p>
+          <ul>
+            <li>The SpectrExcel version and export date and time, including the timezone.</li>
+            <li>Source filenames and SHA-256 hashes identifying the exact input bytes loaded. Full source paths are not included.</li>
+            <li>The assay, settings affecting the export, and processing steps applied, such as wavelength correction or duplicate removal.</li>
+          </ul>
+          <p>The contents follow the application's language; filenames and hashes remain unchanged. Table headers are bold, with an empty row between sections. Measurement tables, charts, and previews are unaffected.</p>
+          <p>Keep the original input files alongside the workbook. The <code>info</code> sheet makes results traceable but does not embed the source files. Hashes describe the inputs as loaded, even if the files change before export.</p>
         </section>
 
         <section id="kinetics">

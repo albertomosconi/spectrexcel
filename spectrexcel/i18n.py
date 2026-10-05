@@ -3,8 +3,8 @@
 English is the source language: wrap user-facing strings with _() at the point
 of use and add the Italian translation to TRANSLATIONS_IT. Use
 _("... {value} ...").format(value=...) for interpolation; never wrap f-strings,
-as runtime values would end up in the lookup key. Strings written into the
-generated Excel files are intentionally not translated.
+as runtime values would end up in the lookup key. The optional info worksheet
+follows the app language; measurement sheets and charts are not translated.
 
 The language is selected once at startup (Settings > main/language, falling
 back to the OS locale) and applies to the whole UI on the next launch.
@@ -17,6 +17,42 @@ import sys
 LANGUAGES = {"en": "English", "it": "Italiano"}
 
 TRANSLATIONS_IT: dict[str, str] = {
+    "Include info sheet": "Includi foglio info",
+    # optional info worksheet
+    "SpectrExcel version": "Versione di SpectrExcel",
+    "Export timestamp": "Data e ora di esportazione",
+    "Reproduction": "Riproducibilità",
+    "Retain original input files; hashes identify the loaded inputs.":
+        "Conserva i file di input originali; gli hash identificano gli input caricati.",
+    "Sources": "Fonti",
+    "Filename": "Nome file",
+    "Source file": "File sorgente",
+    "Settings": "Impostazioni",
+    "Value": "Valore",
+    "Processing": "Elaborazione",
+    "Step": "Passaggio",
+    "Processing step": "Passaggio di elaborazione",
+    "Chart spectrum stride": "Passo degli spettri nel grafico",
+    "Duplicate spectra removed": "Spettri duplicati rimossi",
+    "Disabled": "Disabilitata",
+    "Yes": "Sì",
+    "No": "No",
+    "unknown": "sconosciuta",
+    "Subtract each spectrum's absorbance at the correction wavelength.":
+        "Sottrai l'assorbanza di ogni spettro alla lunghezza d'onda di correzione.",
+    "Export all spectra; plot every second spectrum, starting with the first.":
+        "Esporta tutti gli spettri; rappresenta uno spettro ogni due, iniziando dal primo.",
+    "Remove identical repeated half of spectra.":
+        "Rimuovi la metà ripetuta identica degli spettri.",
+    "Remove standard-deviation column.":
+        "Rimuovi la colonna della deviazione standard.",
+    "Plot all exported spectra.": "Rappresenta tutti gli spettri esportati.",
+    "Subtract correction-wavelength absorbance from reading-wavelength absorbance.":
+        "Sottrai l'assorbanza alla lunghezza d'onda di correzione da quella alla lunghezza d'onda di lettura.",
+    "Shift each trace's timestamps so its first measurement is at zero seconds.":
+        "Trasla i tempi di ogni traccia in modo che la prima misura sia a zero secondi.",
+    "Keep original acquisition intervals; export traces in the listed source order.":
+        "Mantieni gli intervalli di acquisizione originali; esporta le tracce nell'ordine delle fonti elencate.",
     # main window
     "Check updates": "Verifica aggiornamenti",
     "Checking...": "Verifica in corso...",

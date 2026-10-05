@@ -1,5 +1,6 @@
 import re
 import struct
+from io import BytesIO, TextIOWrapper
 from pathlib import Path
 from struct import iter_unpack
 from typing import Callable
@@ -17,26 +18,26 @@ class ParseError(Exception):
     pass
 
 
-def parse_txt_file(filepath: Path) -> pd.DataFrame:
+def parse_txt_file(filepath: Path, *, contents: bytes | None = None) -> pd.DataFrame:
     try:
-        with filepath.open("r") as fp:
-            contents = fp.read()
+        with (filepath.open("r") if contents is None else TextIOWrapper(BytesIO(contents))) as fp:
+            text = fp.read()
     except (OSError, UnicodeError) as error:
         raise ParseError(
             _("Unable to read file contents: {error}").format(error=error)
         ) from error
 
-    contents = re.sub(r"[ \t]+", " ", contents.strip())
-    contents = contents.splitlines()
-    if len(contents) < 2:
+    text = re.sub(r"[ \t]+", " ", text.strip())
+    lines = text.splitlines()
+    if len(lines) < 2:
         raise ParseError(_("Unable to read file contents: no spectra found."))
 
-    first_line = contents[0]
+    first_line = lines[0]
     if re.fullmatch(r'"[^"\n]+"(?: "[^"\n]+")+', first_line) is None:
         raise ParseError(_("Unable to read file contents: invalid text table."))
     first_line = re.sub(r"<(\d+) nm>", r"\g<1>", first_line)
     columns = first_line[1:-1].split('" "')
-    rows = [line.split() for line in contents[1:]]
+    rows = [line.split() for line in lines[1:]]
     if "WL Result" not in columns or any(not row or len(row) > len(columns) for row in rows):
         raise ParseError(_("Unable to read file contents: invalid text table."))
     try:
@@ -51,13 +52,14 @@ def parse_txt_file(filepath: Path) -> pd.DataFrame:
         ) from error
 
 
-def parse_sd_file(filepath: Path) -> pd.DataFrame:
+def parse_sd_file(filepath: Path, *, contents: bytes | None = None) -> pd.DataFrame:
 
     if filepath.suffix.upper() != ".SD":
         raise ParseError(_("Invalid file extension"))
 
     try:
-        contents = filepath.read_bytes()
+        if contents is None:
+            contents = filepath.read_bytes()
     except OSError as error:
         raise ParseError(
             _("Unable to read file contents: {error}").format(error=error)
@@ -182,7 +184,7 @@ def parse_sd_file(filepath: Path) -> pd.DataFrame:
     return df
 
 
-def parse_kd_file(filepath: Path) -> pd.DataFrame:
+def parse_kd_file(filepath: Path, *, contents: bytes | None = None) -> pd.DataFrame:
 
     def _extract_data(
         data: bytes, header: dict, parse_func: Callable
@@ -233,7 +235,8 @@ def parse_kd_file(filepath: Path) -> pd.DataFrame:
         raise ParseError(_("Invalid file extension"))
 
     try:
-        contents = filepath.read_bytes()
+        if contents is None:
+            contents = filepath.read_bytes()
     except OSError as error:
         raise ParseError(
             _("Unable to read file contents: {error}").format(error=error)

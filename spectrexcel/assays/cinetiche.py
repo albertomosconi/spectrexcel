@@ -9,6 +9,7 @@ from xlsxwriter import Workbook, worksheet
 from spectrexcel.dialogs import DialogAction, dialog_window
 from spectrexcel.i18n import _
 
+from .export_info import SourceInfo, parse_with_source, write_info_sheet
 from .parsing import WAVELENGTH_MAX, WAVELENGTH_MIN, parse_kd_file
 from .view import AssayView, ChartSeries, ChartSpec, WorkflowControls
 
@@ -65,6 +66,8 @@ def export_kinetics(
     output_path: Path,
     reading_wavelength: int,
     correction_wavelength: int,
+    *,
+    info_sources: tuple[SourceInfo, ...] | None = None,
 ) -> None:
     spec = kinetics_chart_spec(datasets, reading_wavelength, correction_wavelength)
     # Share time cells only for identical grids. Each other trace keeps its
@@ -149,6 +152,19 @@ def export_kinetics(
         )
         chart.set_style(5)
         sheet.insert_chart(4, chart_column, chart=chart)
+        if info_sources is not None:
+            write_info_sheet(
+                workbook, "kinetics", info_sources,
+                {
+                    "Reading wavelength (nm)": reading_wavelength,
+                    "Correction wavelength (nm)": correction_wavelength,
+                },
+                [
+                    "Subtract correction-wavelength absorbance from reading-wavelength absorbance.",
+                    "Shift each trace's timestamps so its first measurement is at zero seconds.",
+                    "Keep original acquisition intervals; export traces in the listed source order.",
+                ],
+            )
 
 
 class Cinetiche(AssayView):
@@ -228,6 +244,7 @@ class Cinetiche(AssayView):
                 enabled=False,
                 width=px(260),
             )
+        self.add_info_checkbox(parent)
 
     def _choose_inputs(self) -> None:
         self.open_file_dialog(
@@ -244,7 +261,7 @@ class Cinetiche(AssayView):
         def parse() -> list[tuple[str, pd.DataFrame]]:
             datasets = []
             for path in paths:
-                dataframe = parse_kd_file(path)
+                dataframe = parse_with_source(path, parse_kd_file)
                 datasets.append((path.stem, dataframe))
             return datasets
 
@@ -348,9 +365,15 @@ class Cinetiche(AssayView):
         reading = dpg.get_value("kinetics.reading")
         correction = dpg.get_value("kinetics.correction")
         datasets = list(self.datasets)
+        info_sources = (
+            tuple(frame.attrs["source_info"] for name, frame in datasets)
+            if dpg.get_value("kinetics.info") else None
+        )
         self.settings.set("cinetiche/folder_output", str(output_path.parent))
         self.settings.set("cinetiche/wl_read", reading)
         self.settings.set("cinetiche/wl_corr", correction)
         self.submit_export(
-            lambda: export_kinetics(datasets, output_path, reading, correction)
+            lambda: export_kinetics(
+                datasets, output_path, reading, correction, info_sources=info_sources
+            )
         )

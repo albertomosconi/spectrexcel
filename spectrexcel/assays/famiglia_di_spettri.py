@@ -7,6 +7,7 @@ from xlsxwriter import Workbook, worksheet
 
 from spectrexcel.i18n import _
 
+from .export_info import SourceInfo, parse_with_source, write_info_sheet
 from .parsing import WAVELENGTH_MAX, WAVELENGTH_MIN, parse_kd_file
 from .view import AssayView, ChartSeries, ChartSpec, WorkflowControls
 
@@ -38,6 +39,8 @@ def spectrum_family_y_limits(
 def export_spectrum_family(
     dataframe: pd.DataFrame, input_path: Path, output_path: Path,
     correction_wavelength: int | None = None,
+    *,
+    info_sources: tuple[SourceInfo, ...] | None = None,
 ) -> None:
     dataframe = prepare_spectrum_family(dataframe, correction_wavelength)
     y_min, y_max = spectrum_family_y_limits(dataframe, correction_wavelength is not None)
@@ -95,6 +98,21 @@ def export_spectrum_family(
         chart.set_legend({"none": True})
         chart.set_style(5)
         sheet.insert_chart(4, 4, chart=chart)
+        if info_sources is not None:
+            write_info_sheet(
+                workbook, "spectrum family", info_sources,
+                {
+                    "Correction wavelength (nm)": correction_wavelength if correction_wavelength is not None else "Disabled",
+                    "Chart spectrum stride": 2,
+                    "X-axis minimum (nm)": WAVELENGTH_MIN,
+                    "X-axis maximum (nm)": WAVELENGTH_MAX,
+                    "Y-axis minimum (AU)": y_min,
+                    "Y-axis maximum (AU)": y_max,
+                },
+                (["Subtract each spectrum's absorbance at the correction wavelength."]
+                 if correction_wavelength is not None else [])
+                + ["Export all spectra; plot every second spectrum, starting with the first."],
+            )
 
 
 class FamigliaDiSpettri(AssayView):
@@ -167,6 +185,7 @@ class FamigliaDiSpettri(AssayView):
                 enabled=False,
                 width=px(260),
             )
+        self.add_info_checkbox(parent)
 
     def _choose_input(self) -> None:
         self.open_file_dialog(
@@ -192,7 +211,7 @@ class FamigliaDiSpettri(AssayView):
             self.log(_("loaded {name}").format(name=path.name))
 
         self.submit_load(
-            lambda: parse_kd_file(path),
+            lambda: parse_with_source(path, parse_kd_file),
             parsed,
             loading_text=_("Loading {name}...").format(name=path.name),
             failure_text=_("Failed to load {name}").format(name=path.name),
@@ -247,6 +266,7 @@ class FamigliaDiSpettri(AssayView):
             return
         input_path = self.input_path
         dataframe = self.dataframe
+        info_sources = (dataframe.attrs["source_info"],) if dpg.get_value("spectra.info") else None
         self.settings.set("famiglia_di_spettri/folder_output", str(output_path.parent))
         correction_enabled = dpg.get_value("spectra.correction_enabled")
         correction = dpg.get_value("spectra.correction")
@@ -256,5 +276,6 @@ class FamigliaDiSpettri(AssayView):
             lambda: export_spectrum_family(
                 dataframe, input_path, output_path,
                 correction if correction_enabled else None,
+                info_sources=info_sources,
             ),
         )
