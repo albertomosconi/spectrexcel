@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://spectrexcel.albertomosconi.it/sitemap.xml

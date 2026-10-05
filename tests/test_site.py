@@ -4,6 +4,8 @@ from html.parser import HTMLParser
 from pathlib import Path
 import shutil
 import subprocess
+from urllib.robotparser import RobotFileParser
+import xml.etree.ElementTree as ET
 
 import pytest
 import yaml
@@ -52,6 +54,34 @@ def parse(path):
     parser = DocumentParser()
     parser.feed(path.read_text(encoding="utf-8"))
     return parser
+
+
+def test_sitemap_lists_all_public_pages_once_with_resolving_urls():
+    sitemap = ET.parse(SITE / "sitemap.xml").getroot()
+    namespace = "{http://www.sitemaps.org/schemas/sitemap/0.9}"
+    assert sitemap.tag == f"{namespace}urlset"
+    urls = [entry.findtext(f"{namespace}loc") for entry in sitemap]
+    assert len(urls) == len(set(urls))
+    assert set(urls) == {
+        "https://spectrexcel.albertomosconi.it/",
+        "https://spectrexcel.albertomosconi.it/it/",
+        "https://spectrexcel.albertomosconi.it/docs/",
+        "https://spectrexcel.albertomosconi.it/it/docs/",
+    }
+    for url in urls:
+        route = url.removeprefix("https://spectrexcel.albertomosconi.it/")
+        assert (SITE / route / "index.html").is_file()
+
+
+def test_robots_allows_crawling_and_advertises_sitemap():
+    robots = RobotFileParser()
+    robots.parse((SITE / "robots.txt").read_text(encoding="utf-8").splitlines())
+    assert robots.site_maps() == [
+        "https://spectrexcel.albertomosconi.it/sitemap.xml"
+    ]
+    for agent in ("Bingbot", "DuckDuckBot", "Googlebot", "OtherBot"):
+        for route in ("/", "/it/", "/docs/", "/it/docs/", "/assets/styles.css"):
+            assert robots.can_fetch(agent, f"https://spectrexcel.albertomosconi.it{route}")
 
 
 def test_shared_assets_exist_and_icon_matches_application():
