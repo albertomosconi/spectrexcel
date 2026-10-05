@@ -9,6 +9,8 @@ from spectrexcel.dialogs import DialogAction, dialog_window
 from spectrexcel import native_dialogs
 from spectrexcel.i18n import _
 from spectrexcel.settings import Settings
+from spectrexcel.charts import ChartRenderer, ChartSeries, ChartSpec, green_shades
+from spectrexcel.layouts import AssayLayout, PARAMETERS_ONLY, PARAMETERS_PREVIEW, resolve_layout
 
 
 @dataclass(frozen=True)
@@ -19,42 +21,6 @@ class WorkflowControls:
     preview: str | None = None
     load_extras: tuple[str, ...] = ()
     export_extras: tuple[str, ...] = ()
-
-
-@dataclass(frozen=True)
-class ChartSeries:
-    name: str
-    x: list[float]
-    y: list[float]
-
-
-@dataclass(frozen=True)
-class ChartSpec:
-    x_label: str
-    y_label: str
-    x_limits: tuple[float, float]
-    y_limits: tuple[float, float]
-    series: tuple[ChartSeries, ...]
-    title: str | None = None
-    legend: bool = False
-
-
-def green_shades(count: int) -> list[tuple[int, int, int, int]]:
-    """Monochromatic green scale matching Excel chart style 5."""
-    light = (197, 224, 180)
-    dark = (56, 87, 35)
-    if count <= 1:
-        return [(112, 173, 71, 255)]
-    return [
-        (
-            *(
-                round(light[channel] + (dark[channel] - light[channel]) * step)
-                for channel in range(3)
-            ),
-            255,
-        )
-        for step in (index / (count - 1) for index in range(count))
-    ]
 
 
 class AssayView:
@@ -72,9 +38,166 @@ class AssayView:
         self.settings = settings
         self.display_scale = display_scale
         self.active = True
+        self._modal_renderer: ChartRenderer | None = None
+        self._embedded_renderer: ChartRenderer | None = None
+        self.layout = PARAMETERS_ONLY
+        self._assay_layout: AssayLayout | None = None
+        self._layout_rows: list[str | int] = []
+        self._layout_fields: list[tuple[str | int, int, str, int | None]] = []
+        self._preview_message: int | None = None
+        self._preview_generation = 0
+        self._preview_dirty = False
+        self._preview_running = False
+        self._input_loading = False
+        self._input_error: str | None = None
+
+    def build(self, parent: str | int) -> None:
+        raise NotImplementedError
+
+    def mount(self, parent: str | int, layout: str) -> None:
+        self._assay_layout = AssayLayout(parent, self.display_scale)
+        self.build(self._assay_layout.parameters)
+        self._preview_message = dpg.add_text("", parent=self._assay_layout.preview)
+        self._embedded_renderer = ChartRenderer(self._assay_layout.preview)
+        self.apply_layout(layout)
+
+    def register_layout_row(self, tag: str | int) -> None:
+        self._layout_rows.append(tag)
+
+    def register_layout_field(self, tag: str | int, width: int, label: str = "") -> None:
+        heading = None
+        if label:
+            heading = dpg.add_text(
+                label, parent=dpg.get_item_parent(tag), before=tag, show=False,
+            )
+        self._layout_fields.append((tag, width, label, heading))
+
+    def apply_layout(self, layout: str) -> None:
+        self.close_chart_preview()
+        self.layout = resolve_layout(layout)
+        if self._assay_layout is None:
+            return
+        embedded = self.layout == PARAMETERS_PREVIEW
+        self._assay_layout.apply(self.layout)
+        for row in self._layout_rows:
+            dpg.configure_item(row, horizontal=not embedded)
+        for tag, width, label, heading in self._layout_fields:
+            if heading is not None:
+                dpg.configure_item(heading, show=embedded and dpg.get_item_configuration(tag)["show"])
+                dpg.configure_item(tag, label="" if embedded else label)
+        if self._workflow().preview is not None:
+            dpg.configure_item(self._workflow().preview, show=not embedded)
+        self.maintain_layout()
+        self.request_preview()
+
+    def set_preview_message(self, text: str) -> None:
+        if self._embedded_renderer is not None:
+            self._embedded_renderer.clear()
+        if self._preview_message is not None:
+            dpg.set_value(self._preview_message, text)
+            dpg.configure_item(self._preview_message, show=True)
+
+    def request_preview(self, _sender: Any = None, _value: Any = None) -> None:
+        self._preview_generation += 1
+        self._preview_dirty = (
+            self.active and self.layout == PARAMETERS_PREVIEW
+            and self._embedded_renderer is not None
+        )
+        if not self._preview_dirty:
+            return
+        if self._input_loading:
+            self.set_preview_message(_("Loading chart data..."))
+        elif self._input_error is not None:
+            self.set_preview_message(self._input_error)
+        else:
+            self.set_preview_message(_("Updating chart..."))
+
+    def set_correction_enabled(self, tag: str, enabled: bool) -> None:
+        dpg.configure_item(tag, show=enabled)
+        self.maintain_layout()
+        self.request_preview()
+
+    def process_preview(self) -> None:
+        if (
+            not self.active or not self._preview_dirty or self._preview_running
+            or self._input_loading or self._input_error is not None
+        ):
+            return
+        self._preview_dirty = False
+        task = self.preview_task()
+        if task is None:
+            self.set_preview_message(_("Select input files to preview the chart."))
+            return
+        generation = self._preview_generation
+        self._preview_running = True
+
+        def current() -> bool:
+            return (
+                generation == self._preview_generation and self.active
+                and self.layout == PARAMETERS_PREVIEW
+                and not self._input_loading and self._input_error is None
+            )
+
+        def failed(error: Exception) -> None:
+            self._preview_running = False
+            if current():
+                self.set_preview_message(_("Unable to preview chart: {error}").format(error=error))
+
+        def finished(spec: ChartSpec) -> None:
+            self._preview_running = False
+            if current() and self._embedded_renderer is not None:
+                try:
+                    dpg.configure_item(self._preview_message, show=False)
+                    self._embedded_renderer.render(spec)
+                except Exception as error:
+                    failed(error)
+
+        self.submit(task, finished, failed)
+
+    def maintain_layout(self) -> None:
+        if self._assay_layout is None:
+            return
+        self._assay_layout.maintain()
+        embedded = self.layout == PARAMETERS_PREVIEW
+        width = self._assay_layout.content_width
+        for tag, logical_width, label, heading in self._layout_fields:
+            field_width = self.display_scale.pixels(logical_width)
+            dpg.configure_item(tag, width=min(field_width, width) if embedded else field_width)
+            if heading is not None:
+                dpg.configure_item(heading, show=embedded and dpg.get_item_configuration(tag)["show"])
+        dpg.configure_item(self._workflow().status, wrap=width if embedded else -1)
+        if self._preview_message is not None:
+            dpg.configure_item(self._preview_message, wrap=width)
 
     def dispose(self) -> None:
         self.active = False
+        self._preview_generation += 1
+        self.close_chart_preview()
+        if self._embedded_renderer is not None:
+            self._embedded_renderer.dispose()
+        if self._assay_layout is not None:
+            self._assay_layout.dispose()
+
+    def close_chart_preview(self) -> None:
+        if self._modal_renderer is not None:
+            self._modal_renderer.dispose()
+            self._modal_renderer = None
+            if dpg.does_item_exist("chart.preview.modal"):
+                dpg.delete_item("chart.preview.modal")
+
+    def preview_task(self) -> Callable[[], ChartSpec] | None:
+        return None
+
+    def _show_preview(self) -> None:
+        task = self.preview_task()
+        if task is None:
+            return
+        try:
+            spec = task()
+        except ValueError as error:
+            self.log(_("ERROR: {error}").format(error=error))
+            return
+        self.show_chart_preview(spec)
 
     def submit(
         self,
@@ -110,6 +233,9 @@ class AssayView:
         failure_text: str,
     ) -> None:
         controls = self._workflow()
+        self._input_loading = True
+        self._input_error = None
+        self.request_preview()
         busy_controls = [controls.upload, controls.export, *controls.load_extras]
         if controls.preview is not None:
             busy_controls.append(controls.preview)
@@ -119,12 +245,18 @@ class AssayView:
 
         def loaded(value: Any) -> None:
             on_success(value)
+            self._input_loading = False
+            self._input_error = None
+            self.request_preview()
             dpg.configure_item(controls.upload, enabled=True)
             dpg.configure_item(controls.export, enabled=True)
             if controls.preview is not None:
                 dpg.configure_item(controls.preview, enabled=True)
 
         def failed(error: Exception) -> None:
+            self._input_loading = False
+            self._input_error = _("Unable to preview chart: input loading failed.")
+            self.request_preview()
             dpg.configure_item(controls.upload, enabled=True)
             dpg.set_value(controls.status, failure_text)
             self.log(_("ERROR: {error}").format(error=error))
@@ -237,6 +369,7 @@ class AssayView:
     def show_chart_preview(self, spec: ChartSpec) -> None:
         px = self.display_scale.pixels
         tag = "chart.preview.modal"
+        self.close_chart_preview()
         if dpg.does_item_exist(tag):
             dpg.delete_item(tag)
         width, height = px(760), px(600)
@@ -246,37 +379,7 @@ class AssayView:
             width=width,
             height=height,
             scale=self.display_scale,
-            actions=(DialogAction(_("Close"), lambda: dpg.delete_item(tag)),),
+            actions=(DialogAction(_("Close"), self.close_chart_preview),),
         ):
-            with dpg.plot(
-                label=spec.title or "",
-                no_title=spec.title is None,
-                width=-1,
-                height=-1,
-            ):
-                if spec.legend:
-                    dpg.add_plot_legend(
-                        location=dpg.mvPlot_Location_South,
-                        horizontal=True,
-                        outside=True,
-                    )
-                x_axis = dpg.add_plot_axis(dpg.mvXAxis, label=spec.x_label)
-                y_axis = dpg.add_plot_axis(dpg.mvYAxis, label=spec.y_label)
-                shades = green_shades(len(spec.series))
-                for index, series in enumerate(spec.series):
-                    item = dpg.add_line_series(
-                        series.x,
-                        series.y,
-                        label=series.name if spec.legend else f"##series{index}",
-                        parent=y_axis,
-                    )
-                    with dpg.theme() as series_theme:
-                        with dpg.theme_component(dpg.mvLineSeries):
-                            dpg.add_theme_color(
-                                dpg.mvPlotCol_Line,
-                                shades[index],
-                                category=dpg.mvThemeCat_Plots,
-                            )
-                    dpg.bind_item_theme(item, series_theme)
-                dpg.set_axis_limits(x_axis, *spec.x_limits)
-                dpg.set_axis_limits(y_axis, *spec.y_limits)
+            self._modal_renderer = ChartRenderer(f"{tag}.body")
+            self._modal_renderer.render(spec)

@@ -25,6 +25,7 @@ from spectrexcel.i18n import (
     set_language,
 )
 from spectrexcel.settings import Settings
+from spectrexcel.layouts import LAYOUT_LABELS, PARAMETERS_ONLY, resolve_layout
 from spectrexcel.updater import (
     REPOSITORY_URL,
     UpdateRelease,
@@ -189,6 +190,7 @@ class SpectrExcelApp:
         if self.theme_preference not in THEME_OPTIONS:
             self.theme_preference = "System"
         self.active_theme = "Dark"
+        self.layout_preference = resolve_layout(self.settings.get("main/layout", PARAMETERS_ONLY))
 
     def build(self) -> None:
         px = self.display_scale.pixels
@@ -239,6 +241,18 @@ class SpectrExcelApp:
                         dpg.add_theme_color(
                             dpg.mvThemeCol_Text,
                             (30, 34, 40) if name == "Light" else (235, 235, 235),
+                        )
+                with dpg.theme_component(dpg.mvPlot):
+                    for color in (
+                        dpg.mvPlotCol_TitleText,
+                        dpg.mvPlotCol_AxisText,
+                        dpg.mvPlotCol_LegendText,
+                        dpg.mvPlotCol_InlayText,
+                    ):
+                        dpg.add_theme_color(
+                            color,
+                            (30, 34, 40) if name == "Light" else (235, 235, 235),
+                            category=dpg.mvThemeCat_Plots,
                         )
 
         with dpg.theme(tag="theme.accent"):
@@ -401,7 +415,7 @@ class SpectrExcelApp:
 
     def _show_settings(self) -> None:
         px = self.display_scale.pixels
-        width, height = px(430), px(250)
+        width, height = px(470), px(320)
         if dpg.does_item_exist("settings.modal"):
             dpg.delete_item("settings.modal")
         with dialog_window(
@@ -412,6 +426,18 @@ class SpectrExcelApp:
             scale=self.display_scale,
             actions=(DialogAction(_("Close"), lambda: dpg.delete_item("settings.modal")),),
         ):
+            with dpg.table(header_row=False, no_pad_outerX=True):
+                dpg.add_table_column(width_fixed=True, init_width_or_weight=px(90))
+                dpg.add_table_column(width_fixed=True)
+                with dpg.table_row():
+                    dpg.add_text(_("Layout:"))
+                    dpg.add_combo(
+                        items=[_(label) for label in LAYOUT_LABELS.values()],
+                        default_value=_(LAYOUT_LABELS[self.layout_preference]),
+                        tag="settings.layout",
+                        callback=self._layout_changed,
+                        width=px(240),
+                    )
             with dpg.table(header_row=False, no_pad_outerX=True):
                 dpg.add_table_column(width_fixed=True, init_width_or_weight=px(90))
                 dpg.add_table_column(width_fixed=True)
@@ -497,6 +523,21 @@ class SpectrExcelApp:
             return
         dpg.configure_item("settings.language_note", show=code != self.language)
 
+    def _layout_changed(self, _sender: Any, label: str) -> None:
+        layout = next((key for key, name in LAYOUT_LABELS.items() if _(name) == label), None)
+        if layout is None or layout == self.layout_preference:
+            return
+        self.layout_preference = layout
+        if not self.settings.set("main/layout", layout):
+            self.log(_("ERROR: unable to save the layout preference"))
+        if self.assay_view is not None:
+            self.assay_view.apply_layout(layout)
+
+    def maintain_assay(self) -> None:
+        if self.assay_view is not None:
+            self.assay_view.maintain_layout()
+            self.assay_view.process_preview()
+
     def submit(
         self,
         task: Callable[[], Any],
@@ -573,7 +614,7 @@ class SpectrExcelApp:
         self.assay_view = assay.view(
             self.log, self.submit, self.settings, self.display_scale
         )
-        self.assay_view.build("assay.content")
+        self.assay_view.mount("assay.content", self.layout_preference)
         self.settings.set("main/selected_assay", index)
         self.log(_("LOADED ASSAY: {name}").format(name=_(assay.name)))
 
@@ -760,6 +801,7 @@ def main() -> None:
         while dpg.is_dearpygui_running():
             dpg.run_callbacks(dpg.get_callback_queue())
             app.process_results()
+            app.maintain_assay()
             maintain_dialogs()
             dpg.render_dearpygui_frame()
             app.maintain_log_scroll()

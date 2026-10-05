@@ -1,6 +1,8 @@
 import dearpygui.dearpygui as dpg
 import pytest
 import requests
+import pandas as pd
+from pathlib import Path
 from threading import Event, get_ident
 
 import spectrexcel.main as main_module
@@ -8,6 +10,7 @@ from spectrexcel.dpi import DisplayScale
 from spectrexcel.i18n import TRANSLATIONS_IT
 from spectrexcel.i18n import _, get_language, set_language
 from spectrexcel.main import ASSAYS, THEME_COLORS, SpectrExcelApp
+from spectrexcel.settings import Settings
 
 
 def test_assays_have_translated_descriptions():
@@ -253,3 +256,131 @@ def test_result_processing_logs_callback_failure_and_continues(worker_app, monke
 
     assert received == ["next result"]
     assert len(messages) == 1 and "callback failure" in messages[0]
+
+
+@pytest.mark.parametrize("index", range(3))
+@pytest.mark.parametrize("language,preview_label,default_label", [
+    ("en", "parameters + preview", "parameters only"),
+    ("it", "parametri + anteprima", "solo parametri"),
+])
+def test_layout_setting_preserves_live_assay_state(
+    dpg_context, monkeypatch, tmp_path, index, language, preview_label, default_label
+):
+    monkeypatch.setattr("spectrexcel.settings.user_config_path", lambda *args: tmp_path)
+    monkeypatch.setattr(SpectrExcelApp, "submit", lambda *args: None)
+    settings = Settings()
+    settings.set("main/language", language)
+    settings.set("main/selected_assay", index)
+    app = SpectrExcelApp("test", DisplayScale())
+    try:
+        app.build()
+        view = app.assay_view
+        tag = ("binding.x_min", "kinetics.reading", "spectra.correction")[index]
+        dpg.set_value(tag, 333)
+        frame = pd.DataFrame({0: [1.0, 0.25], 10: [0.5, 0.25]}, index=[300, 800])
+        if index == 1:
+            view.datasets = [("second", frame), ("first", frame)]
+            data = view.datasets
+        else:
+            view.dataframe = frame
+            view.input_path = Path("original.KD")
+            data = view.dataframe
+        for label in (preview_label, default_label, preview_label):
+            app._layout_changed(None, label)
+            assert app.assay_view is view
+            assert dpg.get_value(tag) == 333
+            assert (view.datasets if index == 1 else view.dataframe) is data
+            assert not dpg.get_item_configuration(view.workflow_controls.export)["enabled"]
+        assert Settings().get("main/layout", "") == "parameters_preview"
+        if index == 1:
+            assert [name for name, frame in view.datasets] == ["second", "first"]
+        else:
+            assert view.input_path == Path("original.KD")
+        app._load_assay((index + 1) % 3)
+        assert not view.active
+        assert app.assay_view.layout == "parameters_preview"
+    finally:
+        app.shutdown()
+
+
+@pytest.mark.parametrize("preference,expected", [
+    (None, "parameters_only"), ("bad", "parameters_only"),
+    ([], "parameters_only"), ("parameters_preview", "parameters_preview"),
+])
+def test_startup_resolves_saved_layout(dpg_context, monkeypatch, tmp_path, preference, expected):
+    monkeypatch.setattr("spectrexcel.settings.user_config_path", lambda *args: tmp_path)
+    monkeypatch.setattr(SpectrExcelApp, "submit", lambda *args: None)
+    if preference is not None:
+        Settings().set("main/layout", preference)
+    app = SpectrExcelApp("test", DisplayScale())
+    try:
+        app.build()
+        assert app.layout_preference == expected
+        assert app.assay_view.layout == expected
+        assert dpg.get_item_configuration("binding.preview")["show"] == (expected == "parameters_only")
+    finally:
+        app.shutdown()
+
+
+def test_settings_layout_combo_applies_live(dpg_context, monkeypatch, tmp_path):
+    monkeypatch.setattr("spectrexcel.settings.user_config_path", lambda *args: tmp_path)
+    monkeypatch.setattr(SpectrExcelApp, "submit", lambda *args: None)
+    monkeypatch.setattr(dpg, "get_viewport_client_width", lambda: 800)
+    monkeypatch.setattr(dpg, "get_viewport_client_height", lambda: 520)
+    Settings().set("main/language", "en")
+    app = SpectrExcelApp("test", DisplayScale())
+    try:
+        app.build()
+        app._show_settings()
+        assert dpg.get_value("settings.layout") == "parameters only"
+        assert dpg.get_item_configuration("settings.layout")["items"] == [
+            "parameters only", "parameters + preview"]
+        dpg.set_value("settings.layout", "parameters + preview")
+        dpg.get_item_callback("settings.layout")("settings.layout", "parameters + preview")
+        assert dpg.does_item_exist("settings.modal")
+        assert not dpg.get_item_configuration("binding.preview")["show"]
+    finally:
+        app.shutdown()
+
+
+def test_layout_save_failure_logs_but_applies_and_unknown_label_ignored(dpg_context, monkeypatch, tmp_path):
+    monkeypatch.setattr("spectrexcel.settings.user_config_path", lambda *args: tmp_path)
+    monkeypatch.setattr(SpectrExcelApp, "submit", lambda *args: None)
+    Settings().set("main/language", "en")
+    app = SpectrExcelApp("test", DisplayScale())
+    try:
+        app.build()
+        messages = []
+        monkeypatch.setattr(app, "log", messages.append)
+        monkeypatch.setattr(app.settings, "set", lambda *args: False)
+        app._layout_changed(None, "bad label")
+        assert app.assay_view.layout == "parameters_only"
+        assert messages == []
+        app._layout_changed(None, "parameters + preview")
+        assert app.assay_view.layout == "parameters_preview"
+        assert messages == ["ERROR: unable to save the layout preference"]
+    finally:
+        app.shutdown()
+
+
+def test_app_services_pending_preview_on_render_thread(dpg_context, monkeypatch, tmp_path):
+    monkeypatch.setattr("spectrexcel.settings.user_config_path", lambda *args: tmp_path)
+    jobs = []
+    monkeypatch.setattr(SpectrExcelApp, "submit", lambda self, *args: jobs.append(args))
+    app = SpectrExcelApp("test", DisplayScale())
+    try:
+        set_language("en")
+        app.build()
+        jobs.clear()  # startup update/citation tasks
+        view = app.assay_view
+        view.dataframe = pd.DataFrame({"#Sample": ["one"], 300: [1.0], 800: [0.25]})
+        app._layout_changed(None, "parameters + preview")
+        app.maintain_assay()
+        assert len(jobs) == 1
+        task, success, failure = jobs[0]
+        app.results.put((success, task(), None))
+        assert view._embedded_renderer.plot is None
+        app.process_results()
+        assert view._embedded_renderer.plot is not None
+    finally:
+        app.shutdown()

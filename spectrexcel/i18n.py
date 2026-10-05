@@ -17,6 +17,20 @@ import sys
 LANGUAGES = {"en": "English", "it": "Italiano"}
 
 TRANSLATIONS_IT: dict[str, str] = {
+    "Layout:": "Layout:",
+    "ERROR: unable to save the layout preference":
+        "ERRORE: impossibile salvare la preferenza del layout",
+    "Updating chart...": "Aggiornamento del grafico...",
+    "Loading chart data...": "Caricamento dei dati del grafico...",
+    "Select input files to preview the chart.":
+        "Seleziona i file di input per visualizzare l'anteprima del grafico.",
+    "Unable to preview chart: {error}": "Impossibile visualizzare l'anteprima: {error}",
+    "Unable to preview chart: input loading failed.":
+        "Impossibile visualizzare l'anteprima: caricamento dei file non riuscito.",
+    "parameters only": "solo parametri",
+    "parameters + preview": "parametri + anteprima",
+    "axis minimum must be lower than its maximum":
+        "il minimo dell'asse deve essere inferiore al massimo",
     "Include info sheet": "Includi foglio info",
     # optional info worksheet
     "SpectrExcel version": "Versione di SpectrExcel",

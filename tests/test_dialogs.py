@@ -33,6 +33,7 @@ def open_dialog(kind, scale, *, long_content=False):
     app.display_scale = scale
     app.selected_assay_index = 0
     app.theme_preference = "System"
+    app.layout_preference = "parameters_only"
     app.language = "en"
     view = AssayView(lambda _message: None, lambda *_args: None, None, scale)
     if kind == "chart.preview.modal":

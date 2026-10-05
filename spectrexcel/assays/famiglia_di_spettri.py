@@ -1,5 +1,6 @@
 from datetime import datetime
 from pathlib import Path
+from typing import Callable
 
 import dearpygui.dearpygui as dpg
 import pandas as pd
@@ -124,6 +125,28 @@ def export_spectrum_family(
             )
 
 
+def spectrum_family_chart_spec(
+    dataframe: pd.DataFrame, input_path: Path, correction_wavelength: int | None
+) -> ChartSpec:
+    dataframe = prepare_spectrum_family(dataframe, correction_wavelength)
+    wavelengths = [float(value) for value in dataframe.index.values]
+    return ChartSpec(
+        x_label="λ (nm)",
+        y_label="Abs (AU)",
+        x_limits=(float(WAVELENGTH_MIN), float(WAVELENGTH_MAX)),
+        y_limits=spectrum_family_y_limits(dataframe, correction_wavelength is not None),
+        series=tuple(
+            ChartSeries(
+                name=str(dataframe.columns[column]),
+                x=wavelengths,
+                y=[float(value) for value in dataframe.iloc[:, column].values],
+            )
+            for column in range(0, len(dataframe.columns), 2)
+        ),
+        title=input_path.stem,
+    )
+
+
 class FamigliaDiSpettri(AssayView):
     workflow_controls = WorkflowControls(
         upload="spectra.upload",
@@ -156,18 +179,19 @@ class FamigliaDiSpettri(AssayView):
         correction_enabled = self.settings.get(
             "famiglia_di_spettri/correction_enabled", False
         )
-        with dpg.group(horizontal=True, parent=parent):
+        with dpg.group(horizontal=True, parent=parent) as correction_row:
             dpg.add_checkbox(
                 label=_("Enable wavelength correction"),
                 tag="spectra.correction_enabled",
                 default_value=correction_enabled,
-                callback=lambda sender, enabled: dpg.configure_item(
-                    "spectra.correction", show=enabled
+                callback=lambda sender, enabled: self.set_correction_enabled(
+                    "spectra.correction", enabled
                 ),
             )
             dpg.add_input_int(
                 label=_("Correction wavelength (nm)"),
                 tag="spectra.correction",
+                callback=self.request_preview,
                 default_value=self.settings.get("famiglia_di_spettri/wl_corr", 800),
                 min_value=WAVELENGTH_MIN,
                 max_value=WAVELENGTH_MAX,
@@ -195,6 +219,10 @@ class FamigliaDiSpettri(AssayView):
                 width=px(260),
             )
         self.add_info_checkbox(parent)
+        self.register_layout_row(correction_row)
+        self.register_layout_field("spectra.correction", 210, _("Correction wavelength (nm)"))
+        self.register_layout_field("spectra.upload", 260)
+        self.register_layout_field("spectra.export", 260)
 
     def _choose_input(self) -> None:
         self.open_file_dialog(
@@ -226,38 +254,16 @@ class FamigliaDiSpettri(AssayView):
             failure_text=_("Failed to load {name}").format(name=path.name),
         )
 
-    def _show_preview(self) -> None:
+    def preview_task(self) -> Callable[[], ChartSpec] | None:
         if self.input_path is None or self.dataframe is None:
-            return
+            return None
+        dataframe, input_path = self.dataframe, self.input_path
         correction = (
             dpg.get_value("spectra.correction")
             if dpg.get_value("spectra.correction_enabled") else None
         )
-        try:
-            dataframe = prepare_spectrum_family(self.dataframe, correction)
-        except ValueError as error:
-            self.log(_("ERROR: {error}").format(error=error))
-            return
-        wavelengths = [float(value) for value in dataframe.index.values]
-        self.show_chart_preview(
-            ChartSpec(
-                x_label="λ (nm)",
-                y_label="Abs (AU)",
-                x_limits=(float(WAVELENGTH_MIN), float(WAVELENGTH_MAX)),
-                y_limits=spectrum_family_y_limits(dataframe, correction is not None),
-                series=tuple(
-                    ChartSeries(
-                        name=str(dataframe.columns[column]),
-                        x=wavelengths,
-                        y=[
-                            float(value)
-                            for value in dataframe.iloc[:, column].values
-                        ],
-                    )
-                    for column in range(0, len(dataframe.columns), 2)
-                ),
-                title=self.input_path.stem,
-            )
+        return lambda: spectrum_family_chart_spec(
+            dataframe, input_path, correction
         )
 
     def _choose_output(self) -> None:

@@ -1,5 +1,6 @@
 from datetime import datetime
 from pathlib import Path
+from typing import Callable
 
 import dearpygui.dearpygui as dpg
 import pandas as pd
@@ -193,7 +194,7 @@ class Cinetiche(AssayView):
         px = self.display_scale.pixels
         title = dpg.add_text(_("1. Upload KD files"), parent=parent)
         dpg.bind_item_theme(title, "theme.accent")
-        with dpg.group(horizontal=True, parent=parent):
+        with dpg.group(horizontal=True, parent=parent) as input_row:
             dpg.add_button(
                 label=_("Select input files (.KD)"),
                 tag="kinetics.upload",
@@ -212,11 +213,12 @@ class Cinetiche(AssayView):
         dpg.add_spacer(height=px(6), parent=parent)
         title = dpg.add_text(_("2. Configure parameters"), parent=parent)
         dpg.bind_item_theme(title, "theme.accent")
-        with dpg.group(horizontal=True, parent=parent):
+        with dpg.group(horizontal=True, parent=parent) as wavelength_row:
             with dpg.group():
                 dpg.add_text(_("Reading wavelength (nm)"))
                 dpg.add_input_int(
                     tag="kinetics.reading",
+                    callback=self.request_preview,
                     default_value=self.settings.get("cinetiche/wl_read", 300),
                     min_value=WAVELENGTH_MIN,
                     max_value=WAVELENGTH_MAX,
@@ -228,6 +230,7 @@ class Cinetiche(AssayView):
                 dpg.add_text(_("Correction wavelength (nm)"))
                 dpg.add_input_int(
                     tag="kinetics.correction",
+                    callback=self.request_preview,
                     default_value=self.settings.get("cinetiche/wl_corr", 800),
                     min_value=WAVELENGTH_MIN,
                     max_value=WAVELENGTH_MAX,
@@ -254,6 +257,12 @@ class Cinetiche(AssayView):
                 width=px(260),
             )
         self.add_info_checkbox(parent)
+        self.register_layout_row(input_row)
+        self.register_layout_row(wavelength_row)
+        for tag in ("kinetics.reading", "kinetics.correction"):
+            self.register_layout_field(tag, 210)
+        self.register_layout_field("kinetics.upload", 260)
+        self.register_layout_field("kinetics.export", 260)
 
     def _choose_inputs(self) -> None:
         self.open_file_dialog(
@@ -347,18 +356,15 @@ class Cinetiche(AssayView):
         )
         for row, (filename, _dataframe) in enumerate(self.datasets):
             dpg.set_value(f"kinetics.reorder.filename.{row}", filename)
+        self.request_preview()
 
-    def _show_preview(self) -> None:
+    def preview_task(self) -> Callable[[], ChartSpec] | None:
         if not self.datasets:
-            return
+            return None
+        datasets = list(self.datasets)
         reading = dpg.get_value("kinetics.reading")
         correction = dpg.get_value("kinetics.correction")
-        try:
-            spec = kinetics_chart_spec(self.datasets, reading, correction)
-        except ValueError as error:
-            self.log(_("ERROR: {error}").format(error=error))
-            return
-        self.show_chart_preview(spec)
+        return lambda: kinetics_chart_spec(datasets, reading, correction)
 
     def _choose_output(self) -> None:
         if not self.datasets:

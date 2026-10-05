@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Callable
 
 import dearpygui.dearpygui as dpg
 import pandas as pd
@@ -150,6 +151,34 @@ def export_binding(
             )
 
 
+def binding_chart_spec(
+    dataframe: pd.DataFrame,
+    x_min: int,
+    x_max: int,
+    y_min: float,
+    y_max: float,
+    correction_wavelength: int | None,
+) -> ChartSpec:
+    if x_min >= x_max or y_min >= y_max:
+        raise ValueError(_("axis minimum must be lower than its maximum"))
+    dataframe = prepare_binding_spectra(dataframe, correction_wavelength)
+    wavelengths = [float(value) for value in dataframe.columns[1:].values]
+    return ChartSpec(
+        x_label="λ (nm)",
+        y_label="Abs (AU)",
+        x_limits=(float(x_min), float(x_max)),
+        y_limits=(float(y_min), float(y_max)),
+        series=tuple(
+            ChartSeries(
+                name=str(row[0]),
+                x=wavelengths,
+                y=[float(value) for value in row[1:]],
+            )
+            for row in dataframe.itertuples(index=False)
+        ),
+    )
+
+
 class BindingTitolazione(AssayView):
     workflow_controls = WorkflowControls(
         upload="binding.upload",
@@ -181,11 +210,12 @@ class BindingTitolazione(AssayView):
         dpg.add_spacer(height=px(6), parent=parent)
         title = dpg.add_text(_("2. Configure axis ranges"), parent=parent)
         dpg.bind_item_theme(title, "theme.accent")
-        with dpg.group(horizontal=True, parent=parent):
+        with dpg.group(horizontal=True, parent=parent) as axes_row:
             with dpg.group():
                 dpg.add_text(_("X-axis minimum (nm)"))
                 dpg.add_input_int(
                     tag="binding.x_min",
+                    callback=self.request_preview,
                     default_value=self.settings.get("titolazione/x_axis_min", 200),
                     min_value=0,
                     max_value=1_000_000,
@@ -197,6 +227,7 @@ class BindingTitolazione(AssayView):
                 dpg.add_text(_("X-axis maximum (nm)"))
                 dpg.add_input_int(
                     tag="binding.x_max",
+                    callback=self.request_preview,
                     default_value=self.settings.get("titolazione/x_axis_max", 800),
                     min_value=0,
                     max_value=1_000_000,
@@ -208,6 +239,7 @@ class BindingTitolazione(AssayView):
                 dpg.add_text(_("Y-axis minimum (AU)"))
                 dpg.add_input_float(
                     tag="binding.y_min",
+                    callback=self.request_preview,
                     default_value=self.settings.get("titolazione/y_axis_min", 0.0),
                     min_value=-1_000_000.0,
                     max_value=1_000_000.0,
@@ -221,6 +253,7 @@ class BindingTitolazione(AssayView):
                 dpg.add_text(_("Y-axis maximum (AU)"))
                 dpg.add_input_float(
                     tag="binding.y_max",
+                    callback=self.request_preview,
                     default_value=self.settings.get("titolazione/y_axis_max", 0.5),
                     min_value=-1_000_000.0,
                     max_value=1_000_000.0,
@@ -232,18 +265,19 @@ class BindingTitolazione(AssayView):
                 )
         dpg.add_spacer(height=px(6), parent=parent)
         correction_enabled = self.settings.get("titolazione/correction_enabled", False)
-        with dpg.group(horizontal=True, parent=parent):
+        with dpg.group(horizontal=True, parent=parent) as correction_row:
             dpg.add_checkbox(
                 label=_("Enable wavelength correction"),
                 tag="binding.correction_enabled",
                 default_value=correction_enabled,
-                callback=lambda sender, enabled: dpg.configure_item(
-                    "binding.correction", show=enabled
+                callback=lambda sender, enabled: self.set_correction_enabled(
+                    "binding.correction", enabled
                 ),
             )
             dpg.add_input_int(
                 label=_("Correction wavelength (nm)"),
                 tag="binding.correction",
+                callback=self.request_preview,
                 default_value=self.settings.get("titolazione/wl_corr", 800),
                 min_value=WAVELENGTH_MIN,
                 max_value=WAVELENGTH_MAX,
@@ -271,6 +305,13 @@ class BindingTitolazione(AssayView):
                 width=px(260),
             )
         self.add_info_checkbox(parent)
+        self.register_layout_row(axes_row)
+        self.register_layout_row(correction_row)
+        for tag in ("binding.x_min", "binding.x_max", "binding.y_min", "binding.y_max"):
+            self.register_layout_field(tag, 180)
+        self.register_layout_field("binding.correction", 210, _("Correction wavelength (nm)"))
+        self.register_layout_field("binding.upload", 260)
+        self.register_layout_field("binding.export", 260)
 
     def _choose_input(self) -> None:
         self.open_file_dialog(
@@ -318,41 +359,20 @@ class BindingTitolazione(AssayView):
             failure_text=_("Failed to load {name}").format(name=path.name),
         )
 
-    def _show_preview(self) -> None:
+    def preview_task(self) -> Callable[[], ChartSpec] | None:
         if self.dataframe is None:
-            return
+            return None
+        dataframe = self.dataframe
         x_min = dpg.get_value("binding.x_min")
         x_max = dpg.get_value("binding.x_max")
         y_min = dpg.get_value("binding.y_min")
         y_max = dpg.get_value("binding.y_max")
-        if x_min >= x_max or y_min >= y_max:
-            self.log(_("ERROR: axis minimum must be lower than its maximum"))
-            return
         correction = (
             dpg.get_value("binding.correction")
             if dpg.get_value("binding.correction_enabled") else None
         )
-        try:
-            dataframe = prepare_binding_spectra(self.dataframe, correction)
-        except ValueError as error:
-            self.log(_("ERROR: {error}").format(error=error))
-            return
-        wavelengths = [float(value) for value in dataframe.columns[1:].values]
-        self.show_chart_preview(
-            ChartSpec(
-                x_label="λ (nm)",
-                y_label="Abs (AU)",
-                x_limits=(float(x_min), float(x_max)),
-                y_limits=(float(y_min), float(y_max)),
-                series=tuple(
-                    ChartSeries(
-                        name=str(row[0]),
-                        x=wavelengths,
-                        y=[float(value) for value in row[1:]],
-                    )
-                    for row in dataframe.itertuples(index=False)
-                ),
-            )
+        return lambda: binding_chart_spec(
+            dataframe, x_min, x_max, y_min, y_max, correction
         )
 
     def _choose_output(self) -> None:
