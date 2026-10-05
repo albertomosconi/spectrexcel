@@ -352,6 +352,76 @@ def test_startup_resolves_saved_layout(dpg_context, monkeypatch, tmp_path, prefe
         app.shutdown()
 
 
+@pytest.mark.parametrize("stored,expected_factor", [
+    (None, 1.5), (1.25, 1.875), (0.75, 1.125), (2.0, 1.5), ("1.25", 1.5),
+])
+def test_startup_applies_saved_ui_scale(
+    dpg_context, monkeypatch, tmp_path, stored, expected_factor
+):
+    monkeypatch.setattr("spectrexcel.settings.user_config_path", lambda *args: tmp_path)
+    monkeypatch.setattr(SpectrExcelApp, "submit", lambda *args: None)
+    if stored is not None:
+        Settings().set("main/ui_scale", stored)
+    app = SpectrExcelApp("test", DisplayScale(1.5))
+    try:
+        app.build()
+        assert app.display_scale.factor == pytest.approx(expected_factor)
+    finally:
+        app.shutdown()
+
+
+def test_settings_ui_scale_combo_saves_and_shows_restart_note(
+    dpg_context, monkeypatch, tmp_path
+):
+    monkeypatch.setattr("spectrexcel.settings.user_config_path", lambda *args: tmp_path)
+    monkeypatch.setattr(SpectrExcelApp, "submit", lambda *args: None)
+    monkeypatch.setattr(dpg, "get_viewport_client_width", lambda: 800)
+    monkeypatch.setattr(dpg, "get_viewport_client_height", lambda: 520)
+    Settings().set("main/language", "en")
+    app = SpectrExcelApp("test", DisplayScale())
+    try:
+        app.build()
+        app._show_settings()
+        assert dpg.get_value("settings.ui_scale") == "100%"
+        assert dpg.get_item_configuration("settings.ui_scale")["items"] == [
+            "50%", "75%", "90%", "100%", "110%", "125%", "150%",
+        ]
+        assert not dpg.get_item_configuration("settings.ui_scale_note")["show"]
+        callback = dpg.get_item_callback("settings.ui_scale")
+        assert callback is not None
+        callback("settings.ui_scale", "125%")
+        assert Settings().get("main/ui_scale", 1.0) == 1.25
+        assert dpg.get_item_configuration("settings.ui_scale_note")["show"]
+        callback("settings.ui_scale", "100%")
+        assert not dpg.get_item_configuration("settings.ui_scale_note")["show"]
+    finally:
+        app.shutdown()
+
+
+def test_ui_scale_save_failure_logs_and_ignores_unknown_label(
+    dpg_context, monkeypatch, tmp_path
+):
+    monkeypatch.setattr("spectrexcel.settings.user_config_path", lambda *args: tmp_path)
+    monkeypatch.setattr(SpectrExcelApp, "submit", lambda *args: None)
+    monkeypatch.setattr(dpg, "get_viewport_client_width", lambda: 800)
+    monkeypatch.setattr(dpg, "get_viewport_client_height", lambda: 520)
+    Settings().set("main/language", "en")
+    app = SpectrExcelApp("test", DisplayScale())
+    try:
+        app.build()
+        app._show_settings()
+        messages = []
+        monkeypatch.setattr(app, "log", messages.append)
+        monkeypatch.setattr(app.settings, "set", lambda *args: False)
+        app._ui_scale_changed(None, "bogus")
+        assert messages == []
+        app._ui_scale_changed(None, "125%")
+        assert messages == ["ERROR: unable to save the interface scale preference"]
+        assert not dpg.get_item_configuration("settings.ui_scale_note")["show"]
+    finally:
+        app.shutdown()
+
+
 def test_settings_layout_combo_applies_live(dpg_context, monkeypatch, tmp_path):
     monkeypatch.setattr("spectrexcel.settings.user_config_path", lambda *args: tmp_path)
     monkeypatch.setattr(SpectrExcelApp, "submit", lambda *args: None)

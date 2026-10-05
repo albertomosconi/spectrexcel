@@ -148,6 +148,11 @@ TRANSLATIONS_IT: dict[str, str] = {
     "Language:": "Lingua:",
     "Restart SpectrExcel to apply the language.":
         "Riavvia SpectrExcel per applicare la lingua.",
+    "UI scale:": "Scala UI:",
+    "Restart SpectrExcel to apply the interface scale.":
+        "Riavvia SpectrExcel per applicare la scala dell'interfaccia.",
+    "ERROR: unable to save the interface scale preference":
+        "ERRORE: impossibile salvare la preferenza della scala dell'interfaccia",
     "Close": "Chiudi",
     "ERROR: unable to save the theme preference":
         "ERRORE: impossibile salvare la preferenza del tema",

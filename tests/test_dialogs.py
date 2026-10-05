@@ -37,6 +37,7 @@ def open_dialog(kind, scale, *, long_content=False):
     app.theme_preference = "System"
     app.layout_preference = "parameters_only"
     app.language = "en"
+    app.ui_scale = 1.0
     view = AssayView(lambda _message: None, lambda *_args: None, Mock(spec=settings_module.Settings), scale)
     if kind == "chart.preview.modal":
         view.show_chart_preview(ChartSpec("x", "y", (0, 1), (0, 1), ()))

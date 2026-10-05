@@ -4,10 +4,27 @@ from dataclasses import dataclass
 
 BASE_DPI = 96
 
+UI_SCALE_OPTIONS: tuple[float, ...] = (0.5, 0.75, 0.9, 1.0, 1.1, 1.25, 1.5)
+DEFAULT_UI_SCALE = 1.0
+
+
+def resolve_ui_scale(value: object) -> float:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return DEFAULT_UI_SCALE
+    scale = float(value)
+    return scale if scale in UI_SCALE_OPTIONS else DEFAULT_UI_SCALE
+
+
+def ui_scale_label(scale: float) -> str:
+    return f"{round(scale * 100)}%"
+
 
 @dataclass(frozen=True)
 class DisplayScale:
     factor: float = 1.0
+
+    def scaled(self, multiplier: float) -> "DisplayScale":
+        return DisplayScale(self.factor * multiplier)
 
     def pixels(self, value: int | float) -> int:
         if value in (0, -1):

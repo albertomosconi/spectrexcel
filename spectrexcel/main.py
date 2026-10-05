@@ -16,7 +16,13 @@ from spectrexcel.assays import BindingTitolazione, Cinetiche, FamigliaDiSpettri
 from spectrexcel.assays.view import AssayView
 from spectrexcel.appearance import THEME_OPTIONS, resolve_theme
 from spectrexcel.citation import CONCEPT_DOI, find_version_doi
-from spectrexcel.dpi import DisplayScale, configure_display_scale
+from spectrexcel.dpi import (
+    UI_SCALE_OPTIONS,
+    DisplayScale,
+    configure_display_scale,
+    resolve_ui_scale,
+    ui_scale_label,
+)
 from spectrexcel.dialogs import DialogAction, dialog_window, maintain_dialogs
 from spectrexcel.i18n import (
     LANGUAGES,
@@ -172,8 +178,9 @@ SEMANTIC_TEXT_COLORS = {
 class SpectrExcelApp:
     def __init__(self, version: str, display_scale: DisplayScale) -> None:
         self.version = version
-        self.display_scale = display_scale
         self.settings = Settings()
+        self.ui_scale = resolve_ui_scale(self.settings.get("main/ui_scale", 1.0))
+        self.display_scale = display_scale.scaled(self.ui_scale)
         self.executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="spectrexcel")
         self.results: queue.SimpleQueue[
             tuple[Callable[[Any], None], Any, Exception | None]
@@ -425,7 +432,7 @@ class SpectrExcelApp:
 
     def _show_settings(self) -> None:
         px = self.display_scale.pixels
-        width, height = px(470), px(320)
+        width, height = px(470), px(360)
         if dpg.does_item_exist("settings.modal"):
             dpg.delete_item("settings.modal")
         with dialog_window(
@@ -484,6 +491,24 @@ class SpectrExcelApp:
                 show=False,
                 wrap=px(390),
             )
+            with dpg.table(header_row=False, no_pad_outerX=True):
+                dpg.add_table_column(width_fixed=True, init_width_or_weight=px(90))
+                dpg.add_table_column(width_fixed=True)
+                with dpg.table_row():
+                    dpg.add_text(_("UI scale:"))
+                    dpg.add_combo(
+                        items=[ui_scale_label(option) for option in UI_SCALE_OPTIONS],
+                        default_value=ui_scale_label(self.ui_scale),
+                        tag="settings.ui_scale",
+                        callback=self._ui_scale_changed,
+                        width=px(180),
+                    )
+            dpg.add_text(
+                _("Restart SpectrExcel to apply the interface scale."),
+                tag="settings.ui_scale_note",
+                show=False,
+                wrap=px(390),
+            )
 
     def _show_assay_info(self) -> None:
         px = self.display_scale.pixels
@@ -532,6 +557,18 @@ class SpectrExcelApp:
             self.log(_("ERROR: unable to save the language preference"))
             return
         dpg.configure_item("settings.language_note", show=code != self.language)
+
+    def _ui_scale_changed(self, _sender: Any, label: str) -> None:
+        scale = next(
+            (option for option in UI_SCALE_OPTIONS if ui_scale_label(option) == label),
+            None,
+        )
+        if scale is None:
+            return
+        if not self.settings.set("main/ui_scale", scale):
+            self.log(_("ERROR: unable to save the interface scale preference"))
+            return
+        dpg.configure_item("settings.ui_scale_note", show=scale != self.ui_scale)
 
     def _layout_changed(self, _sender: Any, label: str) -> None:
         layout = next((key for key, name in LAYOUT_LABELS.items() if _(name) == label), None)
@@ -800,8 +837,8 @@ def main() -> None:
     ):
         position = [100, 100]
     icon_path = Path(__file__).with_name("icon.ico")
-    px = display_scale.pixels
-    viewport_position = display_scale.position(position)
+    px = app.display_scale.pixels
+    viewport_position = app.display_scale.position(position)
 
     try:
         dpg.create_viewport(
