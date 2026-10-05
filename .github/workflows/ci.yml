@@ -100,14 +100,15 @@ jobs:
           curl --fail --location --retry 3 \
             --header "Accept: application/octet-stream" \
             --header "Authorization: Bearer $GH_TOKEN" \
-            https://api.github.com/repos/AppImage/appimagetool/releases/assets/324406882 \
+            https://api.github.com/repos/AppImage/appimagetool/releases/assets/324406736 \
             --output appimagetool
           curl --fail --location --retry 3 \
             --header "Accept: application/octet-stream" \
             --header "Authorization: Bearer $GH_TOKEN" \
             https://api.github.com/repos/AppImage/type2-runtime/releases/assets/326011592 \
             --output runtime-x86_64
-          echo "a6d71e2b6cd66f8e8d16c37ad164658985e0cf5fcaa950c90a482890cb9d13e0  appimagetool" | sha256sum --check -
+          # appimagetool 1.9.1: versioned release, not the mutable continuous build.
+          echo "ed4ce84f0d9caff66f50bcca6ff6f35aae54ce8135408b3fa33abfc3cb384eb0  appimagetool" | sha256sum --check -
           # type2-runtime 20251108: dated release, not the mutable continuous build.
           echo "2fca8b443c92510f1483a883f60061ad09b46b978b2631c807cd873a47ec260d  runtime-x86_64" | sha256sum --check -
           chmod +x appimagetool
