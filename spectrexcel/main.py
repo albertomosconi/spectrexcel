@@ -385,18 +385,27 @@ class SpectrExcelApp:
                         dpg.add_button(label=_("Source code"), small=True, callback=self._open_source)
                         license_text = dpg.add_text(_("GPLv3 or later"))
                         dpg.bind_item_theme(license_text, "theme.muted")
-                    dpg.add_button(
-                        label=self.citation_doi,
-                        tag="main.citation",
-                        small=True,
-                        callback=self._open_citation,
-                    )
+                    with dpg.group(horizontal=True, horizontal_spacing=0):
+                        dpg.add_text(_("DOI: "), tag="main.citation.prefix")
+                        dpg.add_text(self.citation_doi, tag="main.citation")
+                        dpg.bind_item_theme("main.citation", "theme.accent")
                     with dpg.tooltip("main.citation"):
                         dpg.add_text(
                             _("All versions; resolves to latest release."),
                             tag="main.citation.tooltip.text",
                         )
             dpg.bind_item_theme("main.footer", footer_theme)
+
+        with dpg.viewport_drawlist(front=True):
+            dpg.draw_line((0, 0), (0, 0), tag="main.citation.underline")
+        with dpg.item_handler_registry(tag="main.citation.handlers"):
+            dpg.add_item_clicked_handler(
+                button=dpg.mvMouseButton_Left,
+                callback=self._open_citation,
+                tag="main.citation.click",
+            )
+            dpg.add_item_visible_handler(callback=self._draw_citation_underline)
+        dpg.bind_item_handler_registry("main.citation", "main.citation.handlers")
 
         dpg.set_primary_window("main.window", True)
         dpg.configure_item(
@@ -728,7 +737,7 @@ class SpectrExcelApp:
         if doi is None:
             return
         self.citation_doi = doi
-        dpg.configure_item("main.citation", label=doi)
+        dpg.set_value("main.citation", doi)
         dpg.set_value(
             "main.citation.tooltip.text",
             _("Cite SpectrExcel version {version}.").format(version=self.version),
@@ -740,6 +749,17 @@ class SpectrExcelApp:
 
     def _open_citation(self) -> None:
         webbrowser.open(f"https://doi.org/{self.citation_doi}")
+
+    def _draw_citation_underline(self) -> None:
+        left, _top = dpg.get_item_rect_min("main.citation")
+        right, bottom = dpg.get_item_rect_max("main.citation")
+        dpg.configure_item(
+            "main.citation.underline",
+            p1=(left, bottom),
+            p2=(right, bottom),
+            color=SEMANTIC_TEXT_COLORS[self.active_theme]["accent"],
+            thickness=self.display_scale.pixels(1),
+        )
 
     def save_viewport(self) -> None:
         width = dpg.get_viewport_width()

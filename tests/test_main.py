@@ -69,21 +69,42 @@ def test_footer_uses_concept_doi_until_exact_version_resolves(
         set_language(language)
         app.build()
         assert dpg.does_item_exist("main.citation")
-        assert dpg.get_item_label("main.citation") == "10.5281/zenodo.23161786"
+        assert dpg.get_value("main.citation.prefix") == "DOI: "
+        assert dpg.get_item_type("main.citation") == "mvAppItemType::mvText"
+        assert dpg.get_value("main.citation") == "10.5281/zenodo.23161786"
         assert dpg.get_value("main.citation.tooltip.text") == fallback_tooltip
-        dpg.get_item_callback("main.citation")()
+        dpg.get_item_callback("main.citation.click")()
         assert opened == ["https://doi.org/10.5281/zenodo.23161786"]
         assert any(task[0] == app._find_citation for task in tasks)
 
         app._citation_lookup_failed(requests.Timeout("offline"))
         app._citation_lookup_finished(None)
-        assert dpg.get_item_label("main.citation") == "10.5281/zenodo.23161786"
+        assert dpg.get_value("main.citation") == "10.5281/zenodo.23161786"
 
         app._citation_lookup_finished("10.5281/zenodo.23161787")
-        assert dpg.get_item_label("main.citation") == "10.5281/zenodo.23161787"
+        assert dpg.get_value("main.citation") == "10.5281/zenodo.23161787"
         assert dpg.get_value("main.citation.tooltip.text") == version_tooltip
-        dpg.get_item_callback("main.citation")()
+        dpg.get_item_callback("main.citation.click")()
         assert opened[-1] == "https://doi.org/10.5281/zenodo.23161787"
+    finally:
+        app.executor.shutdown(wait=True)
+
+
+def test_citation_underline_tracks_text_bounds_and_theme(dpg_context, monkeypatch, tmp_path):
+    monkeypatch.setattr("spectrexcel.settings.user_config_path", lambda *_args: tmp_path)
+    monkeypatch.setattr(SpectrExcelApp, "submit", lambda *_args: None)
+    monkeypatch.setattr(dpg, "get_item_rect_min", lambda item: (600, 480))
+    monkeypatch.setattr(dpg, "get_item_rect_max", lambda item: (790, 495))
+    app = SpectrExcelApp("test", DisplayScale())
+    try:
+        app.build()
+        for theme, color in (("Light", (24, 91, 138)), ("Dark", (104, 190, 255))):
+            app.active_theme = theme
+            app._draw_citation_underline()
+            config = dpg.get_item_configuration("main.citation.underline")
+            assert config["p1"][:2] == [600, 495]
+            assert config["p2"][:2] == [790, 495]
+            assert config["color"][:3] == pytest.approx([channel / 255 for channel in color])
     finally:
         app.executor.shutdown(wait=True)
 

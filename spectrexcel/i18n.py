@@ -74,6 +74,7 @@ TRANSLATIONS_IT: dict[str, str] = {
     "App settings": "Impostazioni",
     "ACTIVITY": "ATTIVITÀ",
     "Developed by Alberto Mosconi": "Sviluppato da Alberto Mosconi",
+    "DOI: ": "DOI: ",
     "Source code": "Codice sorgente",
     "All versions; resolves to latest release.":
         "Tutte le versioni; rimanda alla versione più recente.",
