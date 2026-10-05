@@ -14,6 +14,7 @@ import dearpygui.dearpygui as dpg
 from spectrexcel.assays import BindingTitolazione, Cinetiche, FamigliaDiSpettri
 from spectrexcel.assays.view import AssayView
 from spectrexcel.appearance import THEME_OPTIONS, resolve_theme
+from spectrexcel.citation import CONCEPT_DOI, find_version_doi
 from spectrexcel.dpi import DisplayScale, configure_display_scale
 from spectrexcel.dialogs import DialogAction, dialog_window, maintain_dialogs
 from spectrexcel.i18n import (
@@ -177,6 +178,7 @@ class SpectrExcelApp:
         self.futures: set[Future[Any]] = set()
         self.futures_lock = Lock()
         self.latest_release: UpdateRelease | None = None
+        self.citation_doi = CONCEPT_DOI
         self.assay_view: AssayView | None = None
         self.selected_assay_index = 0
         self.log_scroll_pending = 0
@@ -272,6 +274,10 @@ class SpectrExcelApp:
                 dpg.add_theme_style(dpg.mvStyleVar_ItemSpacing, px(8), 0)
                 dpg.add_theme_style(dpg.mvStyleVar_WindowPadding, px(8), px(4))
 
+        with dpg.theme() as footer_theme:
+            with dpg.theme_component(dpg.mvTable):
+                dpg.add_theme_style(dpg.mvStyleVar_CellPadding, 0, 0)
+
         with dpg.window(
             tag="main.window",
             no_title_bar=True,
@@ -349,12 +355,33 @@ class SpectrExcelApp:
             dpg.bind_item_theme("main.log", log_theme)
             dpg.add_text("", tag="main.log.text", parent="main.log")
             dpg.bind_item_font("main.log.text", "main.log_font")
-            with dpg.group(horizontal=True):
-                developer_text = dpg.add_text(_("Developed by Alberto Mosconi"))
-                dpg.bind_item_theme(developer_text, "theme.muted")
-                dpg.add_button(label=_("Source code"), small=True, callback=self._open_source)
-                license_text = dpg.add_text(_("GPLv3 or later"))
-                dpg.bind_item_theme(license_text, "theme.muted")
+            with dpg.table(
+                tag="main.footer",
+                header_row=False,
+                policy=dpg.mvTable_SizingStretchProp,
+                no_pad_outerX=True,
+            ):
+                dpg.add_table_column(width_stretch=True, init_width_or_weight=1)
+                dpg.add_table_column(width_fixed=True)
+                with dpg.table_row():
+                    with dpg.group(horizontal=True):
+                        developer_text = dpg.add_text(_("Developed by Alberto Mosconi"))
+                        dpg.bind_item_theme(developer_text, "theme.muted")
+                        dpg.add_button(label=_("Source code"), small=True, callback=self._open_source)
+                        license_text = dpg.add_text(_("GPLv3 or later"))
+                        dpg.bind_item_theme(license_text, "theme.muted")
+                    dpg.add_button(
+                        label=self.citation_doi,
+                        tag="main.citation",
+                        small=True,
+                        callback=self._open_citation,
+                    )
+                    with dpg.tooltip("main.citation"):
+                        dpg.add_text(
+                            _("All versions; resolves to latest release."),
+                            tag="main.citation.tooltip.text",
+                        )
+            dpg.bind_item_theme("main.footer", footer_theme)
 
         dpg.set_primary_window("main.window", True)
         dpg.configure_item(
@@ -362,6 +389,7 @@ class SpectrExcelApp:
         )
         self._load_assay(selected_index)
         self.submit(self._find_update, self._update_check_finished, self._update_check_failed)
+        self.submit(self._find_citation, self._citation_lookup_finished, self._citation_lookup_failed)
 
     def _apply_theme(self) -> None:
         self.active_theme = resolve_theme(self.theme_preference)
@@ -650,6 +678,26 @@ class SpectrExcelApp:
     @staticmethod
     def _open_source() -> None:
         webbrowser.open(REPOSITORY_URL)
+
+    def _find_citation(self) -> str | None:
+        return find_version_doi(self.version)
+
+    def _citation_lookup_finished(self, doi: str | None) -> None:
+        if doi is None:
+            return
+        self.citation_doi = doi
+        dpg.configure_item("main.citation", label=doi)
+        dpg.set_value(
+            "main.citation.tooltip.text",
+            _("Cite SpectrExcel version {version}.").format(version=self.version),
+        )
+
+    def _citation_lookup_failed(self, _error: Exception) -> None:
+        # Offline or unavailable Zenodo: keep the all-versions DOI.
+        pass
+
+    def _open_citation(self) -> None:
+        webbrowser.open(f"https://doi.org/{self.citation_doi}")
 
     def save_viewport(self) -> None:
         width = dpg.get_viewport_width()

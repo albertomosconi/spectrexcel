@@ -61,6 +61,9 @@ TRANSLATIONS_IT: dict[str, str] = {
     "ACTIVITY": "ATTIVITÀ",
     "Developed by Alberto Mosconi": "Sviluppato da Alberto Mosconi",
     "Source code": "Codice sorgente",
+    "All versions; resolves to latest release.":
+        "Tutte le versioni; rimanda alla versione più recente.",
+    "Cite SpectrExcel version {version}.": "Cita SpectrExcel versione {version}.",
     "LOADED ASSAY: {name}": "ASSAY CARICATO: {name}",
     # assay names
     "binding / titration": "binding / titolazione",

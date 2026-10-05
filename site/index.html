@@ -93,7 +93,7 @@
     <section id="privacy" class="panel" aria-labelledby="privacy-title">
       <h2 id="privacy-title">Process measurements locally. Keep data private.</h2>
       <p>SpectrExcel runs on your computer: no account and no upload required. Measurement files stay under your control, and the project is open source.</p>
-      <p>The app automatically contacts GitHub at startup to check for updates, and again when you select Check updates. GitHub receives normal connection information, including your public IP address and request headers; measurement files are not sent. There is currently no setting to disable the startup check. Requested downloads and project links open in your browser. See the <a href="https://github.com/albertomosconi/spectrexcel/blob/main/CODE_SIGNING.md#privacy-and-network-access">privacy and network disclosure</a> and <a href="https://docs.github.com/en/site-policy/privacy-policies/github-privacy-statement">GitHub Privacy Statement</a>.</p>
+      <p>The app automatically contacts GitHub at startup to check for updates, and again when you select Check updates. It also contacts Zenodo at startup to look up the installed version's DOI; version matching happens locally. Both services receive normal connection information, including your public IP address and request headers; measurement files are not sent. There is currently no setting to disable these startup requests. Requested downloads, project links, and DOI links open in your browser. See the <a href="https://github.com/albertomosconi/spectrexcel/blob/main/CODE_SIGNING.md#privacy-and-network-access">privacy and network disclosure</a>, <a href="https://docs.github.com/en/site-policy/privacy-policies/github-privacy-statement">GitHub Privacy Statement</a>, and <a href="https://about.zenodo.org/privacy-policy/">Zenodo Privacy Policy</a>.</p>
     </section>
 
     <section id="download-options" aria-labelledby="download-title">
@@ -112,6 +112,7 @@
     <span>SpectrExcel</span>
     <nav aria-label="Footer navigation">
       <a href="/docs/">Documentation</a>
+      <a href="/docs/#citation">Citation</a>
       <a href="https://github.com/albertomosconi/spectrexcel">GitHub</a>
       <a href="https://github.com/albertomosconi/spectrexcel/releases/latest">Latest release</a>
       <a href="https://github.com/albertomosconi/spectrexcel/blob/main/LICENSE">License</a>

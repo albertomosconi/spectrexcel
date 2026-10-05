@@ -1,5 +1,6 @@
 import dearpygui.dearpygui as dpg
 import pytest
+import requests
 from threading import Event, get_ident
 
 import spectrexcel.main as main_module
@@ -41,6 +42,45 @@ def test_build_adds_question_mark_assay_info_button(
 
         assert dpg.get_item_configuration("main.assay_info")["label"] == "?"
         assert dpg.get_value("main.assay_info.tooltip.text") == "About assay"
+    finally:
+        app.executor.shutdown(wait=True)
+
+
+@pytest.mark.parametrize(
+    "language, fallback_tooltip, version_tooltip",
+    [
+        ("en", "All versions; resolves to latest release.", "Cite SpectrExcel version 1.7.0."),
+        ("it", "Tutte le versioni; rimanda alla versione più recente.", "Cita SpectrExcel versione 1.7.0."),
+    ],
+)
+def test_footer_uses_concept_doi_until_exact_version_resolves(
+    dpg_context, monkeypatch, tmp_path, language, fallback_tooltip, version_tooltip
+):
+    monkeypatch.setattr("spectrexcel.settings.user_config_path", lambda *_args: tmp_path)
+    tasks = []
+    monkeypatch.setattr(SpectrExcelApp, "submit", lambda self, *args: tasks.append(args))
+    opened = []
+    monkeypatch.setattr(main_module.webbrowser, "open", opened.append)
+    app = SpectrExcelApp("1.7.0", DisplayScale())
+    try:
+        set_language(language)
+        app.build()
+        assert dpg.does_item_exist("main.citation")
+        assert dpg.get_item_label("main.citation") == "10.5281/zenodo.23161786"
+        assert dpg.get_value("main.citation.tooltip.text") == fallback_tooltip
+        dpg.get_item_callback("main.citation")()
+        assert opened == ["https://doi.org/10.5281/zenodo.23161786"]
+        assert any(task[0] == app._find_citation for task in tasks)
+
+        app._citation_lookup_failed(requests.Timeout("offline"))
+        app._citation_lookup_finished(None)
+        assert dpg.get_item_label("main.citation") == "10.5281/zenodo.23161786"
+
+        app._citation_lookup_finished("10.5281/zenodo.23161787")
+        assert dpg.get_item_label("main.citation") == "10.5281/zenodo.23161787"
+        assert dpg.get_value("main.citation.tooltip.text") == version_tooltip
+        dpg.get_item_callback("main.citation")()
+        assert opened[-1] == "https://doi.org/10.5281/zenodo.23161787"
     finally:
         app.executor.shutdown(wait=True)
 

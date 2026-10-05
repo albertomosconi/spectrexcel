@@ -33,6 +33,20 @@ application version; version comparison happens locally. GitHub receives
 normal connection information such as the public IP address and request
 headers.
 
+**The application also automatically contacts Zenodo at startup** to look up
+the DOI for the installed release. Requests go to `https://zenodo.org/api/records`
+and search the project's record family (`conceptrecid:23161786`), including
+older pages when needed, with a generic `SpectrExcel citation lookup` User-Agent.
+The installed version is compared locally and is not sent. Zenodo receives
+normal connection information such as the public IP address and request headers.
+There is no in-app setting to disable this lookup. If lookup fails or no matching
+release is archived, the footer keeps the all-versions DOI, which resolves to
+the latest release rather than necessarily the installed version.
+
+Selecting the footer DOI opens `https://doi.org/` in the user's browser, which
+redirects to Zenodo. These requests are governed by the services' privacy
+policies, including the [Zenodo Privacy Policy](https://about.zenodo.org/privacy-policy/).
+
 When the user requests an update download, the full changelog, or the source
 repository, SpectrExcel opens the relevant GitHub URL in the user's browser.
 The browser then makes its own network requests. GitHub's processing of these

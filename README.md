@@ -19,6 +19,15 @@ Hashes identify the files as loaded, even if those files change before export.
 Full source paths are not included. Keep the original input files alongside the
 workbook: the info sheet provides traceability, not a copy of the measurements.
 
+## Citation
+
+If you use SpectrExcel in your work, please cite it using the metadata in
+[`CITATION.cff`](CITATION.cff). Releases are archived on Zenodo; for
+reproducibility, cite the DOI of the version you used. The app's right-aligned
+footer link shows that version's DOI when the startup lookup succeeds, otherwise
+the [all-versions DOI](https://doi.org/10.5281/zenodo.23161786), which resolves to
+the latest release. Hover over the link to see which citation it represents.
+
 ## Development
 
 Install dependencies and run the application with [uv](https://docs.astral.sh/uv/):
@@ -88,7 +97,10 @@ SpectrExcel automatically contacts GitHub at startup to check for updates and
 also contacts it when **Check updates** is selected. GitHub receives normal
 connection information, including the public IP address and request headers;
 the installed application version is compared locally, not sent. There is
-currently no setting to disable the automatic check. Requested downloads and
-project links open in your browser. See the
+currently no setting to disable the automatic check. SpectrExcel also contacts
+Zenodo at startup to look up the installed version's DOI. Zenodo receives normal
+connection information; version matching happens locally. No measurement data
+is sent. Requested downloads, project links, and DOI links open in your browser.
+See the
 [privacy and network disclosure](CODE_SIGNING.md#privacy-and-network-access)
-for details and GitHub's privacy policy.
+for details and links to the services' privacy policies.

@@ -25,6 +25,7 @@ DOC_IDS = {
     "install",
     "first-export",
     "export-details",
+    "citation",
     "kinetics",
     "binding",
     "spectra-family",
