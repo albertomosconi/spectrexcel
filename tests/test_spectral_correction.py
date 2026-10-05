@@ -12,6 +12,7 @@ from spectrexcel.assays.famiglia_di_spettri import (
 )
 from spectrexcel.assays.titolazione import BindingTitolazione, export_binding
 from spectrexcel.dpi import DisplayScale
+from tests.xml_helpers import required_attribute, required_text
 
 
 def spectra(assay, text_columns=False):
@@ -36,7 +37,7 @@ def workbook_values(path, references):
     ns = {"s": "http://schemas.openxmlformats.org/spreadsheetml/2006/main"}
     with ZipFile(path) as workbook:
         sheet = ElementTree.fromstring(workbook.read("xl/worksheets/sheet1.xml"))
-    return [float(sheet.findtext(f".//s:c[@r='{ref}']/s:v", namespaces=ns)) for ref in references]
+    return [float(required_text(sheet, f".//s:c[@r='{ref}']/s:v", ns)) for ref in references]
 
 
 @pytest.mark.parametrize("assay,text_columns", [("binding", False), ("binding", True), ("spectra", False)])
@@ -156,10 +157,12 @@ def test_correction_controls_default_off_and_restore_preferences(assay, remember
         assert config["show"] is remembered
         assert config["label"]
         row = dpg.get_item_parent(f"{assay}.correction")
+        assert row is not None
         assert dpg.get_item_parent(f"{assay}.correction_enabled") == row
         assert dpg.get_item_configuration(row)["horizontal"]
 
         callback = dpg.get_item_callback(f"{assay}.correction_enabled")
+        assert callback is not None
         for enabled in (True, False, True):
             dpg.set_value(f"{assay}.correction_enabled", enabled)
             callback(f"{assay}.correction_enabled", enabled)
@@ -180,8 +183,8 @@ def test_corrected_family_chart_shows_negative_and_flat_spectra(
     with ZipFile(path) as workbook:
         chart = ElementTree.fromstring(workbook.read("xl/charts/chart1.xml"))
     axis = next(axis for axis in chart.findall(".//c:valAx", ns)
-                if axis.find("c:axPos", ns).get("val") == "l")
-    bounds = tuple(float(axis.find(f"c:scaling/c:{name}", ns).get("val"))
+                if required_attribute(axis.find("c:axPos", ns), "val") == "l")
+    bounds = tuple(float(required_attribute(axis.find(f"c:scaling/c:{name}", ns), "val"))
                    for name in ("min", "max"))
     assert bounds == expected_limits
 

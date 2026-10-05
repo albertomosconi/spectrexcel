@@ -1,6 +1,6 @@
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from typing import Callable, Iterator
+from collections.abc import Callable, Generator
 
 import dearpygui.dearpygui as dpg
 
@@ -77,7 +77,7 @@ def dialog_window(
     height: int,
     scale: DisplayScale,
     actions: tuple[DialogAction, ...],
-) -> Iterator[None]:
+) -> Generator[None, None, None]:
     """Keep scrollable dialog content separate from always-visible actions."""
     layout = DialogLayout(width, height, scale, actions)
     with dpg.window(

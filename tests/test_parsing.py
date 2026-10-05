@@ -104,8 +104,8 @@ def test_parse_kd_file_new_headers(tmp_path):
     assert df.index.name == "Wavelength (nm)"
     assert list(df.index) == list(range(WAVELENGTH_MIN, WAVELENGTH_MAX + 1))
     assert list(df.columns) == [2.5]
-    assert df.loc[WAVELENGTH_MIN, 2.5] == 0.0
-    assert df.loc[WAVELENGTH_MAX, 2.5] == 0.91
+    assert df.at[WAVELENGTH_MIN, 2.5] == 0.0
+    assert df.at[WAVELENGTH_MAX, 2.5] == 0.91
 
 
 def test_parse_kd_file_old_headers(tmp_path):
@@ -119,7 +119,7 @@ def test_parse_kd_file_old_headers(tmp_path):
     df = parse_kd_file(path)
 
     assert list(df.columns) == [1.0]
-    assert df.loc[WAVELENGTH_MAX, 1.0] == 0.91
+    assert df.at[WAVELENGTH_MAX, 1.0] == 0.91
 
 
 def test_parse_kd_file_rejects_wrong_extension(tmp_path):
@@ -157,7 +157,7 @@ def test_parse_txt_file(tmp_path):
     assert df.at[1, "191"] == 0.8
 
 
-def sd_record(variant, name=b"sample", values=None):
+def sd_record(variant, name: bytes | None = b"sample", values=None):
     payload = spectrum_bytes() if values is None else values
     if name is None:
         return (AU_NEW + b"\x00" * 9 if variant == "new" else AU_OLD_SD) + payload

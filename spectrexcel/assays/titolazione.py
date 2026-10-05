@@ -1,9 +1,11 @@
 from pathlib import Path
-from typing import Callable
+from collections.abc import Callable
+from typing import cast
 
 import dearpygui.dearpygui as dpg
 import pandas as pd
 from xlsxwriter import Workbook, worksheet
+from xlsxwriter.chart_scatter import ChartScatter
 
 from spectrexcel.i18n import _
 
@@ -80,7 +82,7 @@ def export_binding(
         for column, value in enumerate(dataframe.columns[1:].values, start=1):
             sheet.write(0, column, int(value))
 
-        chart = workbook.add_chart({"type": "scatter", "subtype": "smooth"})
+        chart = cast(ChartScatter, workbook.add_chart({"type": "scatter", "subtype": "smooth"}))
         for row in range(len(dataframe)):
             chart.add_series(
                 {
@@ -194,7 +196,7 @@ class BindingTitolazione(AssayView):
         self.input_path: Path | None = None
         self.duplicates_removed = False
 
-    def build(self, parent: str) -> None:
+    def build(self, parent: str | int) -> None:
         px = self.display_scale.pixels
         title = dpg.add_text(_("1. Upload a TXT or SD file"), parent=parent)
         dpg.bind_item_theme(title, "theme.accent")

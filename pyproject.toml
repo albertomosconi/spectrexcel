@@ -24,6 +24,8 @@ build = "spectrexcel.pyinstaller:install"
 
 [dependency-groups]
 dev = [
+    "pandas-stubs>=2.2.3.250527,<3",
+    "pyright>=1.1.411,<2",
     "pytest>=8.4.0,<10",
     "pyyaml>=6.0.2,<7",
 ]
@@ -43,3 +45,13 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["spectrexcel"]
+
+[tool.pyright]
+include = ["spectrexcel", "tests", "typings", "scripts"]
+pythonVersion = "3.10"
+pythonPlatform = "All"
+typeCheckingMode = "standard"
+reportDeprecated = "warning"
+venvPath = "."
+venv = ".venv"
+stubPath = "typings"

@@ -7,7 +7,8 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from threading import Lock
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 import dearpygui.dearpygui as dpg
 

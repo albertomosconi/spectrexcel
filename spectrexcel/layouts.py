@@ -25,7 +25,7 @@ class AssayLayout:
         self.layout = PARAMETERS_ONLY
         self._geometry: tuple[int, int, str] | None = None
         px = self.scale.pixels
-        self._themes: list[int] = []
+        self._themes: list[str | int] = []
         for padding in (0, 10):
             with dpg.theme() as theme:
                 with dpg.theme_component(dpg.mvChildWindow):

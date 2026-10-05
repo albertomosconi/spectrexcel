@@ -2,8 +2,10 @@ import os
 import subprocess
 import sys
 from pathlib import Path
+from unittest.mock import Mock
 
 import dearpygui.dearpygui as dpg
+import pandas as pd
 import pytest
 from packaging.version import Version
 
@@ -35,7 +37,7 @@ def open_dialog(kind, scale, *, long_content=False):
     app.theme_preference = "System"
     app.layout_preference = "parameters_only"
     app.language = "en"
-    view = AssayView(lambda _message: None, lambda *_args: None, None, scale)
+    view = AssayView(lambda _message: None, lambda *_args: None, Mock(spec=settings_module.Settings), scale)
     if kind == "chart.preview.modal":
         view.show_chart_preview(ChartSpec("x", "y", (0, 1), (0, 1), ()))
     elif kind == "save.overwrite":
@@ -45,10 +47,10 @@ def open_dialog(kind, scale, *, long_content=False):
     elif kind == "assay.info.modal":
         app._show_assay_info()
     elif kind == "kinetics.reorder.modal":
-        view = Cinetiche(lambda _message: None, lambda *_args: None, None, scale)
+        kinetics = Cinetiche(lambda _message: None, lambda *_args: None, None, scale)
         prefix = "long file name " * 20 if long_content else "file"
-        view.datasets = [(f"{prefix}{index}.KD", None) for index in range(20)]
-        view._show_reorder()
+        kinetics.datasets = [(f"{prefix}{index}.KD", pd.DataFrame()) for index in range(20)]
+        kinetics._show_reorder()
     else:
         app._show_update_confirmation(UpdateRelease(
             tag="v9.0.0", version=Version("9.0.0"),
@@ -165,7 +167,8 @@ def _check_rendered_dialogs(factor, tmp_path):
     dpg.create_context()
     dpg.create_viewport(width=800 * factor, height=560 * factor)
     app = SpectrExcelApp("test", scale)
-    app.submit = lambda *_args: None
+    patch = pytest.MonkeyPatch()
+    patch.setattr(app, "submit", lambda *_args: None)
     try:
         app.build()
         dpg.setup_dearpygui()
@@ -211,3 +214,4 @@ def _check_rendered_dialogs(factor, tmp_path):
     finally:
         app.shutdown()
         dpg.destroy_context()
+        patch.undo()

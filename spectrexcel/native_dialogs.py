@@ -3,6 +3,7 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
+from typing import cast
 
 from spectrexcel.i18n import _
 
@@ -185,4 +186,5 @@ def _windows_dialog(
                 )
             )
         return []
-    return [value for value in file_buffer[:].split("\0") if value]
+    # ctypes' generic array annotations miss c_wchar arrays' string slices.
+    return [value for value in cast(str, file_buffer[:]).split("\0") if value]

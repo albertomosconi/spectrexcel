@@ -5,7 +5,7 @@ from datetime import datetime
 from hashlib import sha256
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
-from typing import Callable
+from collections.abc import Callable
 
 import pandas as pd
 from xlsxwriter import Workbook

@@ -31,15 +31,16 @@ def live_context(monkeypatch, tmp_path):
         view = cls(messages.append, lambda *job: jobs.append(job), Settings(), DisplayScale())
         view.mount(dpg.add_window(), layout)
         if data:
-            if cls is BindingTitolazione:
+            if isinstance(view, BindingTitolazione):
                 view.dataframe = pd.DataFrame({"#Sample": ["first"], 300: [1.0], 800: [0.25]})
             else:
                 frame = pd.DataFrame({0: [1.0, 0.25], 10: [0.5, 0.25]}, index=[300, 800])
-                if cls is Cinetiche:
+                if isinstance(view, Cinetiche):
                     view.datasets = [("first", frame), ("second", frame)]
                 else:
                     view.dataframe = frame
-            view.input_path = Path("input.KD")
+            if not isinstance(view, Cinetiche):
+                view.input_path = Path("input.KD")
         views.append(view)
         return view, jobs, messages
 
@@ -102,7 +103,9 @@ def test_parameter_updates_coalesce_and_reject_old_result(live_context, monkeypa
     assert len(jobs) == 1
     for value in (400, 500, 600):
         dpg.set_value("binding.x_max", value)
-        dpg.get_item_callback("binding.x_max")("binding.x_max", value)
+        callback = dpg.get_item_callback("binding.x_max")
+        assert callback is not None
+        callback("binding.x_max", value)
         view.process_preview()
     assert len(jobs) == 1
     complete(jobs[0])
@@ -154,7 +157,9 @@ def test_info_option_does_not_recompute_chart(live_context):
     view.process_preview()
     complete(jobs.pop())
     dpg.set_value("binding.info", True)
-    dpg.get_item_callback("binding.info")("binding.info", True)
+    callback = dpg.get_item_callback("binding.info")
+    assert callback is not None
+    callback("binding.info", True)
     view.process_preview()
     assert jobs == []
     assert traces(view)
@@ -171,14 +176,18 @@ def test_invalid_wavelength_clears_chart_and_recovers_without_log_spam(live_cont
     view.process_preview()
     complete(jobs.pop())
     dpg.set_value(tag, 801)
-    dpg.get_item_callback(tag)(tag, 801)
+    callback = dpg.get_item_callback(tag)
+    assert callback is not None
+    callback(tag, 801)
     view.process_preview()
     complete(jobs.pop())
     assert traces(view) == []
     assert "801" in dpg.get_value(view._preview_message)
     assert messages == []
     dpg.set_value(tag, 300)
-    dpg.get_item_callback(tag)(tag, 300)
+    callback = dpg.get_item_callback(tag)
+    assert callback is not None
+    callback(tag, 300)
     view.process_preview()
     complete(jobs.pop())
     assert traces(view)
@@ -191,7 +200,9 @@ def test_invalid_axis_range_clears_chart_and_recovers(live_context):
     complete(jobs.pop())
     for maximum in (100, 900):
         dpg.set_value("binding.x_max", maximum)
-        dpg.get_item_callback("binding.x_max")("binding.x_max", maximum)
+        callback = dpg.get_item_callback("binding.x_max")
+        assert callback is not None
+        callback("binding.x_max", maximum)
         view.process_preview()
         complete(jobs.pop())
         assert bool(traces(view)) == (maximum == 900)
@@ -298,7 +309,9 @@ def test_parameter_changes_during_load_use_latest_values(live_context):
     view, jobs, messages = live_context()
     view.submit_load(lambda: None, lambda result: None, loading_text="Loading", failure_text="Failed")
     dpg.set_value("binding.correction_enabled", True)
-    dpg.get_item_callback("binding.correction_enabled")("binding.correction_enabled", True)
+    callback = dpg.get_item_callback("binding.correction_enabled")
+    assert callback is not None
+    callback("binding.correction_enabled", True)
     view.process_preview()
     assert len(jobs) == 1
     complete(jobs.pop())

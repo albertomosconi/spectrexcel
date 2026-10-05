@@ -39,6 +39,24 @@ Run the test suite:
 uv run pytest
 ```
 
+Run type checks:
+
+```shell
+uv run pyright
+```
+
+In VS Code, select the interpreter inside `.venv` using **Python: Select
+Interpreter**. After installing dependencies, reload the window if diagnostics
+have not refreshed. `pyproject.toml` enables standard type checking, deprecation
+warnings, and Python 3.10 compatibility. The `All` platform setting lets the
+checker inspect both Linux and Windows APIs regardless of the editor's OS.
+
+Development dependencies include `pandas-stubs`. Narrow local Dear PyGui
+corrections in `typings/dearpygui/` fix its context-manager annotations and
+child-slot return types while retaining its bundled native API signatures.
+After upgrading Dear PyGui, regenerate public wrapper signatures with
+`uv run python scripts/generate_dearpygui_stubs.py`, then rerun type checks.
+
 ## Releases
 
 Windows x86-64 executables and Linux x86-64 AppImages are published on the

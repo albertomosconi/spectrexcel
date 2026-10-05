@@ -31,10 +31,9 @@ def green_shades(count: int) -> list[tuple[int, int, int, int]]:
         return [(112, 173, 71, 255)]
     return [
         (
-            *(
-                round(light[channel] + (dark[channel] - light[channel]) * step)
-                for channel in range(3)
-            ),
+            round(light[0] + (dark[0] - light[0]) * step),
+            round(light[1] + (dark[1] - light[1]) * step),
+            round(light[2] + (dark[2] - light[2]) * step),
             255,
         )
         for step in (index / (count - 1) for index in range(count))
@@ -51,8 +50,8 @@ class ChartRenderer:
 
     def __init__(self, parent: str | int) -> None:
         self.parent = parent
-        self.plot: int | None = None
-        self.themes: list[int] = []
+        self.plot: str | int | None = None
+        self.themes: list[str | int] = []
 
     def clear(self) -> None:
         if self.plot is not None and dpg.does_item_exist(self.plot):

@@ -1,10 +1,12 @@
 from pathlib import Path
+from unittest.mock import Mock
 
 from spectrexcel.assays.cinetiche import Cinetiche
 from spectrexcel.assays.famiglia_di_spettri import FamigliaDiSpettri
 from spectrexcel.assays.titolazione import BindingTitolazione
 from spectrexcel.assays.view import AssayView, WorkflowControls, green_shades
 from spectrexcel.dpi import DisplayScale
+from spectrexcel.settings import Settings
 
 
 class WorkflowView(AssayView):
@@ -28,12 +30,12 @@ def workflow_view():
             on_error=on_error,
         )
 
-    view = WorkflowView(messages.append, submit, None, DisplayScale())
+    view = WorkflowView(messages.append, submit, Mock(spec=Settings), DisplayScale())
     return view, submitted, messages
 
 
 def assay_view():
-    return AssayView(lambda _message: None, lambda *_args: None, None, DisplayScale())
+    return AssayView(lambda _message: None, lambda *_args: None, Mock(spec=Settings), DisplayScale())
 
 
 def test_assays_declare_workflow_controls():
@@ -222,7 +224,7 @@ def test_submit_suppresses_callbacks_after_dispose():
     def submit(_task, on_success, on_error):
         submitted.update(on_success=on_success, on_error=on_error)
 
-    view = AssayView(lambda _message: None, submit, None, DisplayScale())
+    view = AssayView(lambda _message: None, submit, Mock(spec=Settings), DisplayScale())
     view.submit(lambda: None, received.append, received.append)
     view.dispose()
 

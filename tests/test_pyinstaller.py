@@ -11,14 +11,14 @@ def read_version_info(text):
     """Inspect the generated PyInstaller resource without Windows-only imports."""
     tree = ast.parse(text, mode="eval")
     calls = [node for node in ast.walk(tree) if isinstance(node, ast.Call)]
-    fixed = next(node for node in calls if node.func.id == "FixedFileInfo")
+    fixed = next(node for node in calls if isinstance(node.func, ast.Name) and node.func.id == "FixedFileInfo")
     fixed_values = {
         keyword.arg: ast.literal_eval(keyword.value) for keyword in fixed.keywords
     }
     strings = {
         ast.literal_eval(node.args[0]): ast.literal_eval(node.args[1])
         for node in calls
-        if node.func.id == "StringStruct"
+        if isinstance(node.func, ast.Name) and node.func.id == "StringStruct"
     }
     return fixed_values, strings
 

@@ -181,7 +181,7 @@ def test_format_notes_keeps_sections_after_other_changes():
 def test_download_closes_only_after_browser_opens(monkeypatch):
     app = object.__new__(main.SpectrExcelApp)
     app.has_running_tasks = lambda: False
-    app.log = lambda _message: None
+    monkeypatch.setattr(app, "log", lambda _message: None)
     browser_results = iter((False, True))
     stopped = []
     monkeypatch.setattr(main.webbrowser, "open", lambda _url: next(browser_results))

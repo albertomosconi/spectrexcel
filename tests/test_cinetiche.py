@@ -8,6 +8,7 @@ import pytest
 
 from spectrexcel.assays.cinetiche import Cinetiche, export_kinetics
 from spectrexcel.dpi import DisplayScale
+from tests.xml_helpers import required_attribute, required_text
 
 
 @pytest.mark.parametrize(
@@ -128,7 +129,7 @@ def test_export_kinetics_preserves_dataset_and_chart_order(tmp_path):
         return strings[int(value.text)]
 
     assert [cell_string("B2"), cell_string("C2")] == ["sample-10", "sample-2"]
-    numbers = [float(sheet.findtext(f".//s:c[@r='{ref}']/s:v", namespaces=spreadsheet_ns))
+    numbers = [float(required_text(sheet, f".//s:c[@r='{ref}']/s:v", spreadsheet_ns))
                for ref in ("B3", "B4", "C3", "C4")]
     assert numbers == pytest.approx([0.1, 0.2, 0.7, 0.5])
     for actual, original in zip((spectra, other), originals):
@@ -196,8 +197,8 @@ def test_export_kinetics_zeroes_time_axis(tmp_path):
     minimum = scaling.find("c:min", chart_ns)
     maximum = scaling.find("c:max", chart_ns)
     assert minimum is not None and maximum is not None
-    assert float(minimum.get("val")) == 0.0
-    assert float(maximum.get("val")) == 15.7 - 8.4
+    assert float(required_attribute(minimum, "val")) == 0.0
+    assert float(required_attribute(maximum, "val")) == 15.7 - 8.4
 
 
 @pytest.mark.parametrize("different_grids", [False, True])
@@ -218,12 +219,12 @@ def test_export_kinetics_preserves_missing_absorbance_as_blank_cell(tmp_path, di
     ns = {"s": "http://schemas.openxmlformats.org/spreadsheetml/2006/main"}
     with ZipFile(output) as workbook:
         sheet = ElementTree.fromstring(workbook.read("xl/worksheets/sheet1.xml"))
-    assert float(sheet.findtext(".//s:c[@r='B3']/s:v", namespaces=ns)) == pytest.approx(0.1)
+    assert float(required_text(sheet, ".//s:c[@r='B3']/s:v", ns)) == pytest.approx(0.1)
     assert sheet.find(".//s:c[@r='B4']/s:v", ns) is None
-    assert float(sheet.findtext(".//s:c[@r='B5']/s:v", namespaces=ns)) == pytest.approx(0.3)
+    assert float(required_text(sheet, ".//s:c[@r='B5']/s:v", ns)) == pytest.approx(0.3)
     if different_grids:
-        assert float(sheet.findtext(".//s:c[@r='C4']/s:v", namespaces=ns)) == 15.0
-        assert float(sheet.findtext(".//s:c[@r='D4']/s:v", namespaces=ns)) == pytest.approx(0.7)
+        assert float(required_text(sheet, ".//s:c[@r='C4']/s:v", ns)) == 15.0
+        assert float(required_text(sheet, ".//s:c[@r='D4']/s:v", ns)) == pytest.approx(0.7)
     pd.testing.assert_frame_equal(spectra, original)
 
 
@@ -254,7 +255,7 @@ def test_export_kinetics_preserves_each_files_time_grid(
 
     def numbers(column, count):
         return [
-            float(sheet.findtext(f".//s:c[@r='{column}{row}']/s:v", namespaces=ns))
+            float(required_text(sheet, f".//s:c[@r='{column}{row}']/s:v", ns))
             for row in range(3, count + 3)
         ]
 
@@ -265,7 +266,7 @@ def test_export_kinetics_preserves_each_files_time_grid(
     assert sheet.find(f".//s:c[@r='C{len(expected_times) + 3}']", ns) is None
     for ref, expected in [("A2", "Time (s)"), ("B2", "first"),
                           ("C2", "Time (s)"), ("D2", "second")]:
-        index = int(sheet.findtext(f".//s:c[@r='{ref}']/s:v", namespaces=ns))
+        index = int(required_text(sheet, f".//s:c[@r='{ref}']/s:v", ns))
         assert strings[index] == expected
     series = chart.findall(".//c:ser", chart_ns)
     end = len(expected_times) + 2
@@ -281,12 +282,12 @@ def test_export_kinetics_preserves_each_files_time_grid(
         "data!$B$2", "data!$D$2",
     ]
     x_axis = next(axis for axis in chart.findall(".//c:valAx", chart_ns)
-                  if axis.find("c:axPos", chart_ns).get("val") == "b")
-    assert float(x_axis.find("c:scaling/c:max", chart_ns).get("val")) == pytest.approx(
+                  if required_attribute(axis.find("c:axPos", chart_ns), "val") == "b")
+    assert float(required_attribute(x_axis.find("c:scaling/c:max", chart_ns), "val")) == pytest.approx(
         max(10.0, expected_times[-1]), rel=0, abs=1e-12
     )
     drawing_ns = {"d": "http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing"}
-    assert int(drawing.findtext(".//d:from/d:col", namespaces=drawing_ns)) >= 4
+    assert int(required_text(drawing, ".//d:from/d:col", drawing_ns)) >= 4
     for actual, original in zip((first, second), originals):
         pd.testing.assert_frame_equal(actual, original)
 
@@ -356,7 +357,7 @@ def test_kinetics_preview_zeroes_matching_relative_grids_and_preserves_trace_ord
     with ZipFile(output) as workbook:
         sheet = ElementTree.fromstring(workbook.read("xl/worksheets/sheet1.xml"))
     for column, series in zip(value_columns, spec.series):
-        actual = [float(sheet.findtext(f".//s:c[@r='{column}{row}']/s:v", namespaces=ns)) for row in (3, 4)]
+        actual = [float(required_text(sheet, f".//s:c[@r='{column}{row}']/s:v", ns)) for row in (3, 4)]
         assert actual == pytest.approx(series.y)
     for actual, original in zip((first, second), originals):
         pd.testing.assert_frame_equal(actual, original)
@@ -422,6 +423,6 @@ def test_kinetics_preview_and_export_axes_show_negative_and_flat_traces(monkeypa
     ns = {"c": "http://schemas.openxmlformats.org/drawingml/2006/chart"}
     with ZipFile(output) as workbook:
         chart = ElementTree.fromstring(workbook.read("xl/charts/chart1.xml"))
-    y_axis = next(axis for axis in chart.findall(".//c:valAx", ns) if axis.find("c:axPos", ns).get("val") == "l")
-    bounds = tuple(float(y_axis.find(f"c:scaling/c:{name}", ns).get("val")) for name in ("min", "max"))
+    y_axis = next(axis for axis in chart.findall(".//c:valAx", ns) if required_attribute(axis.find("c:axPos", ns), "val") == "l")
+    bounds = tuple(float(required_attribute(y_axis.find(f"c:scaling/c:{name}", ns), "val")) for name in ("min", "max"))
     assert bounds == expected

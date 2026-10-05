@@ -5,6 +5,8 @@ from zipfile import ZipFile
 import pandas as pd
 import pytest
 
+from tests.xml_helpers import required_text
+
 from spectrexcel.assays.parsing import parse_sd_file, parse_txt_file
 from spectrexcel.assays.titolazione import clean_duplicate_spectra, export_binding
 
@@ -106,8 +108,8 @@ def test_binding_export_keeps_missing_text_absorbance_as_blank_cell(tmp_path):
     ns = {"s": "http://schemas.openxmlformats.org/spreadsheetml/2006/main"}
     with ZipFile(output) as workbook:
         sheet = ElementTree.fromstring(workbook.read("xl/worksheets/sheet1.xml"))
-    assert float(sheet.findtext(".//s:c[@r='C2']/s:v", namespaces=ns)) == 0.6
-    assert float(sheet.findtext(".//s:c[@r='B3']/s:v", namespaces=ns)) == 0.7
+    assert float(required_text(sheet, ".//s:c[@r='C2']/s:v", ns)) == 0.6
+    assert float(required_text(sheet, ".//s:c[@r='B3']/s:v", ns)) == 0.7
     assert sheet.find(".//s:c[@r='C3']/s:v", ns) is None
     pd.testing.assert_frame_equal(dataframe, original)
 
@@ -129,10 +131,10 @@ def test_binding_export_preserves_generated_sd_labels_and_all_absorbances(tmp_pa
     ns = {"s": "http://schemas.openxmlformats.org/spreadsheetml/2006/main"}
     with ZipFile(output) as workbook:
         sheet = ElementTree.fromstring(workbook.read("xl/worksheets/sheet1.xml"))
-    assert [int(sheet.findtext(f".//s:c[@r='A{row}']/s:v", namespaces=ns))
+    assert [int(required_text(sheet, f".//s:c[@r='A{row}']/s:v", ns))
             for row in (2, 3)] == [1, 2]
     for row, expected in [(2, 0.25), (3, 0.5)]:
-        values = [float(cell.findtext("s:v", namespaces=ns))
+        values = [float(required_text(cell, "s:v", ns))
                   for cell in sheet.findall(f"s:sheetData/s:row[@r='{row}']/s:c", ns)]
         assert values[1:] == [expected] * 911
     pd.testing.assert_frame_equal(dataframe, original)

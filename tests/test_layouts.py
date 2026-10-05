@@ -127,6 +127,7 @@ def _check_rendered_layouts(tmp_path, factor, language):
     app._find_citation = lambda: None
 
     def frames():
+        assert app.assay_view is not None
         deadline = time.monotonic() + 5
         for _frame in range(12):
             app.process_results()
@@ -145,27 +146,33 @@ def _check_rendered_layouts(tmp_path, factor, language):
         for index in range(len(ASSAYS)):
             app._load_assay(index)
             view = app.assay_view
-            if index == 0:
+            assert isinstance(view, (BindingTitolazione, Cinetiche, FamigliaDiSpettri))
+            assert view.workflow_controls is not None
+            input_path = Path("long filename " * 10 + ".KD")
+            if isinstance(view, BindingTitolazione):
                 view.dataframe = pd.DataFrame({"#Sample": ["one"], 300: [1.0], 800: [0.25]})
             else:
                 frame = pd.DataFrame({0: [1.0, 0.25], 10: [0.5, 0.25]}, index=[300, 800])
-                if index == 1:
+                if isinstance(view, Cinetiche):
                     view.datasets = [("long filename " * 6 + str(i), frame) for i in range(8)]
                 else:
                     view.dataframe = frame
-            view.input_path = Path("long filename " * 10 + ".KD")
-            dpg.set_value(view.workflow_controls.status, view.input_path.name)
+            if not isinstance(view, Cinetiche):
+                view.input_path = input_path
+            dpg.set_value(view.workflow_controls.status, input_path.name)
             for width, height in ((720, 520), (1000, 700)):
                 dpg.configure_viewport(0, width=width * factor, height=height * factor)
                 app._layout_changed(None, _(LAYOUT_LABELS[PARAMETERS_PREVIEW]))
                 frames()
                 panes = view._assay_layout
+                assert panes is not None
                 available = dpg.get_item_state("assay.content")["content_region_avail"]
                 left = dpg.get_item_rect_size(panes.parameters)
                 right = dpg.get_item_rect_size(panes.preview)
                 assert abs(left[0] + right[0] + scale.pixels(8) - available[0]) <= 2
                 assert abs(right[1] - available[1]) <= 2
                 assert dpg.get_y_scroll_max("assay.content") == 0
+                assert view._embedded_renderer is not None
                 assert view._embedded_renderer.plot is not None
                 for tag, logical_width, label, heading in view._layout_fields:
                     state = dpg.get_item_state(tag)

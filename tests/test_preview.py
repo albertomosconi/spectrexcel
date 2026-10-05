@@ -2,9 +2,11 @@ import dearpygui.dearpygui as dpg
 import pytest
 import pandas as pd
 from pathlib import Path
+from unittest.mock import Mock
 
 from spectrexcel.assays.view import AssayView, ChartSeries, ChartSpec
 from spectrexcel.dpi import DisplayScale
+from spectrexcel.settings import Settings
 
 
 def test_binding_chart_builder_corrects_without_mutating():
@@ -26,7 +28,8 @@ def test_binding_chart_builder_rejects_invalid_parameters(bounds, correction):
     from spectrexcel.assays.titolazione import binding_chart_spec
     frame = pd.DataFrame({"#Sample": ["one"], 300: [1.0], 800: [0.25]})
     with pytest.raises(ValueError):
-        binding_chart_spec(frame, *bounds, correction)
+        x_min, x_max, y_min, y_max = bounds
+        binding_chart_spec(frame, x_min, x_max, y_min, y_max, correction)
 
 
 def test_family_chart_builder_preserves_stride_title_and_negative_limits():
@@ -53,6 +56,7 @@ def test_kinetics_preview_task_snapshots_parameters_and_order(monkeypatch):
     values = {"kinetics.reading": 300, "kinetics.correction": 800}
     monkeypatch.setattr(dpg, "get_value", values.__getitem__)
     task = view.preview_task()
+    assert task is not None
     view.datasets.reverse()
     values["kinetics.reading"] = 801
     monkeypatch.setattr(dpg, "get_value", lambda tag: pytest.fail("worker read widget"))
@@ -75,7 +79,7 @@ def preview_context(monkeypatch):
 
 @pytest.mark.parametrize("legend", [False, True])
 def test_chart_preview_emits_series_coordinates_labels_and_axis_limits(preview_context, monkeypatch, legend):
-    view = AssayView(lambda message: None, lambda *args: None, None, DisplayScale())
+    view = AssayView(lambda message: None, lambda *args: None, Mock(spec=Settings), DisplayScale())
     limits = {}
     set_axis_limits = dpg.set_axis_limits
 
@@ -114,7 +118,7 @@ def test_chart_preview_emits_series_coordinates_labels_and_axis_limits(preview_c
 
 
 def test_reopening_chart_preview_replaces_old_series(preview_context):
-    view = AssayView(lambda message: None, lambda *args: None, None, DisplayScale())
+    view = AssayView(lambda message: None, lambda *args: None, Mock(spec=Settings), DisplayScale())
     view.show_chart_preview(ChartSpec("x", "y", (0, 1), (0, 1), (
         ChartSeries("old", [0, 1], [0.2, 0.3]),
     )))
@@ -166,7 +170,7 @@ def test_renderer_replaces_and_disposes_owned_themes(preview_context):
 
 
 def test_assay_dispose_closes_modal_and_owned_themes(preview_context):
-    view = AssayView(lambda message: None, lambda *args: None, None, DisplayScale())
+    view = AssayView(lambda message: None, lambda *args: None, Mock(spec=Settings), DisplayScale())
     before = set(dpg.get_all_items())
     view.show_chart_preview(ChartSpec("x", "y", (0, 1), (0, 1),
                            (ChartSeries("one", [0, 1], [0.2, 0.3]),)))

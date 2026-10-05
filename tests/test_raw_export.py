@@ -9,6 +9,7 @@ from spectrexcel.assays.cinetiche import export_kinetics
 from spectrexcel.assays.export_info import SourceInfo
 from spectrexcel.assays.famiglia_di_spettri import export_spectrum_family
 from spectrexcel.assays.titolazione import export_binding
+from tests.xml_helpers import required_attribute, required_text
 
 
 NS = {
@@ -17,29 +18,30 @@ NS = {
 }
 
 
-def export(assay, path, correction=800, info=False, different_times=False):
-    kwargs = {"info_sources": (SourceInfo("input.KD", "abc"),) if info else None}
+def export(assay, path, correction: int | None = 800, info=False, different_times=False):
+    sources = (SourceInfo("input.KD", "abc"),) if info else None
     spectra = pd.DataFrame({5.0: [3.0, 0.25], 15.0: [-0.5, 0.1]}, index=[300, 800])
     original = spectra.copy(deep=True)
     if assay == "binding":
         frame = pd.DataFrame({"#Sample": ["first", "second"], "Std.Dev.": [0.1, 0.2],
                               "300": [3.0, -0.5], "800": [0.25, 0.1]})
         before = frame.copy(deep=True)
-        export_binding(frame, path, 200, 900, -1.0, 1.0, correction, **kwargs)
+        export_binding(frame, path, 200, 900, -1.0, 1.0, correction, info_sources=sources)
         pd.testing.assert_frame_equal(frame, before)
     elif assay == "spectra":
-        export_spectrum_family(spectra, Path("input.KD"), path, correction, **kwargs)
+        export_spectrum_family(spectra, Path("input.KD"), path, correction, info_sources=sources)
     else:
         other = pd.DataFrame({10.0: [1.5, 0.2], 23.0: [2.0, 0.3], 31.0: [2.5, 0.4]},
                              index=[300, 800]) if different_times else spectra.copy()
         other_before = other.copy(deep=True)
-        export_kinetics([("first", spectra), ("second", other)], path, 300, correction, **kwargs)
+        assert correction is not None
+        export_kinetics([("first", spectra), ("second", other)], path, 300, correction, info_sources=sources)
         pd.testing.assert_frame_equal(other, other_before)
     pd.testing.assert_frame_equal(spectra, original)
 
 
 def cell_values(sheet, refs):
-    return [float(sheet.findtext(f".//s:c[@r='{ref}']/s:v", namespaces=NS)) for ref in refs]
+    return [float(required_text(sheet, f".//s:c[@r='{ref}']/s:v", NS)) for ref in refs]
 
 
 @pytest.mark.parametrize("assay", ["binding", "spectra", "kinetics"])
@@ -68,13 +70,13 @@ def test_corrected_export_preserves_raw_values_and_chart_in_second_sheet(tmp_pat
         assert raw.find("s:drawing", NS) is not None
         chart = ET.fromstring(archive.read("xl/charts/chart2.xml"))
         formulas = [element.text for element in chart.findall(".//c:f", NS)]
-        assert formulas and all(formula.startswith("raw!") for formula in formulas)
+        assert formulas and all(formula is not None and formula.startswith("raw!") for formula in formulas)
         # Raw values exceed configured corrected-chart range; none should be clipped.
         y_axis = chart.findall(".//c:valAx", NS)[1]
         minimum = y_axis.find("c:scaling/c:min", NS)
         maximum = y_axis.find("c:scaling/c:max", NS)
-        assert minimum is None or float(minimum.get("val")) <= -0.5
-        assert maximum is None or float(maximum.get("val")) >= 3.0
+        assert minimum is None or float(required_attribute(minimum, "val")) <= -0.5
+        assert maximum is None or float(required_attribute(maximum, "val")) >= 3.0
 
 
 @pytest.mark.parametrize("assay", ["binding", "spectra"])

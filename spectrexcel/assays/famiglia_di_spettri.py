@@ -1,10 +1,12 @@
 from datetime import datetime
 from pathlib import Path
-from typing import Callable
+from collections.abc import Callable
+from typing import cast
 
 import dearpygui.dearpygui as dpg
 import pandas as pd
 from xlsxwriter import Workbook, worksheet
+from xlsxwriter.chart_scatter import ChartScatter
 
 from spectrexcel.i18n import _
 
@@ -50,7 +52,7 @@ def export_spectrum_family(
     def write_sheet(writer, sheet_name, dataframe, y_min, y_max):
         workbook: Workbook = writer.book
         sheet: worksheet.Worksheet = workbook.add_worksheet(sheet_name)
-        chart = workbook.add_chart({"type": "scatter", "subtype": "smooth"})
+        chart = cast(ChartScatter, workbook.add_chart({"type": "scatter", "subtype": "smooth"}))
         dataframe.to_excel(writer, sheet_name=sheet_name, index=True, header=True)
 
         for column in range(0, len(dataframe.columns), 2):
@@ -160,7 +162,7 @@ class FamigliaDiSpettri(AssayView):
         self.dataframe: pd.DataFrame | None = None
         self.input_path: Path | None = None
 
-    def build(self, parent: str) -> None:
+    def build(self, parent: str | int) -> None:
         px = self.display_scale.pixels
         title = dpg.add_text(_("1. Upload a KD file"), parent=parent)
         dpg.bind_item_theme(title, "theme.accent")

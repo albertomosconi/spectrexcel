@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 import dearpygui.dearpygui as dpg
 
@@ -43,8 +44,8 @@ class AssayView:
         self.layout = PARAMETERS_ONLY
         self._assay_layout: AssayLayout | None = None
         self._layout_rows: list[str | int] = []
-        self._layout_fields: list[tuple[str | int, int, str, int | None]] = []
-        self._preview_message: int | None = None
+        self._layout_fields: list[tuple[str | int, int, str, str | int | None]] = []
+        self._preview_message: str | int | None = None
         self._preview_generation = 0
         self._preview_dirty = False
         self._preview_running = False
@@ -68,7 +69,7 @@ class AssayView:
         heading = None
         if label:
             heading = dpg.add_text(
-                label, parent=dpg.get_item_parent(tag), before=tag, show=False,
+                label, parent=dpg.get_item_parent(tag) or 0, before=tag, show=False,
             )
         self._layout_fields.append((tag, width, label, heading))
 
@@ -85,8 +86,9 @@ class AssayView:
             if heading is not None:
                 dpg.configure_item(heading, show=embedded and dpg.get_item_configuration(tag)["show"])
                 dpg.configure_item(tag, label="" if embedded else label)
-        if self._workflow().preview is not None:
-            dpg.configure_item(self._workflow().preview, show=not embedded)
+        preview = self._workflow().preview
+        if preview is not None:
+            dpg.configure_item(preview, show=not embedded)
         self.maintain_layout()
         self.request_preview()
 
@@ -147,7 +149,8 @@ class AssayView:
             self._preview_running = False
             if current() and self._embedded_renderer is not None:
                 try:
-                    dpg.configure_item(self._preview_message, show=False)
+                    if self._preview_message is not None:
+                        dpg.configure_item(self._preview_message, show=False)
                     self._embedded_renderer.render(spec)
                 except Exception as error:
                     failed(error)
@@ -215,7 +218,7 @@ class AssayView:
             raise RuntimeError("Assay workflow controls are not configured")
         return self.workflow_controls
 
-    def add_info_checkbox(self, parent: str) -> None:
+    def add_info_checkbox(self, parent: str | int) -> None:
         dpg.add_checkbox(
             label=_("Include info sheet"),
             tag=self._workflow().export.replace(".export", ".info"),
@@ -350,6 +353,11 @@ class AssayView:
         tag = "save.overwrite"
         if dpg.does_item_exist(tag):
             dpg.delete_item(tag)
+
+        def replace() -> None:
+            dpg.delete_item(tag)
+            callback(path)
+
         with dialog_window(
             label=_("Replace existing file?"),
             tag=tag,
@@ -357,7 +365,7 @@ class AssayView:
             height=px(145),
             scale=self.display_scale,
             actions=(
-                DialogAction(_("Replace"), lambda: (dpg.delete_item(tag), callback(path)), 100),
+                DialogAction(_("Replace"), replace, 100),
                 DialogAction(_("Cancel"), lambda: dpg.delete_item(tag), 100),
             ),
         ):

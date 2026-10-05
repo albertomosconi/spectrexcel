@@ -15,6 +15,7 @@ from spectrexcel.assays.famiglia_di_spettri import FamigliaDiSpettri, export_spe
 from spectrexcel.assays.titolazione import BindingTitolazione, export_binding
 from spectrexcel.dpi import DisplayScale
 from spectrexcel.assays.parsing import ParseError
+from tests.xml_helpers import required_attribute, required_text
 
 
 NS = {"s": "http://schemas.openxmlformats.org/spreadsheetml/2006/main"}
@@ -35,7 +36,7 @@ def read_workbook(path):
             for row in sheet.findall("s:sheetData/s:row", NS):
                 values = []
                 for cell in row.findall("s:c", NS):
-                    value = cell.findtext("s:v", namespaces=NS)
+                    value = required_text(cell, "s:v", NS)
                     values.append(strings[int(value)] if cell.get("t") == "s" else value)
                 rows.append(values)
         return names, rows, archive.read("xl/worksheets/sheet1.xml"), archive.read("xl/charts/chart1.xml")
@@ -98,7 +99,11 @@ def test_checkbox_defaults_off_below_export_buttons(assay, cls):
         assert dpg.does_item_exist(f"{assay}.info")
         assert dpg.get_value(f"{assay}.info") is False
         children = dpg.get_item_children(parent, 1)
-        assert children.index(dpg.get_alias_id(f"{assay}.info")) > children.index(dpg.get_item_parent(f"{assay}.export"))
+        export_parent = dpg.get_item_parent(f"{assay}.export")
+        assert export_parent is not None
+        info_id = dpg.get_alias_id(f"{assay}.info")
+        assert isinstance(info_id, int)
+        assert children.index(info_id) > children.index(export_parent)
         assert dpg.get_item_parent(f"{assay}.preview") == dpg.get_item_parent(f"{assay}.export")
     finally:
         dpg.destroy_context()
@@ -149,22 +154,23 @@ def test_info_tables_have_bold_headers_and_blank_row_separators(tmp_path, assay,
         styles = ET.fromstring(archive.read("xl/styles.xml"))
     fonts = styles.find("s:fonts", NS)
     cell_formats = styles.find("s:cellXfs", NS)
-    populated_rows = {int(row.get("r")) for row in sheet.findall("s:sheetData/s:row", NS)
+    assert fonts is not None and cell_formats is not None
+    populated_rows = {int(required_attribute(row, "r")) for row in sheet.findall("s:sheetData/s:row", NS)
                       if row.findall("s:c", NS)}
     found_headers = []
     for row in sheet.findall("s:sheetData/s:row", NS):
         cells = row.findall("s:c", NS)
         if not cells or cells[0].get("t") != "s":
             continue
-        label = strings[int(cells[0].findtext("s:v", namespaces=NS))]
+        label = strings[int(required_text(cells[0], "s:v", NS))]
         if label not in ("Sources", "Settings", "Processing"):
             continue
         found_headers.append(label)
-        number = int(row.get("r"))
+        number = int(required_attribute(row, "r"))
         assert number - 1 not in populated_rows
         assert number - 2 in populated_rows
         for cell in cells:
-            font = fonts[int(cell_formats[int(cell.get("s", "0"))].get("fontId"))]
+            font = fonts[int(required_attribute(cell_formats[int(cell.get("s", "0"))], "fontId"))]
             assert font.find("s:b", NS) is not None
     assert found_headers == ["Sources", "Settings", "Processing"]
 
@@ -268,6 +274,7 @@ def test_loaded_sources_and_checkbox_reach_export_without_affecting_preview(tmp_
             path.write_bytes(b"changed after loading")
         previews = []
         monkeypatch.setattr(view, "show_chart_preview", previews.append)
+        plain_data = plain_chart = None
         for enabled in (False, True):
             dpg.set_value(f"{assay}.info", enabled)
             view._show_preview()

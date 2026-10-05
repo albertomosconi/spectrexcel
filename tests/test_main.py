@@ -6,6 +6,7 @@ from pathlib import Path
 from threading import Event, get_ident
 
 import spectrexcel.main as main_module
+from spectrexcel.assays import BindingTitolazione, Cinetiche, FamigliaDiSpettri
 from spectrexcel.dpi import DisplayScale
 from spectrexcel.i18n import TRANSLATIONS_IT
 from spectrexcel.i18n import _, get_language, set_language
@@ -14,7 +15,7 @@ from spectrexcel.settings import Settings
 
 
 def test_assays_have_translated_descriptions():
-    assert ASSAYS
+    assert len(ASSAYS) == 3
     assert TRANSLATIONS_IT["About assay"].strip()
     for assay in ASSAYS:
         assert assay.description.strip()
@@ -73,7 +74,9 @@ def test_footer_uses_concept_doi_until_exact_version_resolves(
         assert dpg.get_item_type("main.citation") == "mvAppItemType::mvText"
         assert dpg.get_value("main.citation") == "10.5281/zenodo.23161786"
         assert dpg.get_value("main.citation.tooltip.text") == fallback_tooltip
-        dpg.get_item_callback("main.citation.click")()
+        callback = dpg.get_item_callback("main.citation.click")
+        assert callback is not None
+        callback()
         assert opened == ["https://doi.org/10.5281/zenodo.23161786"]
         assert any(task[0] == app._find_citation for task in tasks)
 
@@ -84,7 +87,9 @@ def test_footer_uses_concept_doi_until_exact_version_resolves(
         app._citation_lookup_finished("10.5281/zenodo.23161787")
         assert dpg.get_value("main.citation") == "10.5281/zenodo.23161787"
         assert dpg.get_value("main.citation.tooltip.text") == version_tooltip
-        dpg.get_item_callback("main.citation.click")()
+        callback = dpg.get_item_callback("main.citation.click")
+        assert callback is not None
+        callback()
         assert opened[-1] == "https://doi.org/10.5281/zenodo.23161787"
     finally:
         app.executor.shutdown(wait=True)
@@ -296,10 +301,12 @@ def test_layout_setting_preserves_live_assay_state(
     try:
         app.build()
         view = app.assay_view
+        assert isinstance(view, (BindingTitolazione, Cinetiche, FamigliaDiSpettri))
+        assert view.workflow_controls is not None
         tag = ("binding.x_min", "kinetics.reading", "spectra.correction")[index]
         dpg.set_value(tag, 333)
         frame = pd.DataFrame({0: [1.0, 0.25], 10: [0.5, 0.25]}, index=[300, 800])
-        if index == 1:
+        if isinstance(view, Cinetiche):
             view.datasets = [("second", frame), ("first", frame)]
             data = view.datasets
         else:
@@ -310,15 +317,16 @@ def test_layout_setting_preserves_live_assay_state(
             app._layout_changed(None, label)
             assert app.assay_view is view
             assert dpg.get_value(tag) == 333
-            assert (view.datasets if index == 1 else view.dataframe) is data
+            assert (view.datasets if isinstance(view, Cinetiche) else view.dataframe) is data
             assert not dpg.get_item_configuration(view.workflow_controls.export)["enabled"]
         assert Settings().get("main/layout", "") == "parameters_preview"
-        if index == 1:
+        if isinstance(view, Cinetiche):
             assert [name for name, frame in view.datasets] == ["second", "first"]
         else:
             assert view.input_path == Path("original.KD")
         app._load_assay((index + 1) % 3)
         assert not view.active
+        assert app.assay_view is not None
         assert app.assay_view.layout == "parameters_preview"
     finally:
         app.shutdown()
@@ -337,6 +345,7 @@ def test_startup_resolves_saved_layout(dpg_context, monkeypatch, tmp_path, prefe
     try:
         app.build()
         assert app.layout_preference == expected
+        assert app.assay_view is not None
         assert app.assay_view.layout == expected
         assert dpg.get_item_configuration("binding.preview")["show"] == (expected == "parameters_only")
     finally:
@@ -357,7 +366,9 @@ def test_settings_layout_combo_applies_live(dpg_context, monkeypatch, tmp_path):
         assert dpg.get_item_configuration("settings.layout")["items"] == [
             "parameters only", "parameters + preview"]
         dpg.set_value("settings.layout", "parameters + preview")
-        dpg.get_item_callback("settings.layout")("settings.layout", "parameters + preview")
+        callback = dpg.get_item_callback("settings.layout")
+        assert callback is not None
+        callback("settings.layout", "parameters + preview")
         assert dpg.does_item_exist("settings.modal")
         assert not dpg.get_item_configuration("binding.preview")["show"]
     finally:
@@ -372,6 +383,7 @@ def test_layout_save_failure_logs_but_applies_and_unknown_label_ignored(dpg_cont
     try:
         app.build()
         messages = []
+        assert app.assay_view is not None
         monkeypatch.setattr(app, "log", messages.append)
         monkeypatch.setattr(app.settings, "set", lambda *args: False)
         app._layout_changed(None, "bad label")
@@ -394,6 +406,8 @@ def test_app_services_pending_preview_on_render_thread(dpg_context, monkeypatch,
         app.build()
         jobs.clear()  # startup update/citation tasks
         view = app.assay_view
+        assert isinstance(view, BindingTitolazione)
+        assert view._embedded_renderer is not None
         view.dataframe = pd.DataFrame({"#Sample": ["one"], 300: [1.0], 800: [0.25]})
         app._layout_changed(None, "parameters + preview")
         app.maintain_assay()

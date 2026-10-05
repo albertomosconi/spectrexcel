@@ -3,7 +3,7 @@ import struct
 from io import BytesIO, TextIOWrapper
 from pathlib import Path
 from struct import iter_unpack
-from typing import Callable
+from collections.abc import Callable
 
 import pandas as pd
 
@@ -74,11 +74,10 @@ def parse_sd_file(filepath: Path, *, contents: bytes | None = None) -> pd.DataFr
         ),
         "(`DataType": (b"\x28\x60\x44\x61\x74\x61\x54\x79\x70\x65", 33, b"\x02"),
     }
-    for _key, (header, spacing, end_char) in headers.items():
-        if contents.find(header, 0) != -1:
-            break
-    else:
-        header = None
+    header, spacing, end_char = next(
+        (values for values in headers.values() if contents.find(values[0], 0) != -1),
+        (None, 0, b""),
+    )
 
     position = 0
     out = []

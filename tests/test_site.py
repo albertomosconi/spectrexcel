@@ -87,6 +87,7 @@ def test_sitemap_lists_all_public_pages_once_with_resolving_urls():
         "https://spectrexcel.albertomosconi.it/it/docs/",
     }
     for url in urls:
+        assert url is not None
         route = url.removeprefix("https://spectrexcel.albertomosconi.it/")
         assert (SITE / route / "index.html").is_file()
 

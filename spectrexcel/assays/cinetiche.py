@@ -1,11 +1,13 @@
 from datetime import datetime
 from pathlib import Path
-from typing import Callable
+from collections.abc import Callable
+from typing import cast
 
 import dearpygui.dearpygui as dpg
 import pandas as pd
 from natsort import natsorted
 from xlsxwriter import Workbook, worksheet
+from xlsxwriter.chart_scatter import ChartScatter
 
 from spectrexcel.dialogs import DialogAction, dialog_window
 from spectrexcel.i18n import _
@@ -39,9 +41,9 @@ def kinetics_chart_spec(
             )
         relative_times = spectra.columns.values.astype(float)
         relative_times = relative_times - relative_times[0]
-        final = spectra.loc[reading_wavelength]
+        final = cast(pd.Series, spectra.loc[reading_wavelength])
         if correction_wavelength is not None:
-            final = final - spectra.loc[correction_wavelength]
+            final = final - cast(pd.Series, spectra.loc[correction_wavelength])
         absorbance_min = min(absorbance_min, float(final.min()))
         absorbance_max = max(absorbance_max, float(final.max()))
         series.append(
@@ -90,7 +92,7 @@ def export_kinetics(
                 chart_column,
                 f"correction wavelength: {correction_wavelength}nm",
             )
-        chart = workbook.add_chart({"type": "scatter", "subtype": "smooth"})
+        chart = cast(ChartScatter, workbook.add_chart({"type": "scatter", "subtype": "smooth"}))
         chart.set_title(
             {
                 "name": "trends",
@@ -190,7 +192,7 @@ class Cinetiche(AssayView):
         super().__init__(*args, **kwargs)
         self.datasets: list[tuple[str, pd.DataFrame]] = []
 
-    def build(self, parent: str) -> None:
+    def build(self, parent: str | int) -> None:
         px = self.display_scale.pixels
         title = dpg.add_text(_("1. Upload KD files"), parent=parent)
         dpg.bind_item_theme(title, "theme.accent")
