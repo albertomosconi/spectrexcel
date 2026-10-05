@@ -42,6 +42,7 @@
           <a href="/it/docs/#first-export">Prima esportazione</a>
           <a href="/it/docs/#export-details">Dettagli di esportazione</a>
           <a href="/it/docs/#citation">Citazione</a>
+          <a href="/it/docs/#privacy">Privacy</a>
           <a href="/it/docs/#kinetics">Cinetiche</a>
           <a href="/it/docs/#binding">Binding / titolazione</a>
           <a href="/it/docs/#spectra-family">Famiglia di spettri</a>
@@ -54,7 +55,7 @@
         <header>
           <img src="/assets/icon.png" alt="Icona dell'applicazione SpectrExcel" width="96" height="96">
           <h1>Guida utente di SpectrExcel</h1>
-          <p>Installa l'applicazione desktop, seleziona un assay e trasforma i file spettrofotometrici supportati in una cartella di lavoro Excel.</p>
+          <p>Installa l'applicazione desktop, seleziona un assay e trasforma i file spettrofotometrici supportati in un file Excel.</p>
         </header>
 
         <section id="install">
@@ -91,7 +92,7 @@
 
         <section id="export-details">
           <h2>Dettagli di esportazione facoltativi</h2>
-          <p>Ogni assay ha la casella <strong>Includi foglio info</strong> sotto i pulsanti <strong>Genera Excel</strong> e <strong>Anteprima grafico</strong>. Inizialmente non è selezionata e ricorda l'ultima scelta tra gli assay e i riavvii dell'applicazione. Abilitala prima di generare la cartella di lavoro per aggiungere un foglio <code>info</code>.</p>
+          <p>Ogni assay ha la casella <strong>Includi foglio info</strong> sotto i pulsanti <strong>Genera Excel</strong> e <strong>Anteprima grafico</strong>. Inizialmente non è selezionata e ricorda l'ultima scelta tra gli assay e i riavvii dell'applicazione. Abilitala prima di generare il file Excel per aggiungere un foglio <code>info</code>.</p>
           <p>Il foglio registra:</p>
           <ul>
             <li>La versione di SpectrExcel e la data e l'ora di esportazione, incluso il fuso orario.</li>
@@ -99,7 +100,7 @@
             <li>L'assay, le impostazioni che influenzano l'esportazione e i passaggi di elaborazione applicati, come la correzione alla lunghezza d'onda o la rimozione dei duplicati.</li>
           </ul>
           <p>I contenuti seguono la lingua dell'applicazione; nomi dei file e hash restano invariati. Le intestazioni delle tabelle sono in grassetto, con una riga vuota tra le sezioni. Tabelle delle misure, grafici e anteprime non cambiano.</p>
-          <p>Conserva i file di input originali insieme alla cartella di lavoro. Il foglio <code>info</code> rende i risultati tracciabili, ma non incorpora i file sorgente. Gli hash descrivono gli input al momento del caricamento, anche se i file cambiano prima dell'esportazione.</p>
+          <p>Conserva i file di input originali insieme al file Excel. Il foglio <code>info</code> rende i risultati tracciabili, ma non incorpora i file sorgente. Gli hash descrivono gli input al momento del caricamento, anche se i file cambiano prima dell'esportazione.</p>
         </section>
 
         <section id="citation">
@@ -108,38 +109,50 @@
           <p>Il collegamento allineato a destra nel piè di pagina dell'app mostra il DOI della versione installata quando la ricerca all'avvio riesce. Durante la ricerca, senza connessione o se la versione non è archiviata, mostra il <a href="https://doi.org/10.5281/zenodo.23161786">DOI di tutte le versioni</a>, che rimanda alla versione più recente. Passa il puntatore sul collegamento per vedere quale citazione rappresenta.</p>
         </section>
 
+        <section id="privacy">
+          <h2>Privacy e accesso alla rete</h2>
+          <p>I file delle misure vengono elaborati in locale e non vengono inviati a GitHub o Zenodo.</p>
+          <p>L'app contatta automaticamente GitHub all'avvio per verificare gli aggiornamenti e quando selezioni Verifica aggiornamenti. Contatta anche Zenodo all'avvio per cercare il DOI della versione installata; il confronto delle versioni avviene in locale. Entrambi i servizi ricevono le normali informazioni di connessione, inclusi l'indirizzo IP pubblico e le intestazioni della richiesta. Al momento non è possibile disattivare queste richieste all'avvio dalle impostazioni. I download, i collegamenti al progetto e i DOI richiesti vengono aperti nel browser.</p>
+          <p>Consulta l'<a href="https://github.com/albertomosconi/spectrexcel/blob/main/CODE_SIGNING.md#privacy-and-network-access">informativa su privacy e accesso alla rete</a>, l'<a href="https://docs.github.com/en/site-policy/privacy-policies/github-privacy-statement">informativa sulla privacy di GitHub</a> e l'<a href="https://about.zenodo.org/privacy-policy/">informativa sulla privacy di Zenodo</a>.</p>
+        </section>
+
         <section id="kinetics">
           <h2>Cinetiche</h2>
           <p>Usa <strong>cinetiche</strong> per seguire le variazioni di assorbanza nel tempo in una o più misure <code>.KD</code>.</p>
           <ol>
             <li>Seleziona uno o più file <code>.KD</code>. SpectrExcel li ordina inizialmente per nome con ordinamento naturale.</li>
-            <li>Se necessario, usa <strong>Riordina file</strong>. Le colonne della cartella di lavoro e le tracce del grafico seguono questo ordine.</li>
+            <li>Se necessario, usa <strong>Riordina file</strong>. Le colonne del file Excel e le tracce del grafico seguono questo ordine.</li>
             <li>Imposta la lunghezza d'onda di lettura e quella di correzione.</li>
-            <li>Genera la cartella di lavoro Excel.</li>
+            <li>Genera il file Excel.</li>
           </ol>
-          <p>Per ogni istante, SpectrExcel sottrae l'assorbanza alla lunghezza d'onda di correzione da quella alla lunghezza d'onda di lettura. Il tempo parte da zero secondi e la cartella di lavoro contiene le tracce corrette e un grafico di confronto.</p>
+          <p>Per ogni istante, SpectrExcel sottrae l'assorbanza alla lunghezza d'onda di correzione da quella alla lunghezza d'onda di lettura. Scegli una lunghezza d'onda di riferimento a cui il campione non assorbe. Questo rimuove uno spostamento costante della linea di base, non la diffusione della luce che varia con la lunghezza d'onda.</p>
+          <p>Ogni traccia parte da zero secondi alla prima misura registrata, non necessariamente all'inizio della reazione. Il file Excel contiene le tracce corrette, un grafico di confronto e un foglio <code>raw</code> con i valori prima della sottrazione sullo stesso asse temporale relativo. Non vengono calcolate velocità di reazione o costanti cinetiche.</p>
         </section>
 
         <section id="binding">
           <h2>Binding / titolazione</h2>
-          <p>Usa <strong>binding / titolazione</strong> per confrontare una serie di spettri di assorbanza contenuti in un file <code>.SD</code> o <code>.txt</code>.</p>
+          <p>Usa <strong>binding / titolazione</strong> per confrontare gli spettri di assorbanza di esperimenti di binding o titolazione contenuti in un file <code>.SD</code> o <code>.txt</code> ed esportarli per ulteriori analisi.</p>
           <ol>
             <li>Seleziona un file di spettri.</li>
             <li>Imposta i valori minimo e massimo della lunghezza d'onda per l'asse X del grafico.</li>
             <li>Imposta i valori minimo e massimo dell'assorbanza per l'asse Y del grafico.</li>
-            <li>Genera la cartella di lavoro Excel.</li>
+            <li>Se lo desideri, abilita la correzione e scegli una lunghezza d'onda di riferimento a cui il campione non assorbe.</li>
+            <li>Genera il file Excel.</li>
           </ol>
-          <p>SpectrExcel rimuove i valori di deviazione standard. Se l'input contiene due metà identiche di spettri ripetuti, ne conserva una sola copia. La cartella di lavoro include i dati di lunghezza d'onda e assorbanza per ogni segnale e un grafico sovrapposto degli spettri con gli intervalli selezionati.</p>
+          <p>SpectrExcel rimuove la colonna della deviazione standard, se presente. Se l'input contiene due metà identiche di spettri ripetuti, ne conserva una sola copia. Il file Excel include i dati di lunghezza d'onda e assorbanza per ogni spettro conservato e un grafico sovrapposto degli spettri con gli intervalli selezionati. Non vengono calcolate costanti di legame.</p>
+          <p>La correzione facoltativa sottrae da ogni spettro l'assorbanza alla lunghezza d'onda selezionata. Questo rimuove uno spostamento costante della linea di base, non la diffusione della luce che varia con la lunghezza d'onda. La correzione è disattivata per impostazione predefinita. Quando la applichi, un foglio <code>raw</code> separato conserva i valori prima della sottrazione, dopo la pulizia descritta sopra.</p>
         </section>
 
         <section id="spectra-family">
           <h2>Famiglia di spettri</h2>
-          <p>Usa <strong>famiglia di spettri</strong> per osservare come cambia uno spettro completo di assorbanza durante una misura cinetica.</p>
+          <p>Usa <strong>famiglia di spettri</strong> per esportare gli spettri di assorbanza registrati nel tempo da un file <code>.KD</code>.</p>
           <ol>
             <li>Seleziona un file <code>.KD</code> contenente spettri completi registrati a tempi di acquisizione successivi.</li>
-            <li>Genera la cartella di lavoro Excel.</li>
+            <li>Se lo desideri, abilita la correzione e scegli una lunghezza d'onda di riferimento a cui il campione non assorbe.</li>
+            <li>Genera il file Excel.</li>
           </ol>
-          <p>La cartella di lavoro contiene i tempi di acquisizione, le lunghezze d'onda e i valori di assorbanza di ogni spettro. Il grafico sovrapposto lunghezza d'onda-assorbanza mostra uno spettro ogni due per facilitare l'osservazione dell'andamento.</p>
+          <p>Le tabelle includono i tempi di acquisizione, le lunghezze d'onda e tutti gli spettri. I grafici mostrano uno spettro ogni due, iniziando dal primo, con la lunghezza d'onda sull'asse X e l'assorbanza sull'asse Y.</p>
+          <p>La correzione facoltativa sottrae da ogni spettro l'assorbanza alla lunghezza d'onda selezionata. Questo rimuove uno spostamento costante della linea di base, non la diffusione della luce che varia con la lunghezza d'onda. La correzione è disattivata per impostazione predefinita. Quando la applichi, un foglio <code>raw</code> separato conserva i valori prima della sottrazione.</p>
         </section>
 
         <section id="file-formats">

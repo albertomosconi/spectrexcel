@@ -43,37 +43,38 @@ class Assay:
 ASSAYS = (
     Assay(
         "binding / titration",
-        "Use this assay to compare a series of absorbance spectra collected "
-        "during a binding or titration experiment. Select a TXT or SD file, "
-        "then choose wavelength and absorbance ranges for the chart axes. "
-        "SpectrExcel removes standard-deviation values and, when the input "
-        "contains an identical repeated set of spectra, keeps only one copy. "
-        "The generated Excel workbook contains wavelength and absorbance data "
-        "for each signal, together with an overlaid spectrum chart using the "
-        "selected axis ranges.",
+        "Compare absorbance spectra from binding or titration experiments "
+        "and export them for further analysis. Select a TXT or SD file and "
+        "choose chart axis ranges. SpectrExcel removes the standard-deviation "
+        "column, if present, and keeps one copy of identical repeated halves. "
+        "Optional correction subtracts absorbance at a reference wavelength "
+        "from each spectrum to remove a constant baseline offset. Choose a "
+        "wavelength where your sample does not absorb. When correction is "
+        "applied, a raw sheet preserves values before subtraction.",
         BindingTitolazione,
     ),
     Assay(
         "kinetics",
-        "Use this assay to follow absorbance changes over time across one or "
-        "more kinetic measurements. Select KD files, arrange them in the "
-        "desired order, then specify a reading wavelength and a correction "
-        "wavelength. For every file and time point, SpectrExcel subtracts the "
-        "absorbance at the correction wavelength from the absorbance at the "
-        "reading wavelength and shifts the time axis so the first measurement "
-        "starts at zero seconds. The generated Excel workbook contains the "
-        "corrected traces and a comparison chart in the chosen file order.",
+        "Export absorbance changes over time from KD files, in your chosen "
+        "file order. SpectrExcel subtracts absorbance at a reference wavelength "
+        "from absorbance at the reading wavelength to remove a constant "
+        "baseline offset. Choose a reference wavelength where your sample "
+        "does not absorb. Each trace starts at zero seconds at its first "
+        "recorded measurement, not necessarily the start of the reaction. "
+        "The Excel file includes a comparison chart and a raw sheet with "
+        "values before subtraction. Reaction rates and rate constants "
+        "are not calculated.",
         Cinetiche,
     ),
     Assay(
         "spectrum family",
-        "Use this assay to inspect how a complete absorbance spectrum changes "
-        "during one kinetic measurement. Select a KD file containing spectra "
-        "recorded at successive acquisition times. SpectrExcel exports the "
-        "acquisition times, wavelengths, and absorbance values for every "
-        "recorded spectrum. The generated Excel workbook also includes an "
-        "overlaid wavelength-versus-absorbance chart showing one spectrum out "
-        "of every two, making the progression easier to inspect.",
+        "Export absorbance spectra recorded over time from one KD file. "
+        "Tables include acquisition times, wavelengths, and all spectra; "
+        "charts show every second spectrum, starting with the first. "
+        "Optional correction subtracts absorbance at a reference wavelength "
+        "from each spectrum to remove a constant baseline offset. Choose a "
+        "wavelength where your sample does not absorb. When correction is "
+        "applied, a raw sheet preserves values before subtraction.",
         FamigliaDiSpettri,
     ),
 )

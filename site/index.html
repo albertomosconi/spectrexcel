@@ -4,14 +4,14 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>SpectrExcel | Spectrophotometer data to Excel</title>
-  <meta name="description" content="Turn spectrophotometer files into structured, analysis-ready Excel workbooks.">
+  <meta name="description" content="Turn spectrophotometer files into structured, analysis-ready Excel files.">
   <link rel="canonical" href="https://spectrexcel.albertomosconi.it/">
   <link rel="icon" href="/assets/icon.png" type="image/png">
   <link rel="stylesheet" href="/assets/styles.css">
   <link rel="preload" href="/assets/research-sans.woff2" as="font" type="font/woff2" crossorigin>
   <meta property="og:type" content="website">
   <meta property="og:title" content="SpectrExcel | Spectrophotometer data to Excel">
-  <meta property="og:description" content="Turn spectrophotometer files into structured, analysis-ready Excel workbooks.">
+  <meta property="og:description" content="Turn spectrophotometer files into structured, analysis-ready Excel files.">
   <meta property="og:url" content="https://spectrexcel.albertomosconi.it/">
   <meta property="og:image" content="https://spectrexcel.albertomosconi.it/assets/icon.png">
   <script src="/assets/site.js" defer></script>
@@ -62,44 +62,45 @@
     </section>
 
     <section id="features" aria-labelledby="features-title">
-      <h2 id="features-title">From measurements to workbooks</h2>
-      <p>Choose a workflow, add instrument files, and export a workbook ready for analysis.</p>
+      <h2 id="features-title">From measurements to Excel files</h2>
+      <p>Choose a workflow, add instrument files, and export an Excel file ready for analysis. Optionally include an <code>info</code> sheet with source hashes, analysis settings, and processing steps. It starts off, remembers your last choice, and follows the app's language. Retain the original inputs for reproducibility. <a href="/docs/#export-details">Learn about export details</a>.</p>
       <div class="features-layout">
       <div class="workflow-grid">
         <article>
           <h3>Kinetics</h3>
           <code>.KD</code>
-          <p>Organize time-series measurements and export calculated kinetic results.</p>
+          <p>Export absorbance changes over time, subtracting absorbance at a reference wavelength.</p>
         </article>
         <article>
           <h3>Binding</h3>
           <code>.SD / .txt</code>
-          <p>Structure titration measurements for binding analysis and comparison.</p>
+          <p>Compare absorbance spectra from binding or titration experiments and export them for further analysis.</p>
         </article>
         <article>
           <h3>Spectra Family</h3>
           <code>.KD</code>
-          <p>Collect related spectra in clear tables and charts inside one workbook.</p>
+          <p>Export spectra recorded over time. Charts show every second spectrum; tables include all spectra.</p>
         </article>
       </div>
       <dl class="format-summary">
         <div><dt>Instrument files</dt><dd><code>.KD</code> <code>.SD</code> <code>.txt</code></dd></div>
-        <div><dt>Excel workbooks</dt><dd><code>.xlsx</code><span>Measurement tables and comparison charts.</span></dd></div>
+        <div><dt>Excel files</dt><dd><code>.xlsx</code><span>Measurement tables and comparison charts.</span></dd></div>
       </dl>
       </div>
-      <p>Optionally include an <code>info</code> sheet with source hashes, analysis settings, and processing steps. It starts off, remembers your last choice, and follows the app's language. Retain the original inputs for reproducibility. <a href="/docs/#export-details">Learn about export details</a>.</p>
     </section>
 
     <section id="privacy" class="panel" aria-labelledby="privacy-title">
       <h2 id="privacy-title">Process measurements locally. Keep data private.</h2>
       <p>SpectrExcel runs on your computer: no account and no upload required. Measurement files stay under your control, and the project is open source.</p>
-      <p>The app automatically contacts GitHub at startup to check for updates, and again when you select Check updates. It also contacts Zenodo at startup to look up the installed version's DOI; version matching happens locally. Both services receive normal connection information, including your public IP address and request headers; measurement files are not sent. There is currently no setting to disable these startup requests. Requested downloads, project links, and DOI links open in your browser. See the <a href="https://github.com/albertomosconi/spectrexcel/blob/main/CODE_SIGNING.md#privacy-and-network-access">privacy and network disclosure</a>, <a href="https://docs.github.com/en/site-policy/privacy-policies/github-privacy-statement">GitHub Privacy Statement</a>, and <a href="https://about.zenodo.org/privacy-policy/">Zenodo Privacy Policy</a>.</p>
+      <p><a href="/docs/#privacy">Privacy details</a></p>
     </section>
 
     <section id="download-options" aria-labelledby="download-title">
-      <h2 id="download-title">Download SpectrExcel</h2>
-      <p>Choose a package directly or review the latest release notes.</p>
-      <p>Windows releases are unsigned, and executable signing is not currently planned. Windows or antivirus software may warn about or block unsigned executables. See the <a href="https://github.com/albertomosconi/spectrexcel/blob/main/CODE_SIGNING.md">Windows executable signing notes</a> for release details.</p>
+      <div class="download-copy">
+        <h2 id="download-title">Download SpectrExcel</h2>
+        <p>Choose a package directly or review the latest release notes.</p>
+        <p>Windows releases are unsigned, and executable signing is not currently planned. Windows or antivirus software may warn about or block unsigned executables. See the <a href="https://github.com/albertomosconi/spectrexcel/blob/main/CODE_SIGNING.md">Windows executable signing notes</a> for release details.</p>
+      </div>
       <div class="actions">
         <a class="button" href="https://github.com/albertomosconi/spectrexcel/releases/latest/download/spectrexcel-windows-x86_64.exe">Download for Windows</a>
         <a class="button" href="https://github.com/albertomosconi/spectrexcel/releases/latest/download/SpectrExcel-x86_64.AppImage.tar.gz">Download for Linux</a>

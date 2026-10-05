@@ -29,6 +29,7 @@ DOC_IDS = {
     "first-export",
     "export-details",
     "citation",
+    "privacy",
     "kinetics",
     "binding",
     "spectra-family",

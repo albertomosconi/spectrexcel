@@ -164,10 +164,13 @@ code, pre { font-family: "Research Mono", ui-monospace, monospace; font-size: .8
 .format-summary dd code { display: inline-block; margin-right: .5rem; font-size: 1.25rem; color: var(--accent); }
 .format-summary dd span { display: block; margin-top: .5rem; font-size: .875rem; color: var(--text-secondary); }
 .panel { padding: clamp(1.25rem, 3vw, 2rem); background: var(--surface); border-radius: 4px; }
-#privacy h2 { max-width: 30ch; }
-#privacy p { max-width: 85ch; }
-#privacy p:last-child { font-size: .875rem; margin-bottom: 0; }
-#download-options { padding-block: 4rem; }
+.panel h2 { text-wrap: balance; }
+#privacy.panel p { max-width: 85ch; }
+#privacy.panel p:last-child { font-size: .875rem; margin-bottom: 0; }
+#download-options { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1.5rem; align-items: start; padding-block: 4rem; }
+.download-copy { min-width: 0; }
+.download-copy p:last-child { margin-bottom: 0; }
+#download-options .actions { display: grid; grid-template-columns: minmax(0, 1fr); margin-top: 0; }
 #download-options p { max-width: 75ch; }
 #download-options p + p { font-size: .875rem; }
 
@@ -214,6 +217,7 @@ code, pre { font-family: "Research Mono", ui-monospace, monospace; font-size: .8
   .hero-copy { grid-column: 1; grid-row: 1; }
   .product-image { grid-column: 2; grid-row: 1; }
   .features-layout { grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 4rem; }
+  #download-options { grid-template-columns: minmax(0, 1fr) minmax(16rem, 20rem); gap: 4rem; }
   .docs-layout { grid-template-columns: minmax(12rem, 16rem) minmax(0, 1fr); }
   .actions { display: flex; flex-wrap: wrap; }
   .button { white-space: nowrap; }

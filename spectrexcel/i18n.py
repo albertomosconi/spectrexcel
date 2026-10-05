@@ -70,54 +70,58 @@ TRANSLATIONS_IT: dict[str, str] = {
     "kinetics": "cinetiche",
     "spectrum family": "famiglia di spettri",
     "About assay": "Informazioni sull'assay",
-    "Use this assay to compare a series of absorbance spectra collected "
-    "during a binding or titration experiment. Select a TXT or SD file, "
-    "then choose wavelength and absorbance ranges for the chart axes. "
-    "SpectrExcel removes standard-deviation values and, when the input "
-    "contains an identical repeated set of spectra, keeps only one copy. "
-    "The generated Excel workbook contains wavelength and absorbance data "
-    "for each signal, together with an overlaid spectrum chart using the "
-    "selected axis ranges.":
-        "Usa questo assay per confrontare una serie di spettri di assorbanza "
-        "raccolti durante un esperimento di binding o titolazione. Seleziona "
-        "un file TXT o SD, quindi scegli gli intervalli di lunghezza d'onda e "
-        "assorbanza per gli assi del grafico. SpectrExcel rimuove i valori di "
-        "deviazione standard e, quando l'input contiene una serie identica e "
-        "ripetuta di spettri, ne conserva una sola copia. La cartella di lavoro "
-        "Excel generata contiene i dati di lunghezza d'onda e assorbanza per "
-        "ciascun segnale, insieme a un grafico sovrapposto degli spettri che "
-        "usa gli intervalli selezionati per gli assi.",
-    "Use this assay to follow absorbance changes over time across one or "
-    "more kinetic measurements. Select KD files, arrange them in the "
-    "desired order, then specify a reading wavelength and a correction "
-    "wavelength. For every file and time point, SpectrExcel subtracts the "
-    "absorbance at the correction wavelength from the absorbance at the "
-    "reading wavelength and shifts the time axis so the first measurement "
-    "starts at zero seconds. The generated Excel workbook contains the "
-    "corrected traces and a comparison chart in the chosen file order.":
-        "Usa questo assay per seguire le variazioni di assorbanza nel tempo in "
-        "una o più misure cinetiche. Seleziona i file KD, disponili nell'ordine "
-        "desiderato, quindi specifica una lunghezza d'onda di lettura e una di "
-        "correzione. Per ogni file e istante, SpectrExcel sottrae l'assorbanza "
-        "alla lunghezza d'onda di correzione da quella alla lunghezza d'onda di "
-        "lettura e trasla l'asse temporale in modo che la prima misura inizi a "
-        "zero secondi. La cartella di lavoro Excel generata contiene le tracce "
-        "corrette e un grafico di confronto nell'ordine scelto per i file.",
-    "Use this assay to inspect how a complete absorbance spectrum changes "
-    "during one kinetic measurement. Select a KD file containing spectra "
-    "recorded at successive acquisition times. SpectrExcel exports the "
-    "acquisition times, wavelengths, and absorbance values for every "
-    "recorded spectrum. The generated Excel workbook also includes an "
-    "overlaid wavelength-versus-absorbance chart showing one spectrum out "
-    "of every two, making the progression easier to inspect.":
-        "Usa questo assay per osservare come cambia uno spettro completo di "
-        "assorbanza durante una misura cinetica. Seleziona un file KD contenente "
-        "spettri registrati a tempi di acquisizione successivi. SpectrExcel "
-        "esporta i tempi di acquisizione, le lunghezze d'onda e i valori di "
-        "assorbanza per ogni spettro registrato. La cartella di lavoro Excel "
-        "generata include anche un grafico sovrapposto lunghezza d'onda-"
-        "assorbanza che mostra uno spettro ogni due, rendendo più facile "
-        "osservare l'andamento.",
+    "Compare absorbance spectra from binding or titration experiments "
+    "and export them for further analysis. Select a TXT or SD file and "
+    "choose chart axis ranges. SpectrExcel removes the standard-deviation "
+    "column, if present, and keeps one copy of identical repeated halves. "
+    "Optional correction subtracts absorbance at a reference wavelength "
+    "from each spectrum to remove a constant baseline offset. Choose a "
+    "wavelength where your sample does not absorb. When correction is "
+    "applied, a raw sheet preserves values before subtraction.":
+        "Confronta gli spettri di assorbanza di esperimenti di binding o "
+        "titolazione ed esportali per ulteriori analisi. Seleziona un file "
+        "TXT o SD e scegli gli intervalli degli assi del grafico. SpectrExcel "
+        "rimuove la colonna della deviazione standard, se presente, e conserva "
+        "una sola copia di due metà identiche ripetute. La correzione "
+        "facoltativa sottrae da ogni spettro l'assorbanza a una lunghezza "
+        "d'onda di riferimento per rimuovere uno spostamento costante della "
+        "linea di base. Scegli una lunghezza d'onda a cui il campione non "
+        "assorbe. Quando applichi la correzione, un foglio raw conserva i "
+        "valori prima della sottrazione.",
+    "Export absorbance changes over time from KD files, in your chosen "
+    "file order. SpectrExcel subtracts absorbance at a reference wavelength "
+    "from absorbance at the reading wavelength to remove a constant "
+    "baseline offset. Choose a reference wavelength where your sample "
+    "does not absorb. Each trace starts at zero seconds at its first "
+    "recorded measurement, not necessarily the start of the reaction. "
+    "The Excel file includes a comparison chart and a raw sheet with "
+    "values before subtraction. Reaction rates and rate constants "
+    "are not calculated.":
+        "Esporta le variazioni di assorbanza nel tempo da file KD, nell'ordine "
+        "scelto. SpectrExcel sottrae l'assorbanza a una lunghezza d'onda di "
+        "riferimento da quella alla lunghezza d'onda di lettura per rimuovere "
+        "uno spostamento costante della linea di base. Scegli una lunghezza "
+        "d'onda di riferimento a cui il campione non assorbe. Ogni traccia "
+        "parte da zero secondi alla prima misura registrata, non "
+        "necessariamente all'inizio della reazione. Il file Excel "
+        "include un grafico di confronto e un foglio raw con i valori prima "
+        "della sottrazione. Non vengono calcolate velocità di reazione o "
+        "costanti cinetiche.",
+    "Export absorbance spectra recorded over time from one KD file. "
+    "Tables include acquisition times, wavelengths, and all spectra; "
+    "charts show every second spectrum, starting with the first. "
+    "Optional correction subtracts absorbance at a reference wavelength "
+    "from each spectrum to remove a constant baseline offset. Choose a "
+    "wavelength where your sample does not absorb. When correction is "
+    "applied, a raw sheet preserves values before subtraction.":
+        "Esporta gli spettri di assorbanza registrati nel tempo da un file KD. "
+        "Le tabelle includono i tempi di acquisizione, le lunghezze d'onda e "
+        "tutti gli spettri; i grafici mostrano uno spettro ogni due, "
+        "iniziando dal primo. La correzione facoltativa sottrae da ogni "
+        "spettro l'assorbanza a una lunghezza d'onda di riferimento per "
+        "rimuovere uno spostamento costante della linea di base. Scegli una "
+        "lunghezza d'onda a cui il campione non assorbe. Quando applichi la "
+        "correzione, un foglio raw conserva i valori prima della sottrazione.",
     # settings modal
     "Theme:": "Tema:",
     "System": "Sistema",
@@ -159,7 +163,7 @@ TRANSLATIONS_IT: dict[str, str] = {
     "update opened in the browser; closing SpectrExcel...":
         "aggiornamento aperto nel browser; chiusura di SpectrExcel...",
     # shared dialogs and parsers
-    "Excel workbook": "Cartella di lavoro Excel",
+    "Excel file": "File Excel",
     "ERROR: unable to open the system file picker: {error}":
         "ERRORE: impossibile aprire il selettore file di sistema: {error}",
     "Replace existing file?": "Sostituire il file esistente?",

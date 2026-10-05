@@ -189,7 +189,7 @@ class AssayView:
                 title,
                 default_path,
                 default_filename,
-                {_("Excel workbook"): ["*.xlsx"]},
+                {_("Excel file"): ["*.xlsx"]},
             )
         except Exception as error:
             self.log(

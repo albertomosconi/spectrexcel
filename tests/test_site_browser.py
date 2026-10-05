@@ -50,6 +50,42 @@ def test_mobile_download_is_visible_before_product_image(browser, site_url, rout
         page.close()
 
 
+@pytest.mark.parametrize("route,docs_route", [("/", "/docs/"), ("/it/", "/it/docs/")])
+def test_homepage_privacy_link_opens_localized_disclosure(browser, site_url, route, docs_route):
+    page = browser.new_page()
+    try:
+        page.goto(site_url + route)
+        page.locator(f'#privacy a[href="{docs_route}#privacy"]').click()
+        assert page.url == site_url + docs_route + "#privacy"
+        assert page.locator("#privacy h2").is_visible()
+        assert page.locator('#privacy a[href="https://docs.github.com/en/site-policy/privacy-policies/github-privacy-statement"]').is_visible()
+        assert page.locator('#privacy a[href="https://about.zenodo.org/privacy-policy/"]').is_visible()
+    finally:
+        page.close()
+
+
+@pytest.mark.parametrize("route", ["/", "/it/"])
+@pytest.mark.parametrize("width", [375, 768, 1024, 1440])
+@pytest.mark.parametrize("theme", ["light", "dark"])
+def test_privacy_heading_does_not_leave_one_word_on_last_line(browser, site_url, route, width, theme):
+    page = browser.new_page(viewport={"width": width, "height": 900}, color_scheme=theme)
+    try:
+        page.goto(site_url + route)
+        page.evaluate("document.fonts.ready")
+        word_tops = page.locator("#privacy h2").evaluate(r"""element => {
+            const text = element.firstChild;
+            return [...text.textContent.matchAll(/\S+/g)].map(match => {
+                const range = document.createRange();
+                range.setStart(text, match.index);
+                range.setEnd(text, match.index + match[0].length);
+                return range.getBoundingClientRect().top;
+            });
+        }""")
+        assert word_tops.count(word_tops[-1]) > 1
+    finally:
+        page.close()
+
+
 @pytest.mark.parametrize("route", ["/", "/it/", "/docs/", "/it/docs/"])
 @pytest.mark.parametrize("width", [320, 375, 768, 1024, 1440])
 def test_pages_fit_viewport_without_horizontal_scroll(browser, site_url, route, width):
@@ -152,6 +188,32 @@ def test_docs_navigation_disclosure_only_collapses_on_mobile(browser, site_url, 
             summary.focus()
             page.keyboard.press("Enter")
             assert links.first.is_visible()
+    finally:
+        page.close()
+
+
+@pytest.mark.parametrize("route", ["/", "/it/"])
+@pytest.mark.parametrize("width", [375, 768, 1024, 1440])
+def test_download_buttons_stack_beside_desktop_copy_and_below_mobile_copy(browser, site_url, route, width):
+    page = browser.new_page(viewport={"width": width, "height": 900})
+    try:
+        page.goto(site_url + route)
+        page.evaluate("document.fonts.ready")
+        paragraphs = page.locator("#download-options p")
+        buttons = [button.bounding_box() for button in page.locator("#download-options .button").all()]
+        assert len(buttons) == 3
+        assert len({button["x"] for button in buttons}) == 1
+        for previous, current in zip(buttons, buttons[1:]):
+            assert previous["y"] + previous["height"] <= current["y"]
+        if width >= 768:
+            for paragraph in paragraphs.all():
+                bounds = paragraph.bounding_box()
+                assert bounds["x"] + bounds["width"] <= buttons[0]["x"]
+            heading = page.locator("#download-options h2").bounding_box()
+            assert abs(buttons[0]["y"] - heading["y"]) < 1
+        else:
+            last_paragraph = paragraphs.last.bounding_box()
+            assert last_paragraph["y"] + last_paragraph["height"] <= buttons[0]["y"]
     finally:
         page.close()
 

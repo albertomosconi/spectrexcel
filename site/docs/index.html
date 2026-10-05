@@ -42,6 +42,7 @@
           <a href="/docs/#first-export">First export</a>
           <a href="/docs/#export-details">Export details</a>
           <a href="/docs/#citation">Citation</a>
+          <a href="/docs/#privacy">Privacy</a>
           <a href="/docs/#kinetics">Kinetics</a>
           <a href="/docs/#binding">Binding / titration</a>
           <a href="/docs/#spectra-family">Spectrum family</a>
@@ -54,7 +55,7 @@
         <header>
           <img src="/assets/icon.png" alt="SpectrExcel application icon" width="96" height="96">
           <h1>SpectrExcel user guide</h1>
-          <p>Install the desktop application, select an assay, and turn supported spectrophotometer files into an Excel workbook.</p>
+          <p>Install the desktop application, select an assay, and turn supported spectrophotometer files into an Excel file.</p>
         </header>
 
         <section id="install">
@@ -91,7 +92,7 @@
 
         <section id="export-details">
           <h2>Optional export details</h2>
-          <p>Every assay has an <strong>Include info sheet</strong> checkbox below the <strong>Generate Excel</strong> and <strong>Preview chart</strong> buttons. It starts unchecked and remembers your last choice across assays and application restarts. Enable it before generating a workbook to append an <code>info</code> worksheet.</p>
+          <p>Every assay has an <strong>Include info sheet</strong> checkbox below the <strong>Generate Excel</strong> and <strong>Preview chart</strong> buttons. It starts unchecked and remembers your last choice across assays and application restarts. Enable it before generating an Excel file to append an <code>info</code> worksheet.</p>
           <p>The worksheet records:</p>
           <ul>
             <li>The SpectrExcel version and export date and time, including the timezone.</li>
@@ -99,7 +100,7 @@
             <li>The assay, settings affecting the export, and processing steps applied, such as wavelength correction or duplicate removal.</li>
           </ul>
           <p>The contents follow the application's language; filenames and hashes remain unchanged. Table headers are bold, with an empty row between sections. Measurement tables, charts, and previews are unaffected.</p>
-          <p>Keep the original input files alongside the workbook. The <code>info</code> sheet makes results traceable but does not embed the source files. Hashes describe the inputs as loaded, even if the files change before export.</p>
+          <p>Keep the original input files alongside the Excel file. The <code>info</code> sheet makes results traceable but does not embed the source files. Hashes describe the inputs as loaded, even if the files change before export.</p>
         </section>
 
         <section id="citation">
@@ -108,38 +109,50 @@
           <p>The app's right-aligned footer link shows the installed version's DOI when the startup lookup succeeds. While lookup is pending, offline, or the version is not archived, it shows the <a href="https://doi.org/10.5281/zenodo.23161786">all-versions DOI</a>, which resolves to the latest release. Hover over the link to see which citation it represents.</p>
         </section>
 
+        <section id="privacy">
+          <h2>Privacy and network access</h2>
+          <p>Measurement files are processed locally and are not sent to GitHub or Zenodo.</p>
+          <p>The app automatically contacts GitHub at startup to check for updates, and again when you select Check updates. It also contacts Zenodo at startup to look up the installed version's DOI; version matching happens locally. Both services receive normal connection information, including your public IP address and request headers. There is currently no setting to disable these startup requests. Requested downloads, project links, and DOI links open in your browser.</p>
+          <p>See the <a href="https://github.com/albertomosconi/spectrexcel/blob/main/CODE_SIGNING.md#privacy-and-network-access">privacy and network disclosure</a>, <a href="https://docs.github.com/en/site-policy/privacy-policies/github-privacy-statement">GitHub Privacy Statement</a>, and <a href="https://about.zenodo.org/privacy-policy/">Zenodo Privacy Policy</a>.</p>
+        </section>
+
         <section id="kinetics">
           <h2>Kinetics</h2>
           <p>Use <strong>kinetics</strong> to follow absorbance changes over time across one or more <code>.KD</code> measurements.</p>
           <ol>
             <li>Select one or more <code>.KD</code> files. SpectrExcel initially sorts them naturally by filename.</li>
-            <li>Use <strong>Reorder files</strong> when needed. Workbook columns and chart traces follow this order.</li>
+            <li>Use <strong>Reorder files</strong> when needed. Columns in the Excel file and chart traces follow this order.</li>
             <li>Set the reading wavelength and correction wavelength.</li>
-            <li>Generate the Excel workbook.</li>
+            <li>Generate the Excel file.</li>
           </ol>
-          <p>At every time point, SpectrExcel subtracts absorbance at the correction wavelength from absorbance at the reading wavelength. Time starts at zero seconds, and the workbook contains corrected traces plus a comparison chart.</p>
+          <p>At every time point, SpectrExcel subtracts absorbance at the correction wavelength from absorbance at the reading wavelength. Choose a reference wavelength where your sample does not absorb. This removes a constant baseline offset, not wavelength-dependent scattering.</p>
+          <p>Each trace starts at zero seconds at its first recorded measurement, not necessarily the start of the reaction. The Excel file contains corrected traces, a comparison chart, and a <code>raw</code> sheet with values before subtraction on the same relative time axis. Reaction rates and rate constants are not calculated.</p>
         </section>
 
         <section id="binding">
           <h2>Binding / titration</h2>
-          <p>Use <strong>binding / titration</strong> to compare a series of absorbance spectra from a <code>.SD</code> or <code>.txt</code> file.</p>
+          <p>Use <strong>binding / titration</strong> to compare absorbance spectra from binding or titration experiments in a <code>.SD</code> or <code>.txt</code> file and export them for further analysis.</p>
           <ol>
             <li>Select one spectra file.</li>
             <li>Set minimum and maximum wavelength values for the chart X axis.</li>
             <li>Set minimum and maximum absorbance values for the chart Y axis.</li>
-            <li>Generate the Excel workbook.</li>
+            <li>Optionally enable wavelength correction and choose a reference wavelength where your sample does not absorb.</li>
+            <li>Generate the Excel file.</li>
           </ol>
-          <p>SpectrExcel removes standard-deviation values. If the input contains two identical halves of repeated spectra, it keeps one copy. The workbook includes wavelength and absorbance data for every signal and an overlaid spectrum chart using the selected ranges.</p>
+          <p>SpectrExcel removes the standard-deviation column, if present. If the input contains two identical halves of repeated spectra, it keeps one copy. The Excel file includes wavelength and absorbance data for every retained spectrum and an overlaid spectrum chart using the selected ranges. Binding constants are not calculated.</p>
+          <p>Optional correction subtracts absorbance at the selected wavelength from each spectrum. This removes a constant baseline offset, not wavelength-dependent scattering. Correction is off by default. When applied, a separate <code>raw</code> sheet preserves values before subtraction, after the cleanup described above.</p>
         </section>
 
         <section id="spectra-family">
           <h2>Spectrum family</h2>
-          <p>Use <strong>spectrum family</strong> to inspect how a complete absorbance spectrum changes during one kinetic measurement.</p>
+          <p>Use <strong>spectrum family</strong> to export absorbance spectra recorded over time from one <code>.KD</code> file.</p>
           <ol>
             <li>Select one <code>.KD</code> file containing complete spectra recorded at successive acquisition times.</li>
-            <li>Generate the Excel workbook.</li>
+            <li>Optionally enable wavelength correction and choose a reference wavelength where your sample does not absorb.</li>
+            <li>Generate the Excel file.</li>
           </ol>
-          <p>The workbook contains acquisition times, wavelengths, and absorbance values for every spectrum. Its overlaid wavelength-versus-absorbance chart shows one spectrum out of every two to make progression easier to inspect.</p>
+          <p>Tables include acquisition times, wavelengths, and all spectra. Charts show every second spectrum, starting with the first, with wavelength on the X axis and absorbance on the Y axis.</p>
+          <p>Optional correction subtracts absorbance at the selected wavelength from each spectrum. This removes a constant baseline offset, not wavelength-dependent scattering. Correction is off by default. When applied, a separate <code>raw</code> sheet preserves values before subtraction.</p>
         </section>
 
         <section id="file-formats">
