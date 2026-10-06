@@ -8,6 +8,7 @@ import dearpygui.dearpygui as dpg
 from spectrexcel.dpi import DisplayScale
 from spectrexcel.dialogs import DialogAction, dialog_window
 from spectrexcel import native_dialogs
+from spectrexcel.appearance import SEMANTIC_TEXT_COLORS
 from spectrexcel.i18n import _
 from spectrexcel.settings import Settings
 from spectrexcel.charts import ChartRenderer, ChartSeries, ChartSpec, green_shades
@@ -51,16 +52,106 @@ class AssayView:
         self._preview_running = False
         self._input_loading = False
         self._input_error: str | None = None
+        self._preview_tab = 0
+        self._preview_title: str | int | None = None
+        self._preview_tab_bar: list[str | int] = []
+        self._modal_tab_bar: list[str | int] = []
+        self._chrome_themes: list[str | int] = []
 
     def build(self, parent: str | int) -> None:
         raise NotImplementedError
 
+    def preview_tab_labels(self) -> list[str]:
+        """Tabs of the shared tab bar; each will show its own chart later."""
+        return []
+
+    def _ensure_chrome_themes(self) -> None:
+        if self._chrome_themes:
+            return
+        px = self.display_scale.pixels
+        accent = SEMANTIC_TEXT_COLORS["Dark"]["accent"]
+        if dpg.does_item_exist("theme.accent.color"):
+            accent = tuple(dpg.get_value("theme.accent.color"))
+        with dpg.theme() as header_theme:
+            with dpg.theme_component(dpg.mvTable):
+                dpg.add_theme_style(dpg.mvStyleVar_CellPadding, 0, 0)
+        self._chrome_themes.append(header_theme)
+        with dpg.theme() as tab_theme:
+            with dpg.theme_component(dpg.mvButton):
+                dpg.add_theme_style(
+                    dpg.mvStyleVar_FramePadding, px(10), px(3),
+                    tag="chrome.tabs.frame.padding",
+                )
+                dpg.add_theme_color(
+                    dpg.mvThemeCol_Text, accent, tag="chrome.tabs.accent.color"
+                )
+                dpg.add_theme_color(
+                    dpg.mvThemeCol_Button, (0, 0, 0, 0), tag="chrome.tabs.background"
+                )
+                for color in (
+                    dpg.mvThemeCol_ButtonHovered,
+                    dpg.mvThemeCol_ButtonActive,
+                ):
+                    dpg.add_theme_color(color, (0, 0, 0, 0))
+        self._chrome_themes.append(tab_theme)
+
     def mount(self, parent: str | int, layout: str) -> None:
         self._assay_layout = AssayLayout(parent, self.display_scale)
         self.build(self._assay_layout.parameters)
-        self._preview_message = dpg.add_text("", parent=self._assay_layout.preview)
-        self._embedded_renderer = ChartRenderer(self._assay_layout.preview)
+        labels = self.preview_tab_labels()
+        preview = self._assay_layout.preview
+        if labels:
+            self._ensure_chrome_themes()
+            with dpg.table(
+                header_row=False,
+                no_pad_outerX=True,
+                policy=dpg.mvTable_SizingStretchProp,
+                parent=preview,
+            ) as header:
+                dpg.bind_item_theme(header, self._chrome_themes[0])
+                dpg.add_table_column(width_stretch=True, init_width_or_weight=1)
+                dpg.add_table_column(width_fixed=True)
+                with dpg.table_row():
+                    self._preview_title = dpg.add_text(_("PREVIEW"))
+                    dpg.bind_item_theme(self._preview_title, "theme.accent")
+                    self._preview_tab_bar = self._build_tab_bar(labels, self._select_tab)
+        self._preview_message = dpg.add_text("", parent=preview)
+        self._embedded_renderer = ChartRenderer(preview)
         self.apply_layout(layout)
+
+    def _select_tab(self, index: int) -> None:
+        if index != self._preview_tab:
+            self._preview_tab = index
+            self.request_preview()
+
+    def _dialog_tab_selected(self, index: int) -> None:
+        if index == self._preview_tab:
+            return
+        self._preview_tab = index
+        task = self.preview_task(index)
+        if task is None or self._modal_renderer is None:
+            return
+        try:
+            spec = task()
+        except ValueError as error:
+            self.log(_("ERROR: {error}").format(error=error))
+            return
+        self._modal_renderer.render(spec)
+
+    def _build_tab_bar(self, labels: list[str], on_select: Callable[[int], None]) -> list[str | int]:
+        """Text-like buttons styled as tabs, placed in the current container."""
+        px = self.display_scale.pixels
+        buttons: list[str | int] = []
+        with dpg.group(horizontal=True, horizontal_spacing=px(14)):
+            for index, label in enumerate(labels):
+                button = dpg.add_button(
+                    label=label,
+                    callback=lambda *_args, tab=index: on_select(tab),
+                    user_data=index,
+                )
+                dpg.bind_item_theme(button, self._chrome_themes[1])
+                buttons.append(button)
+        return buttons
 
     def register_layout_row(self, tag: str | int) -> None:
         self._layout_rows.append(tag)
@@ -126,7 +217,7 @@ class AssayView:
         ):
             return
         self._preview_dirty = False
-        task = self.preview_task()
+        task = self.preview_task(self._preview_tab)
         if task is None:
             self.set_preview_message(_("Select input files to preview the chart."))
             return
@@ -180,19 +271,27 @@ class AssayView:
             self._embedded_renderer.dispose()
         if self._assay_layout is not None:
             self._assay_layout.dispose()
+        for theme in self._chrome_themes:
+            if dpg.does_item_exist(theme):
+                dpg.delete_item(theme)
+        self._chrome_themes.clear()
+        self._preview_title = None
+        self._preview_tab_bar = []
+        self._modal_tab_bar = []
 
     def close_chart_preview(self) -> None:
+        self._modal_tab_bar = []
         if self._modal_renderer is not None:
             self._modal_renderer.dispose()
             self._modal_renderer = None
             if dpg.does_item_exist("chart.preview.modal"):
                 dpg.delete_item("chart.preview.modal")
 
-    def preview_task(self) -> Callable[[], ChartSpec] | None:
+    def preview_task(self, tab: int = 0) -> Callable[[], ChartSpec] | None:
         return None
 
     def _show_preview(self) -> None:
-        task = self.preview_task()
+        task = self.preview_task(self._preview_tab)
         if task is None:
             return
         try:
@@ -387,6 +486,8 @@ class AssayView:
         if dpg.does_item_exist(tag):
             dpg.delete_item(tag)
         width, height = px(760), px(600)
+        labels = self.preview_tab_labels()
+        self._ensure_chrome_themes()
         with dialog_window(
             label=_("Chart preview"),
             tag=tag,
@@ -395,5 +496,9 @@ class AssayView:
             scale=self.display_scale,
             actions=(DialogAction(_("Close"), self.close_chart_preview),),
         ):
+            if labels:
+                self._modal_tab_bar = self._build_tab_bar(
+                    labels, self._dialog_tab_selected
+                )
             self._modal_renderer = ChartRenderer(f"{tag}.body")
             self._modal_renderer.render(spec)

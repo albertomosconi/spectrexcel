@@ -14,7 +14,7 @@ import dearpygui.dearpygui as dpg
 
 from spectrexcel.assays import BindingTitolazione, Cinetiche, FamigliaDiSpettri
 from spectrexcel.assays.view import AssayView
-from spectrexcel.appearance import THEME_OPTIONS, resolve_theme
+from spectrexcel.appearance import SEMANTIC_TEXT_COLORS, THEME_OPTIONS, resolve_theme
 from spectrexcel.citation import CONCEPT_DOI, find_version_doi
 from spectrexcel.dpi import (
     UI_SCALE_OPTIONS,
@@ -169,12 +169,6 @@ DISABLED_BUTTON_COLORS = {
         "ButtonActive": (210, 214, 220),
     },
 }
-
-SEMANTIC_TEXT_COLORS = {
-    "Dark": {"accent": (104, 190, 255), "muted": (150, 150, 150)},
-    "Light": {"accent": (24, 91, 138), "muted": (95, 100, 108)},
-}
-
 
 class SpectrExcelApp:
     def __init__(self, version: str, display_scale: DisplayScale) -> None:
@@ -430,6 +424,8 @@ class SpectrExcelApp:
         semantic_colors = SEMANTIC_TEXT_COLORS[self.active_theme]
         dpg.set_value("theme.accent.color", semantic_colors["accent"])
         dpg.set_value("theme.muted.color", semantic_colors["muted"])
+        if dpg.does_item_exist("chrome.tabs.accent.color"):
+            dpg.set_value("chrome.tabs.accent.color", semantic_colors["accent"])
 
     def _show_settings(self) -> None:
         px = self.display_scale.pixels

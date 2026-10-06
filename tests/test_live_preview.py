@@ -53,6 +53,19 @@ def live_context(monkeypatch, tmp_path):
         set_language(language)
 
 
+def widget_texts(parent_tag):
+    texts = []
+
+    def walk(item):
+        if dpg.get_item_info(item)["type"] == "mvAppItemType::mvText":
+            texts.append(dpg.get_value(item))
+        for child in dpg.get_item_children(item, 1):
+            walk(child)
+
+    walk(parent_tag)
+    return texts
+
+
 def complete(job):
     task, success, failure = job
     try:
@@ -242,6 +255,67 @@ def test_layout_switch_invalidates_pending_results(live_context):
     view.process_preview()
     complete(jobs.pop())
     assert traces(view)[0][1] == [0.75, 0.0]
+
+
+@pytest.mark.parametrize("cls,tab_label", [
+    (BindingTitolazione, "Spectra"),
+    (Cinetiche, "Abs vs Time"),
+    (FamigliaDiSpettri, "Spectra"),
+])
+def test_embedded_preview_shows_title_with_a_tab_per_chart(live_context, cls, tab_label):
+    view, jobs, messages = live_context(cls)
+    assert dpg.get_value(view._preview_title) == "PREVIEW"
+    assert [dpg.get_item_label(tag) for tag in view._preview_tab_bar] == [tab_label]
+    assert view._preview_tab == 0
+
+
+def test_tab_buttons_are_borderless_and_padded(live_context):
+    view, jobs, messages = live_context(Cinetiche)
+    assert view._chrome_themes
+    assert [0.0, 0.0, 0.0, 0.0] == [
+        float(channel) for channel in dpg.get_value("chrome.tabs.background")
+    ]
+    padding = dpg.get_value("chrome.tabs.frame.padding")
+    assert padding[0] >= 8 and padding[1] >= 2
+
+
+def test_clicking_the_active_tab_does_not_refresh(live_context):
+    view, jobs, messages = live_context(Cinetiche)
+    view.process_preview()
+    complete(jobs.pop())
+    button = view._preview_tab_bar[0]
+    dpg.get_item_callback(button)(button, 0)
+    view.process_preview()
+    assert jobs == []
+
+
+def test_tab_switch_selects_a_new_chart_task(live_context):
+    view, jobs, messages = live_context(Cinetiche)
+    view.process_preview()
+    complete(jobs.pop())
+    assert traces(view)
+    view._select_tab(0)
+    view.process_preview()
+    assert jobs == []
+    view._select_tab(1)
+    view.process_preview()
+    assert len(jobs) == 1
+    complete(jobs[0])
+    assert traces(view)
+
+
+def test_preview_dialog_carries_tabs_but_no_title(live_context):
+    view, jobs, messages = live_context(Cinetiche, layout=PARAMETERS_ONLY)
+    view.process_preview()
+    assert jobs == []
+    view._show_preview()
+    assert dpg.does_item_exist("chart.preview.modal")
+    assert dpg.get_item_configuration("chart.preview.modal")["label"] == "Chart preview"
+    assert [dpg.get_item_label(tag) for tag in view._modal_tab_bar] == ["Abs vs Time"]
+    assert "Preview" not in widget_texts("chart.preview.modal")
+    assert view._modal_renderer.plot is not None
+    view.close_chart_preview()
+    assert view._modal_tab_bar == []
 
 
 def test_reorder_updates_legend_and_trace_order(live_context):

@@ -220,6 +220,10 @@ TRANSLATIONS_IT: dict[str, str] = {
     "excel file saved successfully": "file excel salvato con successo",
     "Preview chart": "Anteprima grafico",
     "Chart preview": "Anteprima grafico",
+    # shared preview chrome
+    "PREVIEW": "ANTEPRIMA",
+    "Abs vs Time": "Abs vs tempo",
+    "Spectra": "Spettri",
     # cinetiche
     "1. Upload KD files": "1. Carica file KD",
     "Select input files (.KD)": "Seleziona file di input (.KD)",

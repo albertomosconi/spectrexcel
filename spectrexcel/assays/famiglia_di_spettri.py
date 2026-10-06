@@ -256,7 +256,10 @@ class FamigliaDiSpettri(AssayView):
             failure_text=_("Failed to load {name}").format(name=path.name),
         )
 
-    def preview_task(self) -> Callable[[], ChartSpec] | None:
+    def preview_tab_labels(self) -> list[str]:
+        return [_("Spectra")]
+
+    def preview_task(self, tab: int = 0) -> Callable[[], ChartSpec] | None:
         if self.input_path is None or self.dataframe is None:
             return None
         dataframe, input_path = self.dataframe, self.input_path

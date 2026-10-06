@@ -47,6 +47,14 @@ def test_italian_update_dialog_strings():
     )
 
 
+def test_italian_preview_chrome_strings():
+    i18n.set_language("it")
+
+    assert _("PREVIEW") == "ANTEPRIMA"
+    assert _("Abs vs Time") == "Abs vs tempo"
+    assert _("Spectra") == "Spettri"
+
+
 def test_set_language_rejects_unknown_codes():
     i18n.set_language("fr")
 

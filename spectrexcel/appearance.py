@@ -4,6 +4,11 @@ import sys
 
 THEME_OPTIONS = ("System", "Light", "Dark")
 
+SEMANTIC_TEXT_COLORS = {
+    "Dark": {"accent": (104, 190, 255), "muted": (150, 150, 150)},
+    "Light": {"accent": (24, 91, 138), "muted": (95, 100, 108)},
+}
+
 
 def system_theme(platform: str | None = None) -> str:
     platform = platform or sys.platform

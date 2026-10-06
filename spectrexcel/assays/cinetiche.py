@@ -360,7 +360,10 @@ class Cinetiche(AssayView):
             dpg.set_value(f"kinetics.reorder.filename.{row}", filename)
         self.request_preview()
 
-    def preview_task(self) -> Callable[[], ChartSpec] | None:
+    def preview_tab_labels(self) -> list[str]:
+        return [_("Abs vs Time")]
+
+    def preview_task(self, tab: int = 0) -> Callable[[], ChartSpec] | None:
         if not self.datasets:
             return None
         datasets = list(self.datasets)
