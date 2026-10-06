@@ -34,6 +34,19 @@ def test_unknown_string_falls_back_to_english():
     assert _("a string nobody translated") == "a string nobody translated"
 
 
+def test_italian_update_dialog_strings():
+    i18n.set_language("it")
+
+    assert (
+        _("What's new in {tag}:").format(tag="v1.2.0")
+        == "Novità nella versione v1.2.0:"
+    )
+    assert (
+        _("What's new since {version}:").format(version="1.0.0")
+        == "Novità dalla versione 1.0.0:"
+    )
+
+
 def test_set_language_rejects_unknown_codes():
     i18n.set_language("fr")
 

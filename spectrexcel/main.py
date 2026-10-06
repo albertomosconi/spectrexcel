@@ -36,6 +36,7 @@ from spectrexcel.layouts import LAYOUT_LABELS, PARAMETERS_ONLY, resolve_layout
 from spectrexcel.updater import (
     REPOSITORY_URL,
     UpdateRelease,
+    aggregate_notes,
     find_update,
     format_notes,
 )
@@ -703,11 +704,29 @@ class SpectrExcelApp:
 
     def _show_update_confirmation(self, release: UpdateRelease) -> None:
         px = self.display_scale.pixels
-        notes, has_hidden = format_notes(release.notes)
+        if release.previous_notes:
+            notes, has_hidden = aggregate_notes(
+                (note.tag, note.body) for note in release.all_notes
+            )
+            header = _("What's new since {version}:").format(version=self.version)
+            changelog_url = f"{REPOSITORY_URL}/releases"
+        else:
+            notes, has_hidden = format_notes(release.notes)
+            header = _("What's new in {tag}:").format(tag=release.tag)
+            changelog_url = f"{REPOSITORY_URL}/releases/tag/{release.tag}"
         height = 180
-        if notes:
-            height += 180
-        if has_hidden:
+        if release.previous_notes and notes:
+            # One release section of room per release keeps every section
+            # plus the changelog button inside the dialog without an outer
+            # scrollbar; dialog_window clamps the result to the viewport.
+            height = 300 + 159 * len(release.all_notes)
+            if has_hidden:
+                height += 38
+        elif notes:
+            height = 360
+            if has_hidden:
+                height += 40
+        elif has_hidden:
             height += 40
         if dpg.does_item_exist("settings.modal"):
             dpg.delete_item("settings.modal")
@@ -734,17 +753,22 @@ class SpectrExcelApp:
             )
             if notes:
                 dpg.add_spacer(height=px(12))
-                dpg.add_text(_("What's new in {tag}:").format(tag=release.tag))
-                with dpg.child_window(width=-1, height=px(150), border=True):
-                    dpg.add_text(notes, wrap=px(410))
+                dpg.add_text(header, tag="update.modal.header")
+                # Aggregated changelogs stretch to every leftover pixel of
+                # the dialog; -56 reserves the space below for the button row.
+                with dpg.child_window(
+                    width=-1,
+                    height=-px(56) if release.previous_notes else px(150),
+                    border=True,
+                ):
+                    dpg.add_text(notes, wrap=px(410), tag="update.modal.notes")
             if has_hidden:
                 dpg.add_spacer(height=px(12))
                 dpg.add_button(
                     label=_("View full changelog"),
-                    callback=lambda: webbrowser.open(
-                        f"{REPOSITORY_URL}/releases/tag/{release.tag}"
-                    ),
+                    callback=lambda: webbrowser.open(changelog_url),
                     width=px(240),
+                    tag="update.modal.more",
                 )
 
     def _open_update_download(self, release: UpdateRelease) -> None:

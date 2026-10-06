@@ -1,5 +1,6 @@
 import sys
 from dataclasses import dataclass
+from collections.abc import Iterable
 
 import requests
 from packaging.version import InvalidVersion, Version
@@ -7,7 +8,7 @@ from packaging.version import InvalidVersion, Version
 from spectrexcel.i18n import _
 
 
-API_URL = "https://api.github.com/repos/albertomosconi/spectrexcel/releases/latest"
+RELEASES_URL = "https://api.github.com/repos/albertomosconi/spectrexcel/releases"
 REPOSITORY_URL = "https://github.com/albertomosconi/spectrexcel"
 ASSET_NAMES = {
     "win32": "spectrexcel-windows-x86_64.exe",
@@ -31,11 +32,23 @@ class ReleaseAsset:
 
 
 @dataclass(frozen=True)
+class ReleaseNotes:
+    tag: str
+    body: str
+
+
+@dataclass(frozen=True)
 class UpdateRelease:
     tag: str
     version: Version
     asset: ReleaseAsset
     notes: str = ""
+    previous_notes: tuple[ReleaseNotes, ...] = ()
+
+    @property
+    def all_notes(self) -> tuple[ReleaseNotes, ...]:
+        """This release followed by every intermediate new release."""
+        return (ReleaseNotes(self.tag, self.notes), *self.previous_notes)
 
 
 def format_notes(body: str) -> tuple[str, bool]:
@@ -71,6 +84,22 @@ def format_notes(body: str) -> tuple[str, bool]:
     return "\n".join(lines), has_hidden
 
 
+def aggregate_notes(entries: Iterable[tuple[str, str]]) -> tuple[str, bool]:
+    """Combine the formatted notes of several releases into one text.
+
+    Each non-empty release becomes a "vX.Y.Z:" section, newest first; the
+    hidden flag is true when any release hid its "Other Changes" section.
+    """
+    sections: list[str] = []
+    has_hidden = False
+    for tag, body in entries:
+        notes, hidden = format_notes(body)
+        has_hidden = has_hidden or hidden
+        if notes:
+            sections.append(f"{tag}:\n{notes}")
+    return "\n\n".join(sections), has_hidden
+
+
 def find_update(current_version: str, platform: str | None = None) -> UpdateRelease | None:
     platform = platform or sys.platform
     asset_name = ASSET_NAMES.get(platform)
@@ -79,20 +108,31 @@ def find_update(current_version: str, platform: str | None = None) -> UpdateRele
             _("updates are not supported on {platform}").format(platform=platform)
         )
 
-    response = requests.get(API_URL, headers=REQUEST_HEADERS, timeout=10)
-    response.raise_for_status()
-    release = response.json()
-    tag = release.get("tag_name", "")
     try:
-        available_version = Version(tag.removeprefix("v"))
         installed_version = Version(current_version)
     except InvalidVersion as error:
         raise UpdateError(
             _("invalid release version: {error}").format(error=error)
         ) from error
 
-    if available_version <= installed_version:
+    response = requests.get(RELEASES_URL, headers=REQUEST_HEADERS, timeout=10)
+    response.raise_for_status()
+    stable: list[tuple[Version, dict]] = []
+    for release in response.json():
+        if release.get("draft") or release.get("prerelease"):
+            continue
+        tag = release.get("tag_name", "")
+        try:
+            available_version = Version(tag.removeprefix("v"))
+        except InvalidVersion:
+            continue
+        if available_version > installed_version:
+            stable.append((available_version, release))
+    stable.sort(key=lambda entry: entry[0], reverse=True)
+    if not stable:
         return None
+    available_version, release = stable[0]
+    tag = release.get("tag_name", "")
 
     asset = next(
         (
@@ -112,4 +152,10 @@ def find_update(current_version: str, platform: str | None = None) -> UpdateRele
         version=available_version,
         asset=ReleaseAsset(asset_name, asset["browser_download_url"]),
         notes=release.get("body") or "",
+        previous_notes=tuple(
+            ReleaseNotes(
+                entry[1].get("tag_name", ""), entry[1].get("body") or ""
+            )
+            for entry in stable[1:]
+        ),
     )
