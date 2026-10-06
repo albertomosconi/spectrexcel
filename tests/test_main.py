@@ -124,6 +124,16 @@ def test_disabled_button_palettes_are_muted_and_do_not_react_to_pointer_state():
         assert colors["Button"] == colors["ButtonHovered"] == colors["ButtonActive"]
 
 
+def test_child_windows_render_no_background_of_their_own():
+    # Dialog modal windows paint PopupBg while their child windows would
+    # paint ChildBg, producing a darker inset rectangle. ChildBg is
+    # transparent everywhere; where two colors would differ (dialogs) the
+    # modal background shows through, where they match nothing changes.
+    for colors in THEME_COLORS.values():
+        assert len(colors["ChildBg"]) == 4
+        assert colors["ChildBg"][3] == 0
+
+
 def test_build_registers_one_disabled_button_component_per_theme(
     dpg_context, monkeypatch, tmp_path
 ):
