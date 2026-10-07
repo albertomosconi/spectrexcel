@@ -582,6 +582,10 @@ class SpectrExcelApp:
             self.assay_view.maintain_layout()
             self.assay_view.process_preview()
 
+    def maintain_charts(self) -> None:
+        if self.assay_view is not None:
+            self.assay_view.maintain_charts()
+
     def submit(
         self,
         task: Callable[[], Any],
@@ -882,6 +886,7 @@ def main() -> None:
             app.maintain_assay()
             maintain_dialogs()
             dpg.render_dearpygui_frame()
+            app.maintain_charts()
             app.maintain_log_scroll()
         app.save_viewport()
     finally:

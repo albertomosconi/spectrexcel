@@ -123,7 +123,8 @@ def test_reorder_filenames_leave_room_for_move_buttons(viewport):
 
 def test_preview_plot_fills_available_body_not_preferred_dialog_height(viewport):
     open_dialog("chart.preview.modal", DisplayScale())
-    plot = dpg.get_item_children("chart.preview.modal.body", 1)[0]
+    plot = next(item for item in dpg.get_item_children("chart.preview.modal.body", 1)
+                if dpg.get_item_info(item)["type"] == "mvAppItemType::mvPlot")
     assert dpg.get_item_configuration(plot)["height"] == -1
 
 

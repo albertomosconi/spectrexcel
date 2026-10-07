@@ -99,7 +99,8 @@ def test_chart_preview_emits_series_coordinates_labels_and_axis_limits(preview_c
 
     view.show_chart_preview(spec)
 
-    plot = dpg.get_item_children("chart.preview.modal.body", 1)[0]
+    plot = next(item for item in dpg.get_item_children("chart.preview.modal.body", 1)
+                if dpg.get_item_info(item)["type"] == "mvAppItemType::mvPlot")
     assert dpg.get_item_label(plot) == "Two traces"
     items = dpg.get_item_children(plot, 1)
     axes = [item for item in items if dpg.get_item_info(item)["type"] == "mvAppItemType::mvPlotAxis"]
@@ -141,18 +142,215 @@ def test_renderer_expands_equal_bounds_only_for_display(preview_context, monkeyp
                         lambda axis, lo, hi: calls.append((lo, hi)))
     spec = ChartSpec("x", "y", (0, 0), (0, 0),
                      (ChartSeries("one", [0], [0]),))
-    renderer = ChartRenderer(parent)
+    renderer = ChartRenderer(parent, DisplayScale())
     renderer.render(spec)
     assert calls == [(0, 1.0), (0, 1.0)]
     assert spec.x_limits == spec.y_limits == (0, 0)
     renderer.dispose()
 
 
+def test_renderer_unlocks_pan_zoom_after_first_rendered_frame(preview_context, monkeypatch):
+    from spectrexcel.charts import ChartRenderer
+    parent = dpg.add_window()
+    unlocked = []
+    monkeypatch.setattr(dpg, "set_axis_limits_auto", unlocked.append)
+    spec = ChartSpec(
+        "x", "y", (0, 10), (-1, 2),
+        (ChartSeries("one", [0, 10], [-0.25, 0.75]),),
+    )
+    renderer = ChartRenderer(parent, DisplayScale())
+    renderer.render(spec)
+    renderer.maintain()
+    # Dear PyGui locks pan/zoom while set_axis_limits is in effect, so
+    # renderer.maintain must wait for the limits to be applied once.
+    assert unlocked == []
+    dpg.setup_dearpygui()
+    dpg.show_viewport()
+    dpg.render_dearpygui_frame()
+    renderer.maintain()
+    assert unlocked == renderer.axes
+    renderer.maintain()
+    assert len(unlocked) == 2
+    dpg.render_dearpygui_frame()
+    button = dpg.get_item_state(renderer.toolbar_buttons[0])
+    assert renderer.hint_text is not None
+    hint = dpg.get_item_state(renderer.hint_text)
+    button_center = button["pos"][1] + button["rect_size"][1] / 2
+    hint_center = hint["pos"][1] + hint["rect_size"][1] / 2
+    assert hint_center == pytest.approx(button_center, abs=1)
+
+
+def test_assay_view_unlocks_modal_chart_zoom(preview_context, monkeypatch):
+    view = AssayView(lambda message: None, lambda *args: None, Mock(spec=Settings), DisplayScale())
+    view.show_chart_preview(ChartSpec("x", "y", (0, 1), (0, 1), (
+        ChartSeries("one", [0, 1], [0.2, 0.3]),
+    )))
+    unlocked = []
+    frames = {"count": 0}
+    monkeypatch.setattr(dpg, "get_frame_count", lambda: frames["count"])
+    monkeypatch.setattr(dpg, "set_axis_limits_auto", unlocked.append)
+
+    view.maintain_charts()
+    frames["count"] = 1
+    view.maintain_charts()
+
+    assert unlocked == view._modal_renderer.axes  # pyright: ignore[reportOptionalMemberAccess]
+
+
+def test_renderer_builds_zoom_toolbar_above_chart(preview_context):
+    from spectrexcel.charts import ChartRenderer
+    parent = dpg.add_window()
+    renderer = ChartRenderer(parent, DisplayScale())
+    spec = ChartSpec(
+        "x", "y", (0, 10), (-1, 2),
+        (ChartSeries("one", [0, 10], [-0.25, 0.75]),),
+    )
+    renderer.render(spec)
+    rendered = dpg.get_item_children(parent, 1)
+    toolbar = next(item for item in rendered
+                   if dpg.get_item_info(item)["type"] == "mvAppItemType::mvGroup")
+    children = dpg.get_item_children(toolbar, 1)
+    buttons = [item for item in children
+               if dpg.get_item_info(item)["type"] == "mvAppItemType::mvButton"]
+    assert [dpg.get_item_label(item) for item in buttons] == ["\u21ba"]
+    for button in buttons:
+        config = dpg.get_item_configuration(button)
+        assert config["width"] == config["height"] == DisplayScale().pixels(32)
+    nested = [item for item in children
+              if dpg.is_item_container(item)
+              and dpg.get_item_info(item)["type"] != "mvAppItemType::mvTooltip"]
+    texts = [dpg.get_value(item) for group in nested
+             for item in dpg.get_item_children(group, 1)
+             if dpg.get_item_info(item)["type"] == "mvAppItemType::mvText"]
+    assert texts == ["Click and drag to pan. Scroll to zoom."]
+
+
+def test_renderer_reset_button_disabled_until_view_drifts(preview_context, monkeypatch):
+    from spectrexcel.charts import ChartRenderer
+    parent = dpg.add_window()
+    current = {"x": (0.0, 10.0), "y": (-1.0, 2.0)}
+    frames = {"count": 0}
+    monkeypatch.setattr(dpg, "get_frame_count", lambda: frames["count"])
+    monkeypatch.setattr(
+        dpg, "get_axis_limits",
+        lambda axis: dict(zip(renderer.axes, (current["x"], current["y"])))[axis],
+    )
+    spec = ChartSpec(
+        "x", "y", (0, 10), (-1, 2),
+        (ChartSeries("one", [0, 10], [-0.25, 0.75]),),
+    )
+    renderer = ChartRenderer(parent, DisplayScale())
+    renderer.render(spec)
+    reset = renderer.toolbar_buttons[0]
+    assert not dpg.get_item_configuration(reset)["enabled"]
+
+    frames["count"] += 1
+    renderer.maintain()  # unlock; view equals spec limits
+    assert not dpg.get_item_configuration(reset)["enabled"]
+
+    renderer.reset_view()
+    frames["count"] += 1
+    renderer.maintain()  # queued command: view has moved
+    assert dpg.get_item_configuration(reset)["enabled"]
+
+    frames["count"] += 1
+    renderer.maintain()  # apply phase
+    frames["count"] += 1
+    renderer.maintain()  # release phase
+    frames["count"] += 1
+    renderer.maintain()  # back at spec limits
+    assert not dpg.get_item_configuration(reset)["enabled"]
+
+
+def test_renderer_reset_enables_and_disables_with_rendered_limits(
+    preview_context, monkeypatch
+):
+    from spectrexcel.charts import ChartRenderer
+    parent = dpg.add_window()
+    current = {"x": (0.0, 10.0), "y": (-1.0, 2.0)}
+    frames = {"count": 0}
+    monkeypatch.setattr(dpg, "get_frame_count", lambda: frames["count"])
+    monkeypatch.setattr(
+        dpg, "get_axis_limits",
+        lambda axis: dict(zip(renderer.axes, (current["x"], current["y"])))[axis],
+    )
+    spec = ChartSpec(
+        "x", "y", (0, 10), (-1, 2),
+        (ChartSeries("one", [0, 10], [-0.25, 0.75]),),
+    )
+    renderer = ChartRenderer(parent, DisplayScale())
+    renderer.render(spec)
+    reset = renderer.toolbar_buttons[0]
+    renderer.interactive = True
+
+    renderer.maintain()  # view at spec limits: disabled
+    assert not dpg.get_item_configuration(reset)["enabled"]
+    current["x"] = (2.0, 8.0)
+    frames["count"] += 1
+    renderer.maintain()  # drifted: enabled
+    assert dpg.get_item_configuration(reset)["enabled"]
+    current["x"] = (0.0, 10.0)
+    frames["count"] += 1
+    renderer.maintain()  # back at spec limits: disabled again
+    assert not dpg.get_item_configuration(reset)["enabled"]
+
+
+def test_renderer_reset_view_restores_spec_limits(preview_context, monkeypatch):
+    from spectrexcel.charts import ChartRenderer
+    parent = dpg.add_window()
+    applied = []
+    released = []
+    frames = {"count": 0}
+    monkeypatch.setattr(dpg, "get_frame_count", lambda: frames["count"])
+    spec = ChartSpec(
+        "x", "y", (0, 10), (-1, 2),
+        (ChartSeries("one", [0, 10], [-0.25, 0.75]),),
+    )
+    renderer = ChartRenderer(parent, DisplayScale())
+    renderer.render(spec)
+    monkeypatch.setattr(dpg, "set_axis_limits", lambda axis, lo, hi: applied.append((lo, hi)))
+    monkeypatch.setattr(dpg, "set_axis_limits_auto", lambda axis: released.append(axis))
+    frames["count"] = 1
+    renderer.maintain()  # unlock; interactive now
+
+    renderer.reset_view()
+    frames["count"] = 2
+    renderer.maintain()  # apply phase
+    assert applied == [(0, 10), (-1, 2)]
+    frames["count"] = 3
+    renderer.maintain()  # release phase
+    assert released[2:] == renderer.axes
+
+
+def test_renderer_reset_tolerates_float32_limit_rounding(preview_context, monkeypatch):
+    """Dear PyGui truncates limits to single precision; that is not a drift."""
+    from spectrexcel.charts import ChartRenderer
+    parent = dpg.add_window()
+    current = {"x": (0.0, 298.70001220703125), "y": (0.0, 1.1445660591125488)}
+    frames = {"count": 0}
+    monkeypatch.setattr(dpg, "get_frame_count", lambda: frames["count"])
+    monkeypatch.setattr(
+        dpg, "get_axis_limits",
+        lambda axis: dict(zip(renderer.axes, (current["x"], current["y"])))[axis],
+    )
+    spec = ChartSpec(
+        "x", "y", (0.0, 298.7), (0.0, 1.1445660591125488),
+        (ChartSeries("one", [0, 298.7], [0.2, 0.3]),),
+    )
+    renderer = ChartRenderer(parent, DisplayScale())
+    renderer.render(spec)
+    reset = renderer.toolbar_buttons[0]
+    renderer.interactive = True
+
+    renderer.maintain()  # float32-rounded readback of the spec: not drifted
+    assert not dpg.get_item_configuration(reset)["enabled"]
+
+
 def test_renderer_replaces_and_disposes_owned_themes(preview_context):
     from spectrexcel.charts import ChartRenderer
     parent = dpg.add_window()
     before = set(dpg.get_all_items())
-    renderer = ChartRenderer(parent)
+    renderer = ChartRenderer(parent, DisplayScale())
     spec = ChartSpec("x", "y", (0, 1), (0, 1),
                      (ChartSeries("one", [0, 1], [0.2, 0.3]),))
     sizes = []

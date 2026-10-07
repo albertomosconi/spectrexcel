@@ -224,6 +224,9 @@ TRANSLATIONS_IT: dict[str, str] = {
     "PREVIEW": "ANTEPRIMA",
     "Abs vs Time": "Abs vs tempo",
     "Spectra": "Spettri",
+    "Reset zoom to the original view": "Ripristina la vista originale del grafico",
+    "Click and drag to pan. Scroll to zoom.":
+        "Clicca e trascina per spostare il grafico. Usa la rotella per ingrandire.",
     # cinetiche
     "1. Upload KD files": "1. Carica file KD",
     "Select input files (.KD)": "Seleziona file di input (.KD)",

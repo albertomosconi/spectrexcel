@@ -122,7 +122,7 @@ class AssayView:
                     dpg.bind_item_theme(self._preview_title, "theme.accent")
                     self._preview_tab_bar = self._build_tab_bar(labels, self._select_tab)
         self._preview_message = dpg.add_text("", parent=preview)
-        self._embedded_renderer = ChartRenderer(preview)
+        self._embedded_renderer = ChartRenderer(preview, self.display_scale)
         self.apply_layout(layout)
 
     def _select_tab(self, index: int) -> None:
@@ -257,6 +257,12 @@ class AssayView:
                     failed(error)
 
         self.submit(task, finished, failed)
+
+    def maintain_charts(self) -> None:
+        if self._embedded_renderer is not None:
+            self._embedded_renderer.maintain()
+        if self._modal_renderer is not None:
+            self._modal_renderer.maintain()
 
     def maintain_layout(self) -> None:
         if self._assay_layout is None:
@@ -532,5 +538,5 @@ class AssayView:
                 self._modal_tab_bar = self._build_tab_bar(
                     labels, self._dialog_tab_selected
                 )
-            self._modal_renderer = ChartRenderer(f"{tag}.body")
+            self._modal_renderer = ChartRenderer(f"{tag}.body", self.display_scale)
             self._modal_renderer.render(spec)
