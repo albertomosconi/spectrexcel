@@ -196,7 +196,7 @@ class Cinetiche(AssayView):
         px = self.display_scale.pixels
         title = dpg.add_text(_("1. Upload KD files"), parent=parent)
         dpg.bind_item_theme(title, "theme.accent")
-        with dpg.group(horizontal=True, parent=parent) as input_row:
+        with dpg.group(horizontal=True, parent=parent, tag="kinetics.input_row"):
             dpg.add_button(
                 label=_("Select input files (.KD)"),
                 tag="kinetics.upload",
@@ -259,11 +259,11 @@ class Cinetiche(AssayView):
                 width=px(260),
             )
         self.add_info_checkbox(parent)
-        self.register_layout_row(input_row)
         self.register_layout_row(wavelength_row)
         for tag in ("kinetics.reading", "kinetics.correction"):
             self.register_layout_field(tag, 210)
-        self.register_layout_field("kinetics.upload", 260)
+        self.register_layout_field("kinetics.upload", 260, group="kinetics.input")
+        self.register_layout_field("kinetics.reorder", 150, group="kinetics.input")
         self.register_layout_field("kinetics.export", 260)
 
     def _choose_inputs(self) -> None:

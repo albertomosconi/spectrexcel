@@ -45,7 +45,7 @@ class AssayView:
         self.layout = PARAMETERS_ONLY
         self._assay_layout: AssayLayout | None = None
         self._layout_rows: list[str | int] = []
-        self._layout_fields: list[tuple[str | int, int, str, str | int | None]] = []
+        self._layout_fields: list[tuple[str | int, int, str, str | int | None, str | None]] = []
         self._preview_message: str | int | None = None
         self._preview_generation = 0
         self._preview_dirty = False
@@ -156,13 +156,17 @@ class AssayView:
     def register_layout_row(self, tag: str | int) -> None:
         self._layout_rows.append(tag)
 
-    def register_layout_field(self, tag: str | int, width: int, label: str = "") -> None:
+    def register_layout_field(
+        self, tag: str | int, width: int, label: str = "", group: str | None = None
+    ) -> None:
         heading = None
         if label:
             heading = dpg.add_text(
                 label, parent=dpg.get_item_parent(tag) or 0, before=tag, show=False,
             )
-        self._layout_fields.append((tag, width, label, heading))
+        # Fields sharing ``group`` keep a side-by-side layout: fit_embedded_fields
+        # scales the pair (or row) down to the pane's content width.
+        self._layout_fields.append((tag, width, label, heading, group))
 
     def apply_layout(self, layout: str) -> None:
         self.close_chart_preview()
@@ -173,7 +177,7 @@ class AssayView:
         self._assay_layout.apply(self.layout)
         for row in self._layout_rows:
             dpg.configure_item(row, horizontal=not embedded)
-        for tag, width, label, heading in self._layout_fields:
+        for tag, width, label, heading, _group in self._layout_fields:
             if heading is not None:
                 dpg.configure_item(heading, show=embedded and dpg.get_item_configuration(tag)["show"])
                 dpg.configure_item(tag, label="" if embedded else label)
@@ -254,14 +258,39 @@ class AssayView:
         self._assay_layout.maintain()
         embedded = self.layout == PARAMETERS_PREVIEW
         width = self._assay_layout.content_width
-        for tag, logical_width, label, heading in self._layout_fields:
-            field_width = self.display_scale.pixels(logical_width)
-            dpg.configure_item(tag, width=min(field_width, width) if embedded else field_width)
-            if heading is not None:
-                dpg.configure_item(heading, show=embedded and dpg.get_item_configuration(tag)["show"])
+        spacing = self.display_scale.pixels(8)
+        pending: list[tuple[str | int, int]] = []
+        pending_group: str | None = None
+        for tag, logical_width, _label, _heading, group in self._layout_fields:
+            if embedded and group is not None and group == pending_group:
+                pending.append((tag, logical_width))
+            else:
+                self._fit_embedded_fields(pending, spacing, width)
+                pending = [(tag, logical_width)] if embedded and group is not None else []
+                pending_group = group
+                field_width = self.display_scale.pixels(logical_width)
+                dpg.configure_item(
+                    tag, width=min(field_width, width) if embedded else field_width
+                )
+        self._fit_embedded_fields(pending, spacing, width)
         dpg.configure_item(self._workflow().status, wrap=width if embedded else -1)
         if self._preview_message is not None:
             dpg.configure_item(self._preview_message, wrap=width)
+
+    def _fit_embedded_fields(
+        self, pending: list[tuple[str | int, int]], spacing: int, available: int
+    ) -> None:
+        """Shrink a group of side-by-side fields proportionally to fit ``available``."""
+        if len(pending) <= 1:
+            return
+        px = self.display_scale.pixels
+        total = sum(px(logical_width) for _tag, logical_width in pending)
+        if total <= 0:
+            return
+        room = max(0, available - spacing * len(pending))
+        factor = 1.0 if total <= room else room / total
+        for tag, logical_width in pending:
+            dpg.configure_item(tag, width=int(px(logical_width) * factor))
 
     def dispose(self) -> None:
         self.active = False

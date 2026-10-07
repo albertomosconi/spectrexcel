@@ -326,7 +326,9 @@ def test_update_dialog_lists_every_spanned_version(dpg_context, monkeypatch):
     assert "v1.1.0" not in notes
     opened = []
     monkeypatch.setattr(main.webbrowser, "open", lambda url: opened.append(url))
-    dpg.get_item_callback("update.modal.more")()
+    more = dpg.get_item_callback("update.modal.more")
+    assert more is not None
+    more()
     assert opened == [f"{main.REPOSITORY_URL}/releases"]
     dpg.delete_item("update.modal")
 
@@ -469,7 +471,9 @@ def test_update_dialog_links_single_version_to_its_release(dpg_context, monkeypa
     dialog_app()._show_update_confirmation(release)
 
     assert dpg.does_item_exist("update.modal.more")
-    dpg.get_item_callback("update.modal.more")()
+    more = dpg.get_item_callback("update.modal.more")
+    assert more is not None
+    more()
     assert opened == [f"{main.REPOSITORY_URL}/releases/tag/v1.2.0"]
     dpg.delete_item("update.modal")
 

@@ -212,7 +212,7 @@ class BindingTitolazione(AssayView):
         dpg.add_spacer(height=px(6), parent=parent)
         title = dpg.add_text(_("2. Configure axis ranges"), parent=parent)
         dpg.bind_item_theme(title, "theme.accent")
-        with dpg.group(horizontal=True, parent=parent) as axes_row:
+        with dpg.group(horizontal=True, parent=parent, tag="binding.axis_x"):
             with dpg.group():
                 dpg.add_text(_("X-axis minimum (nm)"))
                 dpg.add_input_int(
@@ -237,6 +237,7 @@ class BindingTitolazione(AssayView):
                     max_clamped=True,
                     width=px(180),
                 )
+        with dpg.group(horizontal=True, parent=parent, tag="binding.axis_y"):
             with dpg.group():
                 dpg.add_text(_("Y-axis minimum (AU)"))
                 dpg.add_input_float(
@@ -307,10 +308,12 @@ class BindingTitolazione(AssayView):
                 width=px(260),
             )
         self.add_info_checkbox(parent)
-        self.register_layout_row(axes_row)
         self.register_layout_row(correction_row)
-        for tag in ("binding.x_min", "binding.x_max", "binding.y_min", "binding.y_max"):
-            self.register_layout_field(tag, 180)
+        for tag, group in (
+            ("binding.x_min", "binding.axis_x"), ("binding.x_max", "binding.axis_x"),
+            ("binding.y_min", "binding.axis_y"), ("binding.y_max", "binding.axis_y"),
+        ):
+            self.register_layout_field(tag, 180, group=group)
         self.register_layout_field("binding.correction", 210, _("Correction wavelength (nm)"))
         self.register_layout_field("binding.upload", 260)
         self.register_layout_field("binding.export", 260)

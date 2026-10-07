@@ -284,7 +284,9 @@ def test_clicking_the_active_tab_does_not_refresh(live_context):
     view.process_preview()
     complete(jobs.pop())
     button = view._preview_tab_bar[0]
-    dpg.get_item_callback(button)(button, 0)
+    callback = dpg.get_item_callback(button)
+    assert callback is not None
+    callback(button, 0)
     view.process_preview()
     assert jobs == []
 

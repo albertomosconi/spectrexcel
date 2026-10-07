@@ -51,6 +51,47 @@ def test_layout_change_keeps_widget_identity_and_button_state(layout_context, cl
             assert dpg.get_item_configuration(row)["horizontal"] == (mode == PARAMETERS_ONLY)
 
 
+@pytest.mark.parametrize("cls,rows", [
+    (BindingTitolazione, ("binding.axis_x", "binding.axis_y")),
+    (Cinetiche, ("kinetics.input_row",)),
+])
+def test_side_rows_stay_horizontal_in_both_layouts(layout_context, cls, rows):
+    from spectrexcel.layouts import PARAMETERS_ONLY, PARAMETERS_PREVIEW
+    view = cls(lambda message: None, lambda *args: None, {}, DisplayScale())
+    view.mount(dpg.add_window(), PARAMETERS_ONLY)
+    for mode in (PARAMETERS_PREVIEW, PARAMETERS_ONLY):
+        view.apply_layout(mode)
+        for row in rows:
+            assert dpg.does_item_exist(row)
+            assert dpg.get_item_configuration(row)["horizontal"]
+            assert len(dpg.get_item_children(row, 1)) >= 2
+
+
+@pytest.mark.parametrize("cls,fields,spacing_group", [
+    (BindingTitolazione,
+     (("binding.x_min", "binding.x_max"), ("binding.y_min", "binding.y_max")),
+     "axis"),
+    (Cinetiche, (("kinetics.upload", "kinetics.reorder"),), "row"),
+])
+def test_paired_fields_fit_embedded_content_width(layout_context, monkeypatch, cls, fields, spacing_group):
+    from spectrexcel.layouts import PARAMETERS_ONLY, PARAMETERS_PREVIEW, AssayLayout
+    scale = DisplayScale()
+    content = scale.pixels(320)
+    monkeypatch.setattr(AssayLayout, "content_width", property(lambda self: content))
+    view = cls(lambda message: None, lambda *args: None, {}, scale)
+    view.mount(dpg.add_window(), PARAMETERS_ONLY)
+    view.apply_layout(PARAMETERS_ONLY)
+    logical = ((180, 180), (180, 180)) if cls is BindingTitolazione else ((260, 150),)
+    for pair, (first, second) in zip(fields, logical):
+        assert [dpg.get_item_configuration(tag)["width"] for tag in pair] == [scale.pixels(first), scale.pixels(second)]
+    view.apply_layout(PARAMETERS_PREVIEW)
+    for pair in fields:
+        widths = [dpg.get_item_configuration(tag)["width"] for tag in pair]
+        assert 0 < widths[0] <= scale.pixels(260)
+        assert 0 < widths[1] <= min(scale.pixels(180), widths[0])
+        assert sum(widths) + scale.pixels(8) <= content
+
+
 @pytest.mark.parametrize("factor", [1.0, 2.0])
 @pytest.mark.parametrize("cls", [BindingTitolazione, Cinetiche, FamigliaDiSpettri])
 def test_two_panes_fit_minimum_size_and_wrap_filename(layout_context, monkeypatch, factor, cls):
@@ -174,7 +215,7 @@ def _check_rendered_layouts(tmp_path, factor, language):
                 assert dpg.get_y_scroll_max("assay.content") == 0
                 assert view._embedded_renderer is not None
                 assert view._embedded_renderer.plot is not None
-                for tag, logical_width, label, heading in view._layout_fields:
+                for tag, logical_width, label, heading, _group in view._layout_fields:
                     state = dpg.get_item_state(tag)
                     assert state["pos"][0] + state["rect_size"][0] <= left[0] - scale.pixels(10)
                 app._layout_changed(None, _(LAYOUT_LABELS[PARAMETERS_ONLY]))
