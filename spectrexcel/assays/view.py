@@ -14,6 +14,12 @@ from spectrexcel.settings import Settings
 from spectrexcel.charts import ChartRenderer, ChartSeries, ChartSpec, green_shades
 from spectrexcel.layouts import AssayLayout, PARAMETERS_ONLY, PARAMETERS_PREVIEW, resolve_layout
 
+# The tab-bar chrome themes are created once per DPG context and shared by all
+# assay views: their styles use fixed tags, and a view must never delete them
+# while another view is still alive.
+CHROME_HEADER_THEME = "chrome.tabs.header_theme"
+CHROME_TAB_THEME = "chrome.tabs.tab_theme"
+
 
 @dataclass(frozen=True)
 class WorkflowControls:
@@ -66,17 +72,17 @@ class AssayView:
         return []
 
     def _ensure_chrome_themes(self) -> None:
-        if self._chrome_themes:
+        if dpg.does_item_exist(CHROME_TAB_THEME):
+            self._chrome_themes = [CHROME_HEADER_THEME, CHROME_TAB_THEME]
             return
         px = self.display_scale.pixels
         accent = SEMANTIC_TEXT_COLORS["Dark"]["accent"]
         if dpg.does_item_exist("theme.accent.color"):
             accent = tuple(dpg.get_value("theme.accent.color"))
-        with dpg.theme() as header_theme:
+        with dpg.theme(tag=CHROME_HEADER_THEME):
             with dpg.theme_component(dpg.mvTable):
                 dpg.add_theme_style(dpg.mvStyleVar_CellPadding, 0, 0)
-        self._chrome_themes.append(header_theme)
-        with dpg.theme() as tab_theme:
+        with dpg.theme(tag=CHROME_TAB_THEME):
             with dpg.theme_component(dpg.mvButton):
                 dpg.add_theme_style(
                     dpg.mvStyleVar_FramePadding, px(10), px(3),
@@ -93,7 +99,7 @@ class AssayView:
                     dpg.mvThemeCol_ButtonActive,
                 ):
                     dpg.add_theme_color(color, (0, 0, 0, 0))
-        self._chrome_themes.append(tab_theme)
+        self._chrome_themes = [CHROME_HEADER_THEME, CHROME_TAB_THEME]
 
     def mount(self, parent: str | int, layout: str) -> None:
         self._assay_layout = AssayLayout(parent, self.display_scale)
@@ -300,10 +306,7 @@ class AssayView:
             self._embedded_renderer.dispose()
         if self._assay_layout is not None:
             self._assay_layout.dispose()
-        for theme in self._chrome_themes:
-            if dpg.does_item_exist(theme):
-                dpg.delete_item(theme)
-        self._chrome_themes.clear()
+        self._chrome_themes = []
         self._preview_title = None
         self._preview_tab_bar = []
         self._modal_tab_bar = []

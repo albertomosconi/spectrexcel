@@ -4,7 +4,7 @@ import pandas as pd
 from pathlib import Path
 from unittest.mock import Mock
 
-from spectrexcel.assays.view import AssayView, ChartSeries, ChartSpec
+from spectrexcel.assays.view import AssayView, CHROME_HEADER_THEME, CHROME_TAB_THEME, ChartSeries, ChartSpec
 from spectrexcel.dpi import DisplayScale
 from spectrexcel.settings import Settings
 
@@ -169,10 +169,20 @@ def test_renderer_replaces_and_disposes_owned_themes(preview_context):
                 if dpg.get_item_info(item)["type"] == "mvAppItemType::mvTheme"]
 
 
-def test_assay_dispose_closes_modal_and_owned_themes(preview_context):
+def test_assay_dispose_closes_modal_and_shares_chrome_themes(preview_context):
     view = AssayView(lambda message: None, lambda *args: None, Mock(spec=Settings), DisplayScale())
     before = set(dpg.get_all_items())
     view.show_chart_preview(ChartSpec("x", "y", (0, 1), (0, 1),
                            (ChartSeries("one", [0, 1], [0.2, 0.3]),)))
+    chrome = set()
+    for theme in (CHROME_HEADER_THEME, CHROME_TAB_THEME):
+        chrome.add(dpg.get_alias_id(theme))
+        for slot in range(3):
+            chrome.update(dpg.get_item_children(theme, slot) or [])
+        for component in dpg.get_item_children(theme, 1) or []:
+            for sub_slot in range(3):
+                chrome.update(dpg.get_item_children(component, sub_slot) or [])
     view.dispose()
-    assert set(dpg.get_all_items()) == before
+    # The dialog and everything the view owns goes away; the chrome tab themes
+    # are context-shared assets other views may still need.
+    assert set(dpg.get_all_items()) - chrome == before

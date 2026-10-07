@@ -2,9 +2,11 @@ from pathlib import Path
 
 import dearpygui.dearpygui as dpg
 import pandas as pd
+from unittest.mock import Mock
 import pytest
 
 from spectrexcel.assays.cinetiche import Cinetiche
+from spectrexcel.assays.view import AssayView, CHROME_HEADER_THEME, CHROME_TAB_THEME, ChartSpec
 from spectrexcel.assays.famiglia_di_spettri import FamigliaDiSpettri
 from spectrexcel.assays.titolazione import BindingTitolazione
 from spectrexcel.dpi import DisplayScale
@@ -332,6 +334,19 @@ def test_reorder_updates_legend_and_trace_order(live_context):
     plot = view._embedded_renderer.plot
     axis = dpg.get_item_children(plot, 1)[-1]
     assert [dpg.get_item_label(item) for item in dpg.get_item_children(axis, 1)] == ["second", "first"]
+
+
+def test_chrome_themes_are_shared_between_views(live_context):
+    view1, jobs, messages = live_context(Cinetiche)
+    view2 = AssayView(lambda _m: None, lambda *_a: None, Mock(spec=Settings), DisplayScale(1))
+    try:
+        view2.show_chart_preview(ChartSpec("x", "y", (0, 1), (0, 1), ()))
+        assert view1._chrome_themes == view2._chrome_themes == [CHROME_HEADER_THEME, CHROME_TAB_THEME]
+        view1.dispose()
+        for theme in view2._chrome_themes:
+            assert dpg.does_item_exist(theme)
+    finally:
+        view2.dispose()
 
 
 def test_disposed_view_suppresses_preview_results(live_context):
