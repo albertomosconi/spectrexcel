@@ -62,6 +62,8 @@ jobs:
       - run: uv sync --frozen
       - name: Render dialogs at normal and doubled scale
         run: xvfb-run -a -s "-screen 0 1920x1200x24" uv run pytest -q tests/test_dialogs.py::test_rendered_dialog_content_and_actions_fit_after_resize
+      - name: Render chart toolbar at normal and doubled scale
+        run: xvfb-run -a -s "-screen 0 1920x1200x24" uv run pytest -q tests/test_preview.py::test_rendered_chart_toolbar_centers_hint
 
   build:
     name: Build ${{ matrix.name }}

@@ -1,5 +1,8 @@
 import dearpygui.dearpygui as dpg
+import os
 import pytest
+import subprocess
+import sys
 import pandas as pd
 from pathlib import Path
 from unittest.mock import Mock
@@ -153,6 +156,8 @@ def test_renderer_unlocks_pan_zoom_after_first_rendered_frame(preview_context, m
     from spectrexcel.charts import ChartRenderer
     parent = dpg.add_window()
     unlocked = []
+    frames = {"count": 0}
+    monkeypatch.setattr(dpg, "get_frame_count", lambda: frames["count"])
     monkeypatch.setattr(dpg, "set_axis_limits_auto", unlocked.append)
     spec = ChartSpec(
         "x", "y", (0, 10), (-1, 2),
@@ -164,20 +169,11 @@ def test_renderer_unlocks_pan_zoom_after_first_rendered_frame(preview_context, m
     # Dear PyGui locks pan/zoom while set_axis_limits is in effect, so
     # renderer.maintain must wait for the limits to be applied once.
     assert unlocked == []
-    dpg.setup_dearpygui()
-    dpg.show_viewport()
-    dpg.render_dearpygui_frame()
+    frames["count"] = 1
     renderer.maintain()
     assert unlocked == renderer.axes
     renderer.maintain()
     assert len(unlocked) == 2
-    dpg.render_dearpygui_frame()
-    button = dpg.get_item_state(renderer.toolbar_buttons[0])
-    assert renderer.hint_text is not None
-    hint = dpg.get_item_state(renderer.hint_text)
-    button_center = button["pos"][1] + button["rect_size"][1] / 2
-    hint_center = hint["pos"][1] + hint["rect_size"][1] / 2
-    assert hint_center == pytest.approx(button_center, abs=1)
 
 
 def test_assay_view_unlocks_modal_chart_zoom(preview_context, monkeypatch):
@@ -344,6 +340,52 @@ def test_renderer_reset_tolerates_float32_limit_rounding(preview_context, monkey
 
     renderer.maintain()  # float32-rounded readback of the spec: not drifted
     assert not dpg.get_item_configuration(reset)["enabled"]
+
+
+@pytest.mark.skipif(
+    os.environ.get("SPECTREXCEL_GUI_TESTS") != "1",
+    reason="Opt-in rendered checks require a desktop display",
+)
+@pytest.mark.parametrize("factor", [1, 2])
+def test_rendered_chart_toolbar_centers_hint(factor):
+    # Dear PyGui's renderer must run in a fresh process, separate from headless
+    # context tests and from previous renderer lifecycles.
+    subprocess.run(
+        [sys.executable, "-c",
+         "import runpy, sys; "
+         "runpy.run_path(sys.argv[1])['_check_rendered_chart_toolbar'](int(sys.argv[2]))",
+         __file__, str(factor)],
+        check=True, timeout=60,
+    )
+
+
+def _check_rendered_chart_toolbar(factor):
+    dpg.create_context()
+    dpg.create_viewport(width=1280 * factor, height=800 * factor)
+    dpg.setup_dearpygui()
+    dpg.show_viewport()
+    try:
+        from spectrexcel.charts import ChartRenderer
+        window = dpg.add_window()
+        spec = ChartSpec(
+            "Time (s)", "Abs (AU)", (0.0, 10.0), (-0.5, 1.0),
+            (ChartSeries("first", [0.0, 10.0], [-0.25, 0.75]),),
+        )
+        renderer = ChartRenderer(window, DisplayScale(factor))
+        renderer.render(spec)
+        for _frame in range(6):
+            renderer.maintain()
+            dpg.render_dearpygui_frame()
+        button = dpg.get_item_state(renderer.toolbar_buttons[0])
+        assert renderer.hint_text is not None
+        hint = dpg.get_item_state(renderer.hint_text)
+        button_center = button["pos"][1] + button["rect_size"][1] / 2
+        hint_center = hint["pos"][1] + hint["rect_size"][1] / 2
+        assert hint_center == pytest.approx(button_center, abs=1)
+        # The reset button starts disabled at the initial view.
+        assert not dpg.get_item_configuration(renderer.toolbar_buttons[0])["enabled"]
+    finally:
+        dpg.destroy_context()
 
 
 def test_renderer_replaces_and_disposes_owned_themes(preview_context):
