@@ -1,5 +1,6 @@
 import os
 import shutil
+import signal
 import subprocess
 import sys
 from pathlib import Path
@@ -9,6 +10,24 @@ from spectrexcel.i18n import _
 
 
 FileFilters = dict[str, list[str]]
+
+_active_picker: subprocess.Popen | None = None
+
+
+def runs_in_background() -> bool:
+    """Whether pickers must run off the render thread to keep the window alive.
+
+    The Windows dialog pumps the owner window's messages itself; Zenity and
+    KDialog are separate processes that would freeze the render loop.
+    """
+    return sys.platform != "win32"
+
+
+def cancel() -> None:
+    """Close the open Linux picker, as if the user had cancelled it."""
+    process = _active_picker
+    if process is not None and process.poll() is None:
+        process.terminate()
 
 
 def open_files(
@@ -72,12 +91,20 @@ def _linux_dialog(
             _("install Zenity or KDialog to use the system file picker")
         )
 
-    result = subprocess.run(command, capture_output=True, text=True)
-    if result.returncode == 1:
+    global _active_picker
+    process = subprocess.Popen(
+        command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+    )
+    _active_picker = process
+    try:
+        stdout, stderr = process.communicate()
+    finally:
+        _active_picker = None
+    if process.returncode in (1, -signal.SIGTERM):
         return []
-    if result.returncode != 0:
-        raise RuntimeError(result.stderr.strip() or _("system file picker failed"))
-    return [path for path in result.stdout.splitlines() if path]
+    if process.returncode != 0:
+        raise RuntimeError(stderr.strip() or _("system file picker failed"))
+    return [path for path in stdout.splitlines() if path]
 
 
 def _windows_filter(filters: FileFilters) -> str:

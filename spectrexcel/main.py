@@ -23,6 +23,7 @@ from spectrexcel.dpi import (
     resolve_ui_scale,
     ui_scale_label,
 )
+from spectrexcel import native_dialogs
 from spectrexcel.dialogs import DialogAction, dialog_window, maintain_dialogs
 from spectrexcel.i18n import (
     LANGUAGES,
@@ -874,6 +875,8 @@ class SpectrExcelApp:
     def shutdown(self) -> None:
         # Pending lookups are abandoned so closing never waits on the network.
         self.network_executor.shutdown(wait=False, cancel_futures=True)
+        # A picker left open would keep its worker, and the shutdown, waiting.
+        native_dialogs.cancel()
         self.executor.shutdown(wait=True, cancel_futures=True)
 
 

@@ -1,6 +1,7 @@
 from pathlib import Path
 from unittest.mock import Mock
 
+import dearpygui.dearpygui as dpg
 import pytest
 
 from spectrexcel.assays.cinetiche import Cinetiche
@@ -81,6 +82,7 @@ def test_open_file_dialog_returns_native_selections(monkeypatch, tmp_path):
     monkeypatch.setattr(
         "spectrexcel.native_dialogs.open_files", lambda *_args: selected
     )
+    monkeypatch.setattr("spectrexcel.native_dialogs.runs_in_background", lambda: False)
     received = []
 
     assay_view().open_file_dialog(
@@ -104,6 +106,7 @@ def test_save_file_dialog_adds_xlsx_suffix(monkeypatch, tmp_path, typed, saved):
     monkeypatch.setattr(
         "spectrexcel.native_dialogs.save_file", lambda *_args: str(tmp_path / typed)
     )
+    monkeypatch.setattr("spectrexcel.native_dialogs.runs_in_background", lambda: False)
     received = []
 
     assay_view().save_file_dialog(
@@ -326,3 +329,53 @@ def test_submit_export_logs_outcome_after_view_is_disposed(monkeypatch, outcome,
 
     assert configured == []
     assert messages[-1] == expected
+
+
+@pytest.fixture
+def dpg_context():
+    dpg.create_context()
+    dpg.create_viewport(width=800, height=520)
+    try:
+        yield
+    finally:
+        dpg.destroy_context()
+
+
+@pytest.mark.parametrize("picker_fails", [False, True])
+def test_background_picker_waits_behind_modal(dpg_context, monkeypatch, tmp_path, picker_fails):
+    selected = [str(tmp_path / "one.KD")]
+
+    def open_files(*_args):
+        if picker_fails:
+            raise RuntimeError("no picker")
+        return selected
+
+    monkeypatch.setattr("spectrexcel.native_dialogs.open_files", open_files)
+    monkeypatch.setattr("spectrexcel.native_dialogs.runs_in_background", lambda: True)
+    view, submitted, messages = workflow_view()
+    received = []
+
+    view.open_file_dialog(
+        title="Open",
+        callback=received.extend,
+        filters={"Kinetic data files": ["*.KD"]},
+        default_path=str(tmp_path),
+    )
+
+    # The picker runs on a worker; the render thread only shows the modal.
+    assert dpg.get_item_configuration("picker.waiting")["modal"]
+    assert received == [] and messages == []
+    try:
+        result = submitted["task"]()
+    except RuntimeError as error:
+        submitted["on_error"](error)
+    else:
+        submitted["on_success"](result)
+
+    assert not dpg.does_item_exist("picker.waiting")
+    if picker_fails:
+        assert received == []
+        assert messages == ["ERROR: unable to open the system file picker: no picker"]
+    else:
+        assert received == [Path(selected[0])]
+        assert messages == []

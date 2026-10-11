@@ -291,6 +291,8 @@ TRANSLATIONS_IT: dict[str, str] = {
     "install Zenity or KDialog to use the system file picker":
         "installa Zenity o KDialog per usare il selettore file di sistema",
     "system file picker failed": "selettore file di sistema non riuscito",
+    "Choose a file in the system file picker window.":
+        "Scegli un file nella finestra del selettore file di sistema.",
     "Windows file picker failed with error 0x{code:04x}":
         "selettore file di Windows non riuscito con errore 0x{code:04x}",
     # updater

@@ -450,18 +450,16 @@ class AssayView:
         default_path: str,
         multiple: bool = False,
     ) -> None:
-        try:
-            selected = native_dialogs.open_files(title, default_path, filters, multiple)
-        except Exception as error:
-            self.log(
-                _("ERROR: unable to open the system file picker: {error}").format(
-                    error=error
-                )
-            )
-            return
-        paths = [Path(value) for value in selected if value]
-        if paths:
-            callback(paths)
+        def selected(values: list[str]) -> None:
+            paths = [Path(value) for value in values if value]
+            if paths:
+                callback(paths)
+
+        self._run_picker(
+            title,
+            lambda: native_dialogs.open_files(title, default_path, filters, multiple),
+            selected,
+        )
 
     def save_file_dialog(
         self,
@@ -471,33 +469,81 @@ class AssayView:
         default_path: str,
         default_filename: str,
     ) -> None:
-        try:
-            selected = native_dialogs.save_file(
-                title,
-                default_path,
-                default_filename,
-                {_("Excel file"): ["*.xlsx"]},
+        save_filters = {_("Excel file"): ["*.xlsx"]}
+
+        def selected(value: str) -> None:
+            if not value:
+                return
+            selected_path = Path(value)
+            path = (
+                selected_path
+                if selected_path.suffix.lower() == ".xlsx"
+                # Append, never replace: "run 0.5 mM" has no real extension.
+                else selected_path.with_name(f"{selected_path.name}.xlsx")
             )
-        except Exception as error:
+            if path != selected_path and path.exists():
+                self._confirm_overwrite(path, callback)
+            else:
+                callback(path)
+
+        self._run_picker(
+            title,
+            lambda: native_dialogs.save_file(
+                title, default_path, default_filename, save_filters
+            ),
+            selected,
+        )
+
+    def _run_picker(
+        self, title: str, picker: Callable[[], Any], on_selected: Callable[[Any], None]
+    ) -> None:
+        tag = "picker.waiting"
+
+        def close_waiting() -> None:
+            if dpg.does_item_exist(tag):
+                dpg.delete_item(tag)
+
+        def failed(error: Exception) -> None:
             self.log(
                 _("ERROR: unable to open the system file picker: {error}").format(
                     error=error
                 )
             )
+
+        if not native_dialogs.runs_in_background():
+            try:
+                value = picker()
+            except Exception as error:
+                failed(error)
+                return
+            on_selected(value)
             return
-        if not selected:
-            return
-        selected_path = Path(selected)
-        path = (
-            selected_path
-            if selected_path.suffix.lower() == ".xlsx"
-            # Append, never replace: "run 0.5 mM" has no real extension.
-            else selected_path.with_name(f"{selected_path.name}.xlsx")
-        )
-        if path != selected_path and path.exists():
-            self._confirm_overwrite(path, callback)
-        else:
-            callback(path)
+
+        def finished(value: Any) -> None:
+            close_waiting()
+            on_selected(value)
+
+        def errored(error: Exception) -> None:
+            close_waiting()
+            failed(error)
+
+        # The picker is a separate process: block the app with a modal while
+        # the render loop keeps the window responsive.
+        px = self.display_scale.pixels
+        close_waiting()
+        with dialog_window(
+            label=title,
+            tag=tag,
+            width=px(430),
+            height=px(145),
+            scale=self.display_scale,
+            actions=(DialogAction(_("Cancel"), native_dialogs.cancel, 100),),
+        ):
+            dpg.add_text(
+                _("Choose a file in the system file picker window."),
+                wrap=px(390),
+            )
+        self.submit(picker, finished, errored)
 
     def _confirm_overwrite(
         self, path: Path, callback: Callable[[Path], None]
