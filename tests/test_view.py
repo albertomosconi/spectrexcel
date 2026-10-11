@@ -1,6 +1,8 @@
 from pathlib import Path
 from unittest.mock import Mock
 
+import pytest
+
 from spectrexcel.assays.cinetiche import Cinetiche
 from spectrexcel.assays.famiglia_di_spettri import FamigliaDiSpettri
 from spectrexcel.assays.titolazione import BindingTitolazione
@@ -92,9 +94,15 @@ def test_open_file_dialog_returns_native_selections(monkeypatch, tmp_path):
     assert received == [Path(selected[0]), Path(selected[2])]
 
 
-def test_save_file_dialog_adds_xlsx_suffix(monkeypatch, tmp_path):
+@pytest.mark.parametrize("typed,saved", [
+    ("result", "result.xlsx"),
+    ("result.XLSX", "result.XLSX"),
+    ("run 0.5 mM", "run 0.5 mM.xlsx"),
+    ("sample.v2", "sample.v2.xlsx"),
+])
+def test_save_file_dialog_adds_xlsx_suffix(monkeypatch, tmp_path, typed, saved):
     monkeypatch.setattr(
-        "spectrexcel.native_dialogs.save_file", lambda *_args: str(tmp_path / "result")
+        "spectrexcel.native_dialogs.save_file", lambda *_args: str(tmp_path / typed)
     )
     received = []
 
@@ -105,7 +113,7 @@ def test_save_file_dialog_adds_xlsx_suffix(monkeypatch, tmp_path):
         default_filename="result.xlsx",
     )
 
-    assert received == [tmp_path / "result.xlsx"]
+    assert received == [tmp_path / saved]
 
 
 def test_submit_load_applies_busy_state_and_restores_standard_controls(monkeypatch):

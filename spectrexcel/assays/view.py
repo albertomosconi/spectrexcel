@@ -482,7 +482,8 @@ class AssayView:
         path = (
             selected_path
             if selected_path.suffix.lower() == ".xlsx"
-            else selected_path.with_suffix(".xlsx")
+            # Append, never replace: "run 0.5 mM" has no real extension.
+            else selected_path.with_name(f"{selected_path.name}.xlsx")
         )
         if path != selected_path and path.exists():
             self._confirm_overwrite(path, callback)
