@@ -389,16 +389,6 @@ class AssayView:
             dpg.configure_item(tag, enabled=False)
         dpg.set_value(controls.status, loading_text)
 
-        def loaded(value: Any) -> None:
-            on_success(value)
-            self._input_loading = False
-            self._input_error = None
-            self.request_preview()
-            dpg.configure_item(controls.upload, enabled=True)
-            dpg.configure_item(controls.export, enabled=True)
-            if controls.preview is not None:
-                dpg.configure_item(controls.preview, enabled=True)
-
         def failed(error: Exception) -> None:
             self._input_loading = False
             self._input_error = _("Unable to preview chart: input loading failed.")
@@ -406,6 +396,21 @@ class AssayView:
             dpg.configure_item(controls.upload, enabled=True)
             dpg.set_value(controls.status, failure_text)
             self.log(_("ERROR: {error}").format(error=error))
+
+        def loaded(value: Any) -> None:
+            try:
+                on_success(value)
+            except Exception as error:
+                # Leave the view usable: the upload control must come back.
+                failed(error)
+                return
+            self._input_loading = False
+            self._input_error = None
+            self.request_preview()
+            dpg.configure_item(controls.upload, enabled=True)
+            dpg.configure_item(controls.export, enabled=True)
+            if controls.preview is not None:
+                dpg.configure_item(controls.preview, enabled=True)
 
         self.submit(task, loaded, failed)
 
@@ -419,6 +424,10 @@ class AssayView:
         self.log(_("generating excel file..."))
 
         def restore_controls() -> None:
+            # The outcome is logged even after switching assay; the controls
+            # of a disposed view no longer exist.
+            if not self.active:
+                return
             for tag in busy_controls:
                 dpg.configure_item(tag, enabled=True)
 
@@ -430,7 +439,7 @@ class AssayView:
             restore_controls()
             self.log(_("ERROR: {error}").format(error=error))
 
-        self.submit(task, finished, failed)
+        self._submit(task, finished, failed)
 
     def open_file_dialog(
         self,

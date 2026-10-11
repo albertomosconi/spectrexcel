@@ -276,7 +276,7 @@ def test_submit_load_suppresses_lifecycle_effects_after_dispose(monkeypatch):
     assert messages == []
 
 
-def test_submit_export_suppresses_lifecycle_effects_after_dispose(monkeypatch):
+def test_submit_load_callback_failure_reenables_upload(monkeypatch):
     configured = []
     values = []
     monkeypatch.setattr(
@@ -289,15 +289,40 @@ def test_submit_export_suppresses_lifecycle_effects_after_dispose(monkeypatch):
     )
     view, submitted, messages = workflow_view()
 
+    def broken(_result):
+        raise KeyError("#Sample")
+
+    view.submit_load(
+        lambda: None,
+        broken,
+        loading_text="Loading files...",
+        failure_text="Failed to load files",
+    )
+    submitted["on_success"]("parsed")
+
+    assert not view._input_loading
+    assert configured[-1] == ("test.upload", {"enabled": True})
+    assert ("test.export", {"enabled": True}) not in configured
+    assert values[-1] == ("test.status", "Failed to load files")
+    assert messages == ["ERROR: '#Sample'"]
+
+
+@pytest.mark.parametrize("outcome,expected", [
+    ("on_success", "excel file saved successfully"),
+    ("on_error", "ERROR: disk full"),
+])
+def test_submit_export_logs_outcome_after_view_is_disposed(monkeypatch, outcome, expected):
+    configured = []
+    monkeypatch.setattr(
+        "spectrexcel.assays.view.dpg.configure_item",
+        lambda tag, **values: configured.append((tag, values)),
+    )
+    view, submitted, messages = workflow_view()
     view.submit_export(lambda: None)
     view.dispose()
     configured.clear()
-    values.clear()
-    messages.clear()
 
-    submitted["on_success"](None)
-    submitted["on_error"](OSError("disk full"))
+    submitted[outcome](OSError("disk full") if outcome == "on_error" else None)
 
     assert configured == []
-    assert values == []
-    assert messages == []
+    assert messages[-1] == expected
