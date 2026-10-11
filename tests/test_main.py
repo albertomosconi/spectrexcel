@@ -269,6 +269,37 @@ def test_worker_failure_dispatches_original_error_only_when_processed(worker_app
     assert errors == [(failure, processing_thread)]
 
 
+def test_hanging_network_lookups_do_not_delay_file_work_or_shutdown(worker_app):
+    app = worker_app
+    release = Event()
+    started = [Event(), Event()]
+    results = []
+
+    def lookup(index):
+        started[index].set()
+        release.wait(timeout=5)
+
+    try:
+        for index in range(2):
+            app.submit(
+                lambda index=index: lookup(index), results.append, results.append,
+                app.network_executor,
+            )
+        assert all(event.wait(timeout=5) for event in started)
+        assert not app.has_running_tasks()
+
+        app.submit(lambda: "parsed data", results.append, results.append)
+        app.executor.shutdown(wait=True)
+        app.process_results()
+        assert results == ["parsed data"]
+
+        # Returns while both lookups are still blocked.
+        app.shutdown()
+        assert not release.is_set()
+    finally:
+        release.set()
+
+
 @pytest.mark.parametrize("task_fails", [False, True])
 def test_result_processing_logs_callback_failure_and_continues(worker_app, monkeypatch, task_fails):
     app = worker_app

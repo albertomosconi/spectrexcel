@@ -177,6 +177,10 @@ class SpectrExcelApp:
         self.ui_scale = resolve_ui_scale(self.settings.get("main/ui_scale", 1.0))
         self.display_scale = display_scale.scaled(self.ui_scale)
         self.executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="spectrexcel")
+        # Slow or hanging network lookups must never queue ahead of file work.
+        self.network_executor = ThreadPoolExecutor(
+            max_workers=2, thread_name_prefix="spectrexcel-network"
+        )
         self.results: queue.SimpleQueue[
             tuple[Callable[[Any], None], Any, Exception | None]
         ] = queue.SimpleQueue()
@@ -415,8 +419,14 @@ class SpectrExcelApp:
             "main.window", no_scrollbar=True, no_scroll_with_mouse=True
         )
         self._load_assay(selected_index)
-        self.submit(self._find_update, self._update_check_finished, self._update_check_failed)
-        self.submit(self._find_citation, self._citation_lookup_finished, self._citation_lookup_failed)
+        self.submit(
+            self._find_update, self._update_check_finished, self._update_check_failed,
+            self.network_executor,
+        )
+        self.submit(
+            self._find_citation, self._citation_lookup_finished, self._citation_lookup_failed,
+            self.network_executor,
+        )
 
     def _apply_theme(self) -> None:
         self.active_theme = resolve_theme(self.theme_preference)
@@ -591,10 +601,13 @@ class SpectrExcelApp:
         task: Callable[[], Any],
         on_success: Callable[[Any], None],
         on_error: Callable[[Exception], None],
+        executor: ThreadPoolExecutor | None = None,
     ) -> None:
-        future = self.executor.submit(task)
-        with self.futures_lock:
-            self.futures.add(future)
+        future = (executor or self.executor).submit(task)
+        if executor is None:
+            # Only file work counts as a running operation.
+            with self.futures_lock:
+                self.futures.add(future)
 
         def completed(done: Future[Any]) -> None:
             with self.futures_lock:
@@ -683,7 +696,10 @@ class SpectrExcelApp:
     def _check_for_update(self) -> None:
         dpg.configure_item("main.update", enabled=False, label=_("Checking..."))
         self.log(_("checking for updates..."))
-        self.submit(self._find_update, self._manual_update_finished, self._manual_update_failed)
+        self.submit(
+            self._find_update, self._manual_update_finished, self._manual_update_failed,
+            self.network_executor,
+        )
 
     def _manual_update_finished(self, release: UpdateRelease | None) -> None:
         dpg.configure_item("main.update", enabled=True)
@@ -833,6 +849,8 @@ class SpectrExcelApp:
         self.settings.set("window/position", [logical(value) for value in position])
 
     def shutdown(self) -> None:
+        # Pending lookups are abandoned so closing never waits on the network.
+        self.network_executor.shutdown(wait=False, cancel_futures=True)
         self.executor.shutdown(wait=True, cancel_futures=True)
 
 
