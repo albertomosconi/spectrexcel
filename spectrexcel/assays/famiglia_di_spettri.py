@@ -32,10 +32,14 @@ def prepare_spectrum_family(
 def spectrum_family_y_limits(
     dataframe: pd.DataFrame, corrected: bool
 ) -> tuple[float, float]:
-    minimum = min(0.0, float(dataframe.min().min())) if corrected else 0.0
+    data_minimum = float(dataframe.min().min())
+    minimum = min(0.0, data_minimum) if corrected else 0.0
     maximum = float(dataframe.max().max())
-    if corrected and minimum == maximum:
-        maximum = minimum + 1.0
+    if maximum <= minimum:
+        # Uncorrected charts start at zero unless no absorbance rises above it.
+        minimum = min(minimum, data_minimum)
+        if maximum <= minimum:
+            maximum = minimum + 1.0
     return minimum, maximum
 
 

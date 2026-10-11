@@ -196,3 +196,20 @@ def test_corrected_family_chart_shows_negative_and_flat_spectra(
     monkeypatch.setattr(view, "show_chart_preview", previews.append)
     view._show_preview()
     assert previews[0].y_limits == expected_limits
+
+
+@pytest.mark.parametrize("values,corrected,expected", [
+    ([0.2, 0.75], False, (0.0, 0.75)),
+    ([-0.1, 0.75], False, (0.0, 0.75)),
+    ([-0.03, -0.01], False, (-0.03, -0.01)),
+    ([0.0, 0.0], False, (0.0, 1.0)),
+    ([-0.02, -0.02], False, (-0.02, 0.98)),
+    ([-0.25, 0.75], True, (-0.25, 0.75)),
+    ([0.0, 0.0], True, (0.0, 1.0)),
+])
+def test_spectrum_family_limits_never_invert(values, corrected, expected):
+    from spectrexcel.assays.famiglia_di_spettri import spectrum_family_y_limits
+
+    dataframe = pd.DataFrame({0.0: values}, index=[300, 800])
+
+    assert spectrum_family_y_limits(dataframe, corrected) == expected
