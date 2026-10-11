@@ -79,6 +79,7 @@ def parse_sd_file(filepath: Path, *, contents: bytes | None = None) -> pd.DataFr
         (None, 0, b""),
     )
 
+    wide_names = header == headers["S a m p l e N a m e "][0]
     position = 0
     out = []
     sample_regions = []
@@ -95,7 +96,9 @@ def parse_sd_file(filepath: Path, *, contents: bytes | None = None) -> pd.DataFr
                 _("Unable to read file contents: unterminated sample name.")
             )
 
-        out.append(decode_string_with_fallback(contents[start_idx:end_idx]))
+        out.append(
+            decode_string_with_fallback(contents[start_idx:end_idx], wide=wide_names)
+        )
         sample_regions.append((header_idx, end_idx + 1))
         position = end_idx
 
@@ -297,26 +300,16 @@ def parse_kd_file(filepath: Path, *, contents: bytes | None = None) -> pd.DataFr
     return df
 
 
-def decode_string_with_fallback(byte_string: bytes) -> str:
-    byte_string = byte_string.replace(b"\x00", b"")
-
-    for encoding in [
-        "utf8",
-        "latin1",
-        "windows-1252",
-        "latin9",
-        "cyrillic",
-        "windows-1251",
-        "latin2",
-        "latin5",
-        "sjis",
-        "korean",
-        "gb18030",
-        "big5",
-        "utf16",
-    ]:
+def decode_string_with_fallback(byte_string: bytes, *, wide: bool = False) -> str:
+    stripped = byte_string.replace(b"\x00", b"")
+    # New-header names are UTF-16; names without null bytes or with an odd
+    # length are narrow or unaligned and keep the byte-wise path.
+    if wide and b"\x00" in byte_string and len(byte_string) % 2 == 0:
         try:
-            return byte_string.decode(encoding)
+            return byte_string.decode("utf-16-le").replace("\x00", "")
         except UnicodeDecodeError:
-            continue
-    return byte_string.decode("utf8", "replace")
+            pass
+    try:
+        return stripped.decode("utf8")
+    except UnicodeDecodeError:
+        return stripped.decode("latin1")

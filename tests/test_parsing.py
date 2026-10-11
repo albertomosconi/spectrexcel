@@ -439,3 +439,18 @@ def test_parse_txt_wraps_decoding_errors(tmp_path):
 
     with pytest.raises(ParseError):
         parse_txt_file(path)
+
+
+@pytest.mark.parametrize("variant,name,expected", [
+    ("new", "λ max".encode("utf-16le"), "λ max"),
+    ("new", "Āb".encode("utf-16le"), "Āb"),
+    ("new", "µM".encode("utf-16le"), "µM"),
+    ("new", b"sample-1", "sample-1"),
+    ("new", "µM".encode("latin1"), "µM"),
+    ("old", "µMx".encode("latin1") + b"\x00", "µMx"),
+    ("old", "µM".encode("utf8") + b"\x00", "µM"),
+])
+def test_parse_sd_decodes_sample_names(tmp_path, variant, name, expected):
+    path = write(tmp_path, "names.SD", sd_record(variant, name))
+
+    assert parse_sd_file(path).at[0, "#Sample"] == expected
