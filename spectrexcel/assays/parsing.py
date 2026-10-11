@@ -1,6 +1,5 @@
 import re
 import struct
-from io import BytesIO, TextIOWrapper
 from pathlib import Path
 from struct import iter_unpack
 from collections.abc import Callable
@@ -20,12 +19,17 @@ class ParseError(Exception):
 
 def parse_txt_file(filepath: Path, *, contents: bytes | None = None) -> pd.DataFrame:
     try:
-        with (filepath.open("r") if contents is None else TextIOWrapper(BytesIO(contents))) as fp:
-            text = fp.read()
-    except (OSError, UnicodeError) as error:
+        if contents is None:
+            contents = filepath.read_bytes()
+    except OSError as error:
         raise ParseError(
             _("Unable to read file contents: {error}").format(error=error)
         ) from error
+    # Decode identically on every OS: UTF-8, else the instrument PC's ANSI bytes.
+    try:
+        text = contents.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        text = contents.decode("latin1")
 
     text = re.sub(r"[ \t]+", " ", text.strip())
     lines = text.splitlines()

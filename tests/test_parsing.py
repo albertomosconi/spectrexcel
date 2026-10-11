@@ -454,3 +454,14 @@ def test_parse_sd_decodes_sample_names(tmp_path, variant, name, expected):
     path = write(tmp_path, "names.SD", sd_record(variant, name))
 
     assert parse_sd_file(path).at[0, "#Sample"] == expected
+
+
+@pytest.mark.parametrize("encoding", ["utf-8", "utf-8-sig", "latin1"])
+def test_parse_txt_decodes_independently_of_locale(tmp_path, encoding):
+    text = '"WL Result" "#Sample" "µM"\r\n0 1 0.5\r\n'
+    path = write(tmp_path, "encoded.txt", text.encode(encoding))
+
+    actual = parse_txt_file(path)
+
+    assert list(actual.columns) == ["#Sample", "µM"]
+    assert actual.iloc[0].tolist() == [1, 0.5]
