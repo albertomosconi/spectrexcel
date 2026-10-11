@@ -170,3 +170,24 @@ def test_ensure_sample_column_keeps_existing_labels():
 
     assert ensure_sample_column(dataframe) is dataframe
     assert list(dataframe["#Sample"]) == ["blank", "sample"]
+
+
+def test_binding_chart_ranges_end_at_last_wavelength_column(tmp_path):
+    dataframe = pd.DataFrame(
+        {"#Sample": [1, 2], 190: [0.1, 0.2], 191: [0.3, 0.4], 192: [0.5, 0.6]}
+    )
+    output = tmp_path / "ranges.xlsx"
+
+    export_binding(dataframe, output, 190, 192, 0.0, 1.0, 192)
+
+    ns = {"c": "http://schemas.openxmlformats.org/drawingml/2006/chart"}
+    with ZipFile(output) as workbook:
+        charts = {
+            sheet: ElementTree.fromstring(workbook.read(f"xl/charts/chart{number}.xml"))
+            for number, sheet in ((1, "data"), (2, "raw"))
+        }
+    for sheet, chart in charts.items():
+        assert [node.text for node in chart.findall(".//c:f", ns)] == [
+            f"{sheet}!$B$1:$D$1", f"{sheet}!$B$2:$D$2",
+            f"{sheet}!$B$1:$D$1", f"{sheet}!$B$3:$D$3",
+        ]

@@ -90,11 +90,12 @@ def export_binding(
             sheet.write(0, column, int(value))
 
         chart = cast(ChartScatter, workbook.add_chart({"type": "scatter", "subtype": "smooth"}))
+        last_column = len(dataframe.columns) - 1
         for row in range(len(dataframe)):
             chart.add_series(
                 {
-                    "categories": [sheet_name, 0, 1, 0, len(dataframe.columns)],
-                    "values": [sheet_name, row + 1, 1, row + 1, len(dataframe.columns)],
+                    "categories": [sheet_name, 0, 1, 0, last_column],
+                    "values": [sheet_name, row + 1, 1, row + 1, last_column],
                     "line": {"width": 1.25},
                 }
             )
