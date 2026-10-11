@@ -8,7 +8,12 @@ import pytest
 from tests.xml_helpers import required_text
 
 from spectrexcel.assays.parsing import parse_sd_file, parse_txt_file
-from spectrexcel.assays.titolazione import clean_duplicate_spectra, export_binding
+from spectrexcel.assays.titolazione import (
+    binding_chart_spec,
+    clean_duplicate_spectra,
+    ensure_sample_column,
+    export_binding,
+)
 
 
 def test_clean_duplicate_spectra_keeps_single_spectrum():
@@ -138,3 +143,30 @@ def test_binding_export_preserves_generated_sd_labels_and_all_absorbances(tmp_pa
                   for cell in sheet.findall(f"s:sheetData/s:row[@r='{row}']/s:c", ns)]
         assert values[1:] == [expected] * 911
     pd.testing.assert_frame_equal(dataframe, original)
+
+
+@pytest.mark.parametrize("rows", [2, 3])
+def test_text_table_without_sample_column_keeps_every_wavelength(tmp_path, rows):
+    source = tmp_path / "unlabeled.txt"
+    source.write_text(
+        '"WL Result" "<190 nm>" "<191 nm>"\n'
+        + "".join(f"0 0.{row} 0.{row}5\n" for row in range(1, rows + 1))
+    )
+
+    dataframe, cleaned = clean_duplicate_spectra(
+        ensure_sample_column(parse_txt_file(source))
+    )
+
+    assert not cleaned
+    assert list(dataframe["#Sample"]) == list(range(1, rows + 1))
+    spec = binding_chart_spec(dataframe, 190, 191, 0.0, 1.0, None)
+    assert [series.name for series in spec.series] == [str(row) for row in range(1, rows + 1)]
+    assert spec.series[0].x == [190.0, 191.0]
+    assert spec.series[0].y == [0.1, 0.15]
+
+
+def test_ensure_sample_column_keeps_existing_labels():
+    dataframe = pd.DataFrame({"#Sample": ["blank", "sample"], "190": [0.1, 0.2]})
+
+    assert ensure_sample_column(dataframe) is dataframe
+    assert list(dataframe["#Sample"]) == ["blank", "sample"]

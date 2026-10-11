@@ -14,6 +14,13 @@ from .parsing import WAVELENGTH_MAX, WAVELENGTH_MIN, parse_sd_file, parse_txt_fi
 from .view import AssayView, ChartSeries, ChartSpec, WorkflowControls
 
 
+def ensure_sample_column(df: pd.DataFrame) -> pd.DataFrame:
+    # Text exports may omit sample labels; number the spectra like unnamed SD records.
+    if "#Sample" not in df.columns:
+        df.insert(0, "#Sample", range(1, len(df) + 1))
+    return df
+
+
 def clean_duplicate_spectra(df: pd.DataFrame) -> tuple[pd.DataFrame, bool]:
 
     if len(df) < 2 or len(df) % 2 != 0:
@@ -336,7 +343,7 @@ class BindingTitolazione(AssayView):
                 dataframe = parse_with_source(path, parse_txt_file)
             else:
                 raise ValueError(_("unknown input format"))
-            return clean_duplicate_spectra(dataframe)
+            return clean_duplicate_spectra(ensure_sample_column(dataframe))
 
         def loaded(result: tuple[pd.DataFrame, bool]) -> None:
             self.dataframe, did_clean = result
