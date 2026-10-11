@@ -170,11 +170,29 @@ DISABLED_BUTTON_COLORS = {
     },
 }
 
+# Windows parks minimized windows at -32000; such coordinates are never restored.
+OFFSCREEN_COORDINATE = -30000
+
+
+def restorable_position(position: object) -> bool:
+    return (
+        isinstance(position, (list, tuple))
+        and len(position) == 2
+        and all(
+            isinstance(coordinate, int) and coordinate > OFFSCREEN_COORDINATE
+            for coordinate in position
+        )
+    )
+
+
 class SpectrExcelApp:
     def __init__(self, version: str, display_scale: DisplayScale) -> None:
         self.version = version
         self.settings = Settings()
         self.ui_scale = resolve_ui_scale(self.settings.get("main/ui_scale", 1.0))
+        # The window position follows the monitor scale only: the interface
+        # scale resizes the window but must not move it.
+        self.monitor_scale = display_scale
         self.display_scale = display_scale.scaled(self.ui_scale)
         self.executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="spectrexcel")
         # Slow or hanging network lookups must never queue ahead of file work.
@@ -840,13 +858,18 @@ class SpectrExcelApp:
         )
 
     def save_viewport(self) -> None:
-        width = dpg.get_viewport_width()
-        height = dpg.get_viewport_height()
-        position = dpg.get_viewport_pos()
+        position = [int(value) for value in dpg.get_viewport_pos()]
+        if not restorable_position(position):
+            # Minimized: keep the geometry saved by the previous session.
+            return
         logical = self.display_scale.logical_pixels
-        self.settings.set("window/width", logical(width))
-        self.settings.set("window/height", logical(height))
-        self.settings.set("window/position", [logical(value) for value in position])
+        self.settings.set_many({
+            "window/width": logical(dpg.get_viewport_width()),
+            "window/height": logical(dpg.get_viewport_height()),
+            "window/position": [
+                self.monitor_scale.logical_pixels(value) for value in position
+            ],
+        })
 
     def shutdown(self) -> None:
         # Pending lookups are abandoned so closing never waits on the network.
@@ -873,14 +896,11 @@ def main() -> None:
         width = 800
     if height < 1:
         height = 560
-    if (
-        len(position) != 2
-        or not all(isinstance(coordinate, int) for coordinate in position)
-    ):
+    if not restorable_position(position):
         position = [100, 100]
     icon_path = Path(__file__).with_name("icon.ico")
     px = app.display_scale.pixels
-    viewport_position = app.display_scale.position(position)
+    viewport_position = app.monitor_scale.position(position)
 
     try:
         dpg.create_viewport(

@@ -530,3 +530,41 @@ def test_app_services_pending_preview_on_render_thread(dpg_context, monkeypatch,
         assert view._embedded_renderer.plot is not None
     finally:
         app.shutdown()
+
+
+@pytest.mark.parametrize("ui_scale", [1.0, 1.5])
+def test_saved_window_position_ignores_interface_scale(monkeypatch, tmp_path, ui_scale):
+    monkeypatch.setattr("spectrexcel.settings.user_config_path", lambda *_args: tmp_path)
+    Settings().set("main/ui_scale", ui_scale)
+    monkeypatch.setattr(dpg, "get_viewport_width", lambda: 1200)
+    monkeypatch.setattr(dpg, "get_viewport_height", lambda: 900)
+    monkeypatch.setattr(dpg, "get_viewport_pos", lambda: [1000.0, 400.0])
+    app = SpectrExcelApp("test", DisplayScale(2.0))
+    try:
+        app.save_viewport()
+    finally:
+        app.shutdown()
+
+    saved = Settings()
+    assert saved.get("window/position", []) == [500, 200]
+    assert app.monitor_scale.position(saved.get("window/position", [])) == (1000, 400)
+    assert saved.get("window/width", 0) == round(1200 / (2.0 * ui_scale))
+
+
+def test_minimized_window_keeps_previous_geometry(monkeypatch, tmp_path):
+    monkeypatch.setattr("spectrexcel.settings.user_config_path", lambda *_args: tmp_path)
+    Settings().set_many({"window/width": 900, "window/position": [40, 50]})
+    monkeypatch.setattr(dpg, "get_viewport_width", lambda: 160)
+    monkeypatch.setattr(dpg, "get_viewport_height", lambda: 28)
+    monkeypatch.setattr(dpg, "get_viewport_pos", lambda: [-32000.0, -32000.0])
+    app = SpectrExcelApp("test", DisplayScale())
+    try:
+        app.save_viewport()
+    finally:
+        app.shutdown()
+
+    assert Settings().get("window/width", 0) == 900
+    assert Settings().get("window/position", []) == [40, 50]
+    assert not main_module.restorable_position([-32000, 10])
+    assert not main_module.restorable_position([10])
+    assert main_module.restorable_position([-1920, 0])

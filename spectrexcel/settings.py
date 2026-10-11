@@ -25,7 +25,10 @@ class Settings:
         return value
 
     def set(self, key: str, value: Any) -> bool:
-        self._values[key] = value
+        return self.set_many({key: value})
+
+    def set_many(self, values: dict[str, Any]) -> bool:
+        self._values.update(values)
         try:
             self.path.parent.mkdir(parents=True, exist_ok=True)
             temporary_path = self.path.with_suffix(".tmp")
