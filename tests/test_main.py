@@ -10,7 +10,8 @@ from spectrexcel.assays import BindingTitolazione, Cinetiche, FamigliaDiSpettri
 from spectrexcel.dpi import DisplayScale
 from spectrexcel.i18n import TRANSLATIONS_IT
 from spectrexcel.i18n import _, get_language, set_language
-from spectrexcel.main import ASSAYS, THEME_COLORS, SpectrExcelApp
+from spectrexcel.appearance import DISABLED_BUTTON_COLORS, THEME_COLORS
+from spectrexcel.main import ASSAYS, SpectrExcelApp
 from spectrexcel.settings import Settings
 
 
@@ -115,7 +116,7 @@ def test_citation_underline_tracks_text_bounds_and_theme(dpg_context, monkeypatc
 
 
 def test_disabled_button_palettes_are_muted_and_do_not_react_to_pointer_state():
-    disabled_colors = main_module.DISABLED_BUTTON_COLORS
+    disabled_colors = DISABLED_BUTTON_COLORS
     assert set(disabled_colors) == {"Light", "Dark"}
     assert disabled_colors["Light"] != disabled_colors["Dark"]
     for name, colors in disabled_colors.items():

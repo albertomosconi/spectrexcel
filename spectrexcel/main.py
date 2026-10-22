@@ -14,7 +14,14 @@ import dearpygui.dearpygui as dpg
 
 from spectrexcel.assays import BindingTitolazione, Cinetiche, FamigliaDiSpettri
 from spectrexcel.assays.view import AssayView
-from spectrexcel.appearance import SEMANTIC_TEXT_COLORS, THEME_OPTIONS, resolve_theme
+from spectrexcel.appearance import (
+    DISABLED_BUTTON_COLORS,
+    PLOT_MENU_COLORS,
+    SEMANTIC_TEXT_COLORS,
+    THEME_COLORS,
+    THEME_OPTIONS,
+    resolve_theme,
+)
 from spectrexcel.citation import CONCEPT_DOI, find_version_doi
 from spectrexcel.dpi import (
     UI_SCALE_OPTIONS,
@@ -104,72 +111,6 @@ GEAR_ICON = (
     " ##  ###  ## ",
     "    #####    ",
 )
-
-THEME_COLORS = {
-    "Dark": {
-        "Text": (235, 235, 235),
-        "TextDisabled": (135, 135, 135),
-        "WindowBg": (24, 27, 32),
-        "ChildBg": (24, 27, 32, 0),
-        "PopupBg": (30, 34, 40),
-        "Border": (65, 70, 78),
-        "FrameBg": (42, 47, 55),
-        "FrameBgHovered": (52, 59, 69),
-        "FrameBgActive": (62, 70, 82),
-        "Button": (36, 91, 130),
-        "ButtonHovered": (46, 116, 163),
-        "ButtonActive": (31, 78, 111),
-        "Header": (36, 91, 130),
-        "HeaderHovered": (46, 116, 163),
-        "HeaderActive": (31, 78, 111),
-        "CheckMark": (104, 190, 255),
-        "Separator": (65, 70, 78),
-        "ScrollbarBg": (24, 27, 32),
-        "ScrollbarGrab": (72, 78, 88),
-        "TableBorderStrong": (65, 70, 78),
-        "TableBorderLight": (50, 55, 63),
-    },
-    "Light": {
-        "Text": (255, 255, 255),
-        "TextDisabled": (205, 215, 222),
-        "WindowBg": (244, 246, 248),
-        "ChildBg": (244, 246, 248, 0),
-        "PopupBg": (252, 252, 253),
-        "Border": (180, 185, 192),
-        "FrameBg": (36, 91, 130),
-        "FrameBgHovered": (46, 116, 163),
-        "FrameBgActive": (31, 78, 111),
-        "Button": (36, 91, 130),
-        "ButtonHovered": (46, 116, 163),
-        "ButtonActive": (31, 78, 111),
-        "Header": (36, 91, 130),
-        "HeaderHovered": (46, 116, 163),
-        "HeaderActive": (31, 78, 111),
-        "CheckMark": (255, 255, 255),
-        "Separator": (180, 185, 192),
-        "ScrollbarBg": (235, 238, 241),
-        "ScrollbarGrab": (170, 176, 184),
-        "TableBorderStrong": (180, 185, 192),
-        "TableBorderLight": (210, 214, 220),
-    },
-}
-
-DISABLED_BUTTON_COLORS = {
-    "Dark": {
-        "Text": (150, 150, 150),
-        "TextDisabled": (150, 150, 150),
-        "Button": (50, 55, 63),
-        "ButtonHovered": (50, 55, 63),
-        "ButtonActive": (50, 55, 63),
-    },
-    "Light": {
-        "Text": (95, 100, 108),
-        "TextDisabled": (95, 100, 108),
-        "Button": (210, 214, 220),
-        "ButtonHovered": (210, 214, 220),
-        "ButtonActive": (210, 214, 220),
-    },
-}
 
 # Windows parks minimized windows at -32000; such coordinates are never restored.
 OFFSCREEN_COORDINATE = -30000
@@ -269,6 +210,8 @@ class SpectrExcelApp:
                             (30, 34, 40) if name == "Light" else (235, 235, 235),
                         )
                 with dpg.theme_component(dpg.mvPlot):
+                    for color, value in PLOT_MENU_COLORS.get(name, {}).items():
+                        dpg.add_theme_color(getattr(dpg, f"mvThemeCol_{color}"), value)
                     for color in (
                         dpg.mvPlotCol_TitleText,
                         dpg.mvPlotCol_AxisText,
