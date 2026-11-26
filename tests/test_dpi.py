@@ -4,6 +4,8 @@ from spectrexcel.dpi import (
     UI_SCALE_OPTIONS,
     DisplayScale,
     configure_display_scale,
+    fit_to_work_area,
+    nearest_work_area,
     resolve_ui_scale,
     ui_scale_label,
 )
@@ -54,3 +56,42 @@ def test_ui_scale_labels_are_round_percentages():
     assert [ui_scale_label(option) for option in UI_SCALE_OPTIONS] == [
         "50%", "75%", "90%", "100%", "110%", "125%", "150%",
     ]
+
+
+WORK_AREA = (0, 0, 1920, 1040)
+
+
+@pytest.mark.parametrize(
+    "position",
+    [
+        (100, 100),
+        # Straddling a monitor edge is fine while the title bar can be grabbed.
+        (1700, 600),
+        (-600, 10),
+    ],
+)
+def test_reachable_window_keeps_its_position(position):
+    assert fit_to_work_area(position, (800, 560), WORK_AREA, (120, 32)) == position
+
+
+@pytest.mark.parametrize(
+    ("position", "expected"),
+    [
+        # Saved on a secondary monitor that is no longer connected.
+        ((2500, 300), (1120, 300)),
+        ((-2500, 300), (0, 300)),
+        # Title bar below the bottom edge or above the top edge.
+        ((100, 1030), (100, 480)),
+        ((100, -40), (100, 0)),
+    ],
+)
+def test_unreachable_window_moves_inside_work_area(position, expected):
+    assert fit_to_work_area(position, (800, 560), WORK_AREA, (120, 32)) == expected
+
+
+def test_window_larger_than_work_area_aligns_top_left():
+    assert fit_to_work_area((5000, 5000), (2400, 1400), WORK_AREA, (120, 32)) == (0, 0)
+
+
+def test_non_windows_has_no_work_area():
+    assert nearest_work_area((0, 0, 10, 10), platform="linux") is None

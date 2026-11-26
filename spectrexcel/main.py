@@ -27,6 +27,8 @@ from spectrexcel.dpi import (
     UI_SCALE_OPTIONS,
     DisplayScale,
     configure_display_scale,
+    fit_to_work_area,
+    nearest_work_area,
     resolve_ui_scale,
     ui_scale_label,
 )
@@ -846,13 +848,27 @@ def main() -> None:
         position = [100, 100]
     icon_path = Path(__file__).with_name("icon.ico")
     px = app.display_scale.pixels
+    viewport_size = (px(max(width, 720)), px(max(height, 520)))
     viewport_position = app.monitor_scale.position(position)
+    # A monitor disconnected or rearranged since the last session would
+    # otherwise leave the window open but unreachable.
+    title_bar = (viewport_position[0], viewport_position[1],
+                 viewport_position[0] + viewport_size[0],
+                 viewport_position[1] + app.monitor_scale.pixels(32))
+    work_area = nearest_work_area(title_bar)
+    if work_area is not None:
+        viewport_position = fit_to_work_area(
+            viewport_position,
+            viewport_size,
+            work_area,
+            (app.monitor_scale.pixels(120), app.monitor_scale.pixels(32)),
+        )
 
     try:
         dpg.create_viewport(
             title="SpectrExcel",
-            width=px(max(width, 720)),
-            height=px(max(height, 520)),
+            width=viewport_size[0],
+            height=viewport_size[1],
             x_pos=viewport_position[0],
             y_pos=viewport_position[1],
             min_width=px(720),
